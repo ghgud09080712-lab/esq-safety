@@ -307,16 +307,7 @@ async function savePdfMetaItem(meta, item) {
 }
 
 app.get("/", (_req, res) => {
-  res.type("html").send(`<!doctype html>
-<html lang="ko">
-<head><meta charset="utf-8"><title>개선제안정리 서버</title></head>
-<body style="font-family:Arial,sans-serif;padding:32px;line-height:1.6">
-  <h1>개선제안정리 서버 정상</h1>
-  <p>이 화면이 보이면 다른 컴퓨터에서 서버 접속은 성공입니다.</p>
-  <p><a href="/app">앱 열기</a></p>
-  <p><a href="/api/health">상태 확인</a></p>
-</body>
-</html>`);
+  res.redirect(302, "/safety");
 });
 
 app.get("/test", (_req, res) => {
@@ -324,7 +315,7 @@ app.get("/test", (_req, res) => {
 });
 
 app.get("/app", (_req, res) => {
-  res.sendFile(frontendHtmlPath);
+  res.redirect(302, "/safety");
 });
 
 app.get("/safety", (_req, res) => {
