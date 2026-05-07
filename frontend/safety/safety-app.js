@@ -407,29 +407,24 @@ function renderFormSubmissions() {
   const list = $("#formSubmissionList");
   if (!list) return;
   if (!formSubmissions.length) {
-    list.innerHTML = `<div class="empty-state">제출된 양식이 없습니다.</div>`;
+    list.innerHTML = `<tr><td colspan="7" class="empty-table-cell">제출된 양식이 없습니다.</td></tr>`;
     return;
   }
-  list.innerHTML = formSubmissions.map((item) => {
-    const draft = item.draft || {};
-    const record = draft.submittedRecord || {};
-    const title = record.summary || draft.summary || record.description || draft.description || "제목 없음";
-    const meta = [
-      item.user?.department || draft.department,
-      item.user?.name || item.user?.id,
-      formatShortDateTime(item.submittedAt || "")
-    ].filter(Boolean).join(" · ");
+  const sorted = formSubmissions
+    .slice()
+    .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+  list.innerHTML = sorted.map((item, index) => {
+    const data = getSubmissionDisplayData(item);
     return `
-      <div class="form-submission-row ${item.status === "reviewed" ? "reviewed" : ""}">
-        <div>
-          <strong>${escapeHtml(title)}</strong>
-          <span>${escapeHtml(meta)}</span>
-        </div>
-        <div class="form-submission-actions">
-          <button class="btn small" data-load-form-submission="${escapeHtml(item.id)}" type="button">불러오기</button>
-          <button class="btn small ghost" data-review-form-submission="${escapeHtml(item.id)}" type="button">${item.status === "reviewed" ? "확인됨" : "확인처리"}</button>
-        </div>
-      </div>
+      <tr class="form-submission-row ${data.reviewed ? "reviewed" : "pending"}" data-load-form-submission="${escapeHtml(item.id)}" title="클릭해서 양식 불러오기">
+        <td>${index + 1}</td>
+        <td>${escapeHtml(data.department)}</td>
+        <td>${escapeHtml(data.sender)}</td>
+        <td>${escapeHtml(data.submittedAt || "-")}</td>
+        <td class="form-submission-title-cell">${escapeHtml(data.title)}</td>
+        <td><span class="form-submission-state ${data.reviewed ? "reviewed" : "pending"}">${data.reviewed ? "확인완료" : "미확인"}</span></td>
+        <td><button class="btn small ghost" data-review-form-submission="${escapeHtml(item.id)}" type="button">${data.reviewed ? "확인됨" : "확인처리"}</button></td>
+      </tr>
     `;
   }).join("");
 }
@@ -4124,14 +4119,15 @@ function bindUiHandlers() {
     });
 
     $("#formSubmissionList")?.addEventListener("click", (event) => {
-      const loadButton = event.target.closest("[data-load-form-submission]");
-      if (loadButton) {
-        loadFormSubmissionToDraft(loadButton.dataset.loadFormSubmission);
-        return;
-      }
       const reviewButton = event.target.closest("[data-review-form-submission]");
       if (reviewButton) {
         markFormSubmissionReviewed(reviewButton.dataset.reviewFormSubmission);
+        event.stopPropagation();
+        return;
+      }
+      const row = event.target.closest("[data-load-form-submission]");
+      if (row) {
+        loadFormSubmissionToDraft(row.dataset.loadFormSubmission);
       }
     });
 

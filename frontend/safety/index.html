@@ -325,7 +325,22 @@
             <h3>부서 제출 양식</h3>
             <button class="btn small ghost" id="reloadFormSubmissionsBtn" type="button">새로고침</button>
           </div>
-          <div id="formSubmissionList" class="form-submission-list"></div>
+          <div class="table-wrap form-submission-table-wrap">
+            <table class="form-submission-table">
+              <thead>
+                <tr>
+                  <th>NO</th>
+                  <th>부서</th>
+                  <th>제출자</th>
+                  <th>제출일시</th>
+                  <th>사고명 / 재해내용</th>
+                  <th>상태</th>
+                  <th>처리</th>
+                </tr>
+              </thead>
+              <tbody id="formSubmissionList"></tbody>
+            </table>
+          </div>
         </section>
 
         <div class="near-miss-workbench">

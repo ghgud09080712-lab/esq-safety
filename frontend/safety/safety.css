@@ -1299,46 +1299,105 @@ body.sidebar-collapsed .sidebar {
   font-size: 15px;
 }
 
-.form-submission-list {
-  display: grid;
-  gap: 8px;
+.form-submission-table-wrap {
+  max-height: 240px;
+  border-color: #cbd8e7;
+}
+
+.form-submission-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.form-submission-table th,
+.form-submission-table td {
+  height: 36px;
+  padding: 8px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.form-submission-table th:nth-child(1),
+.form-submission-table td:nth-child(1) {
+  width: 52px;
+  text-align: center;
+}
+
+.form-submission-table th:nth-child(2),
+.form-submission-table td:nth-child(2) {
+  width: 110px;
+}
+
+.form-submission-table th:nth-child(3),
+.form-submission-table td:nth-child(3) {
+  width: 96px;
+}
+
+.form-submission-table th:nth-child(4),
+.form-submission-table td:nth-child(4) {
+  width: 150px;
+}
+
+.form-submission-table th:nth-child(6),
+.form-submission-table td:nth-child(6) {
+  width: 92px;
+  text-align: center;
+}
+
+.form-submission-table th:nth-child(7),
+.form-submission-table td:nth-child(7) {
+  width: 92px;
+  text-align: center;
 }
 
 .form-submission-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid #d8e2ee;
-  border-radius: 6px;
-  background: #f8fbff;
-  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.form-submission-row.pending {
+  background: #fffdf7;
 }
 
 .form-submission-row.reviewed {
-  opacity: .7;
-}
-
-.form-submission-row strong,
-.form-submission-row span {
-  display: block;
-}
-
-.form-submission-row strong {
-  color: #082044;
-  font-size: 13px;
-}
-
-.form-submission-row span {
   color: #61738b;
-  font-size: 11px;
-  margin-top: 3px;
+  background: #f8fafc;
 }
 
-.form-submission-actions {
-  display: flex;
-  gap: 6px;
+.form-submission-row:hover {
+  background: #eef6ff;
+}
+
+.form-submission-title-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-submission-state {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.form-submission-state.pending {
+  background: #fff4d7;
+  color: #9a5a00;
+}
+
+.form-submission-state.reviewed {
+  background: #eef3f8;
+  color: #52657a;
+}
+
+.empty-table-cell {
+  height: 58px !important;
+  color: var(--text-dim);
+  font-weight: 800;
+  text-align: center;
 }
 
 .a4-block {
