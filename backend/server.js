@@ -2,7 +2,6 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
-const { PDFParse } = require("pdf-parse");
 const { buildImprovementWorkbook } = require("./excel-export");
 
 const app = express();
@@ -273,6 +272,7 @@ function scoreRowMatch(row, fields, fileName, pdfText) {
 }
 
 async function extractPdfTextFromBase64(base64) {
+  const { PDFParse } = require("pdf-parse");
   const parser = new PDFParse({ data: Buffer.from(base64, "base64") });
   try {
     const result = await parser.getText({ first: 3 });
