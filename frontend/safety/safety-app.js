@@ -160,10 +160,18 @@ function applyAuthUser(user) {
   const role = safeText(user?.role || "department");
   IS_DEPARTMENT_MODE = role !== "admin";
   document.body.classList.toggle("department-mode", IS_DEPARTMENT_MODE);
+  updateRoleLabels();
   const badge = $("#safetyUserBadge");
   if (badge) {
     badge.textContent = `${safeText(user?.name || user?.id)} · ${role === "admin" ? "중앙관리" : "부서용"}`;
   }
+}
+
+function updateRoleLabels() {
+  const nav = document.querySelector('[data-view="nearMissForm"]');
+  if (nav) nav.textContent = IS_DEPARTMENT_MODE ? "양식시안" : "제출양식 확인";
+  const title = $("#nearMissFormTitle");
+  if (title) title.textContent = IS_DEPARTMENT_MODE ? "아차사고 양식 시안" : "제출양식 확인";
 }
 
 function getCurrentUserDepartment() {
