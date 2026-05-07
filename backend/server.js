@@ -272,14 +272,7 @@ function scoreRowMatch(row, fields, fileName, pdfText) {
 }
 
 async function extractPdfTextFromBase64(base64) {
-  const { PDFParse } = require("pdf-parse");
-  const parser = new PDFParse({ data: Buffer.from(base64, "base64") });
-  try {
-    const result = await parser.getText({ first: 3 });
-    return String(result?.text || "").trim();
-  } finally {
-    await parser.destroy().catch(() => {});
-  }
+  return "";
 }
 
 function getNextAGradeNo(rows) {
