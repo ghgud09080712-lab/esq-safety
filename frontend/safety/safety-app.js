@@ -160,6 +160,7 @@ function applyAuthUser(user) {
   const role = safeText(user?.role || "department");
   IS_DEPARTMENT_MODE = role !== "admin";
   document.body.classList.toggle("department-mode", IS_DEPARTMENT_MODE);
+  document.body.classList.toggle("admin-mode", !IS_DEPARTMENT_MODE);
   updateRoleLabels();
   const badge = $("#safetyUserBadge");
   if (badge) {
@@ -367,6 +368,7 @@ async function loadFormSubmissions() {
     const payload = await response.json().catch(() => ({}));
     formSubmissions = Array.isArray(payload.submissions) ? payload.submissions : [];
     renderFormSubmissions();
+    renderDashboardSubmissions();
   } catch (error) {
     console.warn("form submissions load failed:", error);
   }
@@ -428,6 +430,64 @@ function renderFormSubmissions() {
           <button class="btn small ghost" data-review-form-submission="${escapeHtml(item.id)}" type="button">${item.status === "reviewed" ? "확인됨" : "확인처리"}</button>
         </div>
       </div>
+    `;
+  }).join("");
+}
+
+function getSubmissionDisplayData(item) {
+  const draft = item?.draft || {};
+  const record = draft.submittedRecord || {};
+  const title = record.summary || draft.summary || record.description || draft.description || "제목 없음";
+  const department = item?.user?.department || draft.department || record.department || "-";
+  const sender = item?.user?.name || item?.user?.id || draft.author || record.author || "-";
+  return {
+    title,
+    department,
+    sender,
+    submittedAt: formatShortDateTime(item?.submittedAt || ""),
+    reviewed: item?.status === "reviewed"
+  };
+}
+
+function renderDashboardSubmissions() {
+  if (IS_DEPARTMENT_MODE) return;
+  const total = formSubmissions.length;
+  const pending = formSubmissions.filter((item) => item.status !== "reviewed").length;
+  const reviewed = total - pending;
+  const title = $("#dashboardSubmissionTitle");
+  const caption = $("#dashboardSubmissionCaption");
+  const totalEl = $("#dashboardSubmissionTotal");
+  const pendingEl = $("#dashboardSubmissionPending");
+  const reviewedEl = $("#dashboardSubmissionReviewed");
+  const recent = $("#dashboardSubmissionRecent");
+
+  if (title) title.textContent = pending ? `미확인 제출 ${pending}건` : "미확인 제출 없음";
+  if (caption) caption.textContent = pending ? "먼저 확인해야 할 부서 제출 양식이 있습니다." : "현재 대기 중인 제출 양식은 없습니다.";
+  if (totalEl) totalEl.textContent = total;
+  if (pendingEl) pendingEl.textContent = pending;
+  if (reviewedEl) reviewedEl.textContent = reviewed;
+  if (!recent) return;
+
+  const sorted = formSubmissions
+    .slice()
+    .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+
+  if (!sorted.length) {
+    recent.innerHTML = `<div class="dashboard-submission-empty">아직 부서에서 보낸 양식이 없습니다.</div>`;
+    return;
+  }
+
+  recent.innerHTML = sorted.slice(0, 5).map((item) => {
+    const data = getSubmissionDisplayData(item);
+    return `
+      <button class="dashboard-submission-item ${data.reviewed ? "reviewed" : "pending"}" data-load-form-submission="${escapeHtml(item.id)}" type="button">
+        <span class="submission-status-dot"></span>
+        <span class="submission-main">
+          <strong>${escapeHtml(data.title)}</strong>
+          <em>${escapeHtml(data.department)} · ${escapeHtml(data.sender)} · ${escapeHtml(data.submittedAt)}</em>
+        </span>
+        <span class="submission-state">${data.reviewed ? "확인완료" : "미확인"}</span>
+      </button>
     `;
   }).join("");
 }
@@ -1912,6 +1972,7 @@ function renderTypeTrendLine(container, items, year = dashboardTrendYear, compan
 function renderDashboard() {
   dashboardTrendYear = "all";
   dashboardCompanyFilter = "all";
+  renderDashboardSubmissions();
   renderTypeTrendLine($("#typeTrendChart"), records, "all", "all");
 }
 
@@ -3897,6 +3958,17 @@ function bindUiHandlers() {
   $("#dashboardView")?.addEventListener("pointerout", (event) => {
     if (!event.target.closest("[data-tooltip]")) return;
     hideDashboardTooltip();
+  });
+
+  $("#openSubmissionReviewBtn")?.addEventListener("click", async () => {
+    switchView("nearMissForm");
+    await loadFormSubmissions();
+  });
+
+  $("#dashboardSubmissionRecent")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-load-form-submission]");
+    if (!button) return;
+    await loadFormSubmissionToDraft(button.dataset.loadFormSubmission || "");
   });
 
   [["#deptReportYearSelect", "year"], ["#deptReportMonthSelect", "month"], ["#typeReportYearSelect", "year"], ["#typeReportMonthSelect", "month"]].forEach(([selector, kind]) => {

@@ -97,6 +97,31 @@
             <h2>대시보드</h2>
           </div>
         </div>
+        <section class="panel admin-dashboard-alert admin-only">
+          <div class="admin-dashboard-alert-head">
+            <div>
+              <span>부서 제출 알림</span>
+              <h3 id="dashboardSubmissionTitle">미확인 제출 0건</h3>
+              <p id="dashboardSubmissionCaption">부서에서 보낸 아차사고 발굴개선표를 확인합니다.</p>
+            </div>
+            <button class="btn primary" id="openSubmissionReviewBtn" type="button">제출양식 확인</button>
+          </div>
+          <div class="admin-dashboard-metrics">
+            <div>
+              <span>전체 제출</span>
+              <strong id="dashboardSubmissionTotal">0</strong>
+            </div>
+            <div>
+              <span>미확인</span>
+              <strong id="dashboardSubmissionPending">0</strong>
+            </div>
+            <div>
+              <span>확인 완료</span>
+              <strong id="dashboardSubmissionReviewed">0</strong>
+            </div>
+          </div>
+          <div id="dashboardSubmissionRecent" class="dashboard-submission-recent"></div>
+        </section>
         <div class="dashboard-chart-wrap">
           <section class="panel dashboard-chart-panel">
             <div class="panel-head">
