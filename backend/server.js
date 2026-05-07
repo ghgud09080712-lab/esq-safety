@@ -8,11 +8,14 @@ const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
 const rootDir = path.resolve(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
+const seedDir = path.join(__dirname, "seeds");
 const aGradeLinksPath = path.join(dataDir, "a-grade-links.json");
 const aGradePdfMetaPath = path.join(dataDir, "a-grade-pdf-meta.json");
 const aGradePdfDir = path.join(dataDir, "a-grade-pdfs");
 const sharedGridDataPath = path.join(dataDir, "shared-grid-data.json");
 const safetyDataPath = path.join(dataDir, "safety-data.json");
+const safetyDataSeedPath = path.join(seedDir, "safety-data.seed.json");
+const sharedGridDataSeedPath = path.join(seedDir, "shared-grid-data.seed.json");
 const safetyUsersPath = path.join(dataDir, "safety-users.json");
 const safetySettingsPath = path.join(dataDir, "safety-settings.json");
 const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
@@ -46,6 +49,17 @@ async function readJson(filePath, fallback) {
 async function writeJson(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+}
+
+async function readRuntimeJsonWithSeed(filePath, seedPath, fallback) {
+  const data = await readJson(filePath, null);
+  if (data) return data;
+  const seed = await readJson(seedPath, null);
+  if (seed) {
+    await writeJson(filePath, seed);
+    return seed;
+  }
+  return fallback;
 }
 
 async function readSafetyConfig() {
@@ -565,7 +579,7 @@ app.post("/api/a-grade/pdf-auto-register", async (req, res) => {
 });
 
 app.get("/api/shared-data", async (_req, res) => {
-  const data = await readJson(sharedGridDataPath, {
+  const data = await readRuntimeJsonWithSeed(sharedGridDataPath, sharedGridDataSeedPath, {
     rows: [],
     kingRows: [],
     aGradeRows: [],
@@ -602,7 +616,7 @@ app.put("/api/shared-data", async (req, res) => {
 });
 
 app.get("/api/safety-data", async (_req, res) => {
-  const data = await readJson(safetyDataPath, { records: [], updatedAt: null });
+  const data = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
   res.json(data);
 });
 
