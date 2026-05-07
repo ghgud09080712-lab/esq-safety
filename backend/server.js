@@ -2,7 +2,6 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
-const { buildImprovementWorkbook } = require("./excel-export");
 
 const app = express();
 const port = Number(process.env.PORT || 4173);
@@ -17,9 +16,7 @@ const safetyDataPath = path.join(dataDir, "safety-data.json");
 const safetyUsersPath = path.join(dataDir, "safety-users.json");
 const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
-const frontendHtmlPath = path.join(rootDir, "frontend", "index.html");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
-const oyoungSafetyHtmlPath = path.join(rootDir, "통합안전점검_오영.html");
 const firebaseConfigPath = path.join(rootDir, "firebase-config.js");
 
 app.use(express.json({ limit: "100mb" }));
@@ -311,11 +308,12 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/test", (_req, res) => {
-  res.type("text/plain").send("OK - improvement organizer server is reachable");
+  res.type("text/plain").send("OK - ESQ safety server is reachable");
 });
 
 app.get("/app", (_req, res) => {
-  res.redirect(302, "/safety");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.sendFile(safetyHtmlPath);
 });
 
 app.get("/safety", (_req, res) => {
@@ -328,8 +326,7 @@ app.get("/safety-dept", (_req, res) => {
 });
 
 app.get("/oyoung-safety", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.sendFile(oyoungSafetyHtmlPath);
+  res.redirect(302, "/safety");
 });
 
 app.get("/firebase-config.js", (_req, res) => {
@@ -339,7 +336,7 @@ app.get("/firebase-config.js", (_req, res) => {
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
-    service: "improvement-organizer-backend",
+    service: "esq-safety-backend",
     time: new Date().toISOString()
   });
 });
@@ -607,28 +604,13 @@ app.post("/api/safety-data", async (req, res) => {
   res.json({ ok: true, records: payload.records.length, updatedAt: payload.updatedAt });
 });
 
-app.post("/api/export/excel", async (req, res) => {
-  try {
-    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
-    const buffer = await buildImprovementWorkbook(rows);
-    const filename = `개선제안_제출현황_${new Date().toISOString().slice(0, 10)}.xlsx`;
-
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    res.send(Buffer.from(buffer));
-  } catch (error) {
-    res.status(500).json({ ok: false, message: error.message || "엑셀 내보내기에 실패했습니다." });
-  }
-});
-
 app.use("/assets", express.static(path.join(rootDir, "assets")));
 app.use("/frontend", express.static(path.join(rootDir, "frontend")));
 app.use("/vendor", express.static(path.join(rootDir, "node_modules")));
 
 function listenOnPort(targetPort) {
   const server = app.listen(targetPort, host, () => {
-    console.log(`Improvement organizer running at http://127.0.0.1:${targetPort}/app`);
-    console.log(`Safety app available at http://127.0.0.1:${targetPort}/safety`);
+    console.log(`ESQ safety app running at http://127.0.0.1:${targetPort}/safety`);
   });
 
   server.on("error", (error) => {

@@ -1,8 +1,8 @@
 {
-  "name": "improvement-organizer-workspace",
+  "name": "esq-safety-management",
   "version": "1.0.0",
   "private": true,
-  "description": "Frontend/backend workspace for the improvement organizer app",
+  "description": "ESQ safety incident and near-miss management app",
   "scripts": {
     "dev": "node backend/server.js",
     "start": "node backend/server.js",
