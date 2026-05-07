@@ -1282,6 +1282,65 @@ body.sidebar-collapsed .sidebar {
   object-fit: contain;
 }
 
+.form-submission-panel {
+  margin: 0 0 12px;
+}
+
+.panel-head.compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.panel-head.compact h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.form-submission-list {
+  display: grid;
+  gap: 8px;
+}
+
+.form-submission-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #d8e2ee;
+  border-radius: 6px;
+  background: #f8fbff;
+  padding: 9px 10px;
+}
+
+.form-submission-row.reviewed {
+  opacity: .7;
+}
+
+.form-submission-row strong,
+.form-submission-row span {
+  display: block;
+}
+
+.form-submission-row strong {
+  color: #082044;
+  font-size: 13px;
+}
+
+.form-submission-row span {
+  color: #61738b;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.form-submission-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .a4-block {
   display: grid;
   grid-template-columns: 40px 1fr;
@@ -1756,6 +1815,10 @@ body.department-mode .topbar-actions {
 }
 
 body.department-mode .admin-only {
+  display: none !important;
+}
+
+body:not(.department-mode) .department-only {
   display: none !important;
 }
 

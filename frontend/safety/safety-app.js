@@ -92,6 +92,7 @@ let typeReportMonthFilter = "all";
 let nearMissFormMode = "form";
 let nearMissFormDraft = null;
 let safetySettings = { departmentStamps: {} };
+let formSubmissions = [];
 let activeRiskActionPickerIndex = null;
 let activeSupervisorActionPickerKey = "";
 let activeSheetField = "";
@@ -218,6 +219,12 @@ function formatDisplayDate(value) {
   return datePart;
 }
 
+function formatShortDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return safeText(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 function compactSummary(text, fallback = "-") {
   const cleaned = safeText(text).replace(/\s+/g, " ").trim();
   if (!cleaned) return fallback;
@@ -342,6 +349,108 @@ async function saveSafetySettings() {
     body: JSON.stringify(safetySettings)
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+}
+
+async function loadFormSubmissions() {
+  if (IS_DEPARTMENT_MODE) return;
+  try {
+    const response = await fetch("/api/safety-form-submissions", { cache: "no-store" });
+    if (!response.ok) return;
+    const payload = await response.json().catch(() => ({}));
+    formSubmissions = Array.isArray(payload.submissions) ? payload.submissions : [];
+    renderFormSubmissions();
+  } catch (error) {
+    console.warn("form submissions load failed:", error);
+  }
+}
+
+async function submitNearMissFormDraft() {
+  if (!IS_DEPARTMENT_MODE) return;
+  if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
+  const record = getNearMissFormDraftRecord();
+  if (!safeText(record.department).trim() || !safeText(record.summary || record.description).trim()) {
+    alert("부서명과 사고명 또는 사고개요를 입력한 뒤 보내주세요.");
+    return;
+  }
+  try {
+    const response = await fetch("/api/safety-form-submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user: currentSafetyUser,
+        draft: {
+          ...nearMissFormDraft,
+          submittedRecord: record
+        }
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.message || "제출에 실패했습니다.");
+    setAiStatus("관리자에게 양식시안을 보냈습니다.", "success");
+    alert("관리자에게 전송했습니다.");
+  } catch (error) {
+    alert(error.message || "전송에 실패했습니다.");
+  }
+}
+
+function renderFormSubmissions() {
+  const list = $("#formSubmissionList");
+  if (!list) return;
+  if (!formSubmissions.length) {
+    list.innerHTML = `<div class="empty-state">제출된 양식이 없습니다.</div>`;
+    return;
+  }
+  list.innerHTML = formSubmissions.map((item) => {
+    const draft = item.draft || {};
+    const record = draft.submittedRecord || {};
+    const title = record.summary || draft.summary || record.description || draft.description || "제목 없음";
+    const meta = [
+      item.user?.department || draft.department,
+      item.user?.name || item.user?.id,
+      formatShortDateTime(item.submittedAt || "")
+    ].filter(Boolean).join(" · ");
+    return `
+      <div class="form-submission-row ${item.status === "reviewed" ? "reviewed" : ""}">
+        <div>
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(meta)}</span>
+        </div>
+        <div class="form-submission-actions">
+          <button class="btn small" data-load-form-submission="${escapeHtml(item.id)}" type="button">불러오기</button>
+          <button class="btn small ghost" data-review-form-submission="${escapeHtml(item.id)}" type="button">${item.status === "reviewed" ? "확인됨" : "확인처리"}</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function loadFormSubmissionToDraft(id) {
+  const item = formSubmissions.find((entry) => entry.id === id);
+  if (!item?.draft) return;
+  nearMissFormDraft = {
+    ...getDefaultNearMissFormDraft(),
+    ...item.draft
+  };
+  delete nearMissFormDraft.submittedRecord;
+  saveNearMissFormDraft();
+  nearMissFormMode = "form";
+  switchView("nearMissForm");
+  renderNearMissForm();
+  setAiStatus("제출 양식을 불러왔습니다.", "success");
+}
+
+async function markFormSubmissionReviewed(id) {
+  try {
+    const response = await fetch(`/api/safety-form-submissions/${encodeURIComponent(id)}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "reviewed" })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    await loadFormSubmissions();
+  } catch (error) {
+    alert(error.message || "확인처리에 실패했습니다.");
+  }
 }
 
 function setNearMissDraftValue(key, value) {
@@ -3926,6 +4035,26 @@ function bindUiHandlers() {
       printNearMissForm();
     });
 
+    $("#submitNearMissFormBtn")?.addEventListener("click", () => {
+      submitNearMissFormDraft();
+    });
+
+    $("#reloadFormSubmissionsBtn")?.addEventListener("click", () => {
+      loadFormSubmissions();
+    });
+
+    $("#formSubmissionList")?.addEventListener("click", (event) => {
+      const loadButton = event.target.closest("[data-load-form-submission]");
+      if (loadButton) {
+        loadFormSubmissionToDraft(loadButton.dataset.loadFormSubmission);
+        return;
+      }
+      const reviewButton = event.target.closest("[data-review-form-submission]");
+      if (reviewButton) {
+        markFormSubmissionReviewed(reviewButton.dataset.reviewFormSubmission);
+      }
+    });
+
     $("#generateRiskAssessmentBtn")?.addEventListener("click", () => {
       generateNearMissRiskAssessment();
     });
@@ -4158,6 +4287,7 @@ async function init() {
     renderAll();
 
     const loadedFromServer = await loadRecordsFromServer();
+    if (!IS_DEPARTMENT_MODE) await loadFormSubmissions();
     switchView(activeView, { skipSave: true });
     if (!loadedFromServer && loadedLocalRecordCount > 0) saveRecordsToServer();
   } catch (error) {

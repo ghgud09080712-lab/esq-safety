@@ -289,10 +289,19 @@
               </select>
             </label>
             <button class="btn small admin-only" id="printNearMissFormBtn" type="button">프린트</button>
+            <button class="btn small department-only" id="submitNearMissFormBtn" type="button">저장하기 보내기</button>
             <button class="btn small" id="generateRiskAssessmentBtn" type="button">위험요인/대책 추천</button>
             <button class="btn small ghost" id="resetNearMissDraftBtn" type="button">입력 초기화</button>
           </div>
         </div>
+
+        <section class="panel admin-only form-submission-panel">
+          <div class="panel-head compact">
+            <h3>부서 제출 양식</h3>
+            <button class="btn small ghost" id="reloadFormSubmissionsBtn" type="button">새로고침</button>
+          </div>
+          <div id="formSubmissionList" class="form-submission-list"></div>
+        </section>
 
         <div class="near-miss-workbench">
           <div class="near-miss-preview-column">

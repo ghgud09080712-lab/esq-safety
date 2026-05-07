@@ -18,6 +18,7 @@ const safetyDataSeedPath = path.join(seedDir, "safety-data.seed.json");
 const sharedGridDataSeedPath = path.join(seedDir, "shared-grid-data.seed.json");
 const safetyUsersPath = path.join(dataDir, "safety-users.json");
 const safetySettingsPath = path.join(dataDir, "safety-settings.json");
+const safetyFormSubmissionsPath = path.join(dataDir, "safety-form-submissions.json");
 const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
@@ -632,6 +633,47 @@ app.put("/api/safety-settings", async (req, res) => {
   };
   await writeJson(safetySettingsPath, payload);
   res.json({ ok: true, departments: Object.keys(payload.departmentStamps).length, updatedAt: payload.updatedAt });
+});
+
+app.get("/api/safety-form-submissions", async (_req, res) => {
+  const data = await readJson(safetyFormSubmissionsPath, { submissions: [], updatedAt: null });
+  res.json(data);
+});
+
+app.post("/api/safety-form-submissions", async (req, res) => {
+  const current = await readJson(safetyFormSubmissionsPath, { submissions: [], updatedAt: null });
+  const draft = req.body?.draft && typeof req.body.draft === "object" ? req.body.draft : {};
+  const user = req.body?.user && typeof req.body.user === "object" ? req.body.user : {};
+  const submittedAt = new Date().toISOString();
+  const submission = {
+    id: `FORM-${submittedAt.replace(/\D/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`,
+    submittedAt,
+    status: "submitted",
+    user: {
+      id: String(user.id || ""),
+      name: String(user.name || user.id || ""),
+      role: String(user.role || ""),
+      department: String(user.department || "")
+    },
+    draft
+  };
+  const submissions = Array.isArray(current.submissions) ? current.submissions : [];
+  submissions.unshift(submission);
+  const payload = { submissions, updatedAt: submittedAt };
+  await writeJson(safetyFormSubmissionsPath, payload);
+  res.json({ ok: true, submission });
+});
+
+app.put("/api/safety-form-submissions/:id/status", async (req, res) => {
+  const current = await readJson(safetyFormSubmissionsPath, { submissions: [], updatedAt: null });
+  const submissions = Array.isArray(current.submissions) ? current.submissions : [];
+  const item = submissions.find((entry) => entry.id === req.params.id);
+  if (!item) return res.status(404).json({ ok: false, message: "제출 데이터를 찾지 못했습니다." });
+  item.status = String(req.body?.status || item.status || "submitted");
+  item.reviewedAt = new Date().toISOString();
+  const payload = { submissions, updatedAt: item.reviewedAt };
+  await writeJson(safetyFormSubmissionsPath, payload);
+  res.json({ ok: true, submission: item });
 });
 
 app.put("/api/safety-data", async (req, res) => {
