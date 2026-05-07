@@ -4,6 +4,8 @@ options:
   env:
     - name: NODE_ENV
       value: production
+    - name: PORT
+      value: "3000"
   install: npm ci --omit=dev
-  ports: 4173/http
+  ports: 3000/http
   start: npm start
