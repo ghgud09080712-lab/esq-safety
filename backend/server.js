@@ -640,7 +640,20 @@ app.use("/assets", express.static(path.join(rootDir, "assets")));
 app.use("/frontend", express.static(path.join(rootDir, "frontend")));
 app.use("/vendor", express.static(path.join(rootDir, "node_modules")));
 
-app.listen(port, host, () => {
-  console.log(`Improvement organizer running at http://127.0.0.1:${port}/app`);
-  console.log(`LAN access enabled on port ${port}. Use this PC's IPv4 address, e.g. http://<YOUR-IP>:${port}/app`);
-});
+function listenOnPort(targetPort) {
+  const server = app.listen(targetPort, host, () => {
+    console.log(`Improvement organizer running at http://127.0.0.1:${targetPort}/app`);
+    console.log(`Safety app available at http://127.0.0.1:${targetPort}/safety`);
+  });
+
+  server.on("error", (error) => {
+    if (error?.code === "EADDRINUSE") {
+      console.warn(`Port ${targetPort} is already in use; skipping secondary listener.`);
+      return;
+    }
+    throw error;
+  });
+}
+
+const listenPorts = [...new Set([port, 4173, 3000].filter((value) => Number.isFinite(value) && value > 0))];
+listenPorts.forEach(listenOnPort);
