@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESQ Safety Dashboard Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f2f5f9;
+      --surface: #ffffff;
+      --border: #dbe3ec;
+      --text: #172539;
+      --text-dim: #64748b;
+      --accent: #184e9e;
+      --accent-soft: #e8f0fb;
+      --success: #0f766e;
+      --warning: #b7791f;
+      --danger: #c2410c;
+      --purple: #7c3aed;
+      --teal: #0f766e;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
+    }
+
+    .preview-shell {
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      background: #184e9e;
+      color: #f8fbff;
+      border-radius: 8px;
+    }
+
+    .hero p {
+      margin: 0 0 4px;
+      color: rgba(233, 241, 252, .78);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .hero .note {
+      color: rgba(244, 248, 255, .82);
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .segmented {
+      display: inline-flex;
+      border: 1px solid #c8d2de;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .segmented button,
+    .toolbar select {
+      font: inherit;
+    }
+
+    .segmented button {
+      min-width: 68px;
+      min-height: 34px;
+      border: 0;
+      border-right: 1px solid #c8d2de;
+      background: #fff;
+      color: #425466;
+      padding: 0 12px;
+      font-weight: 700;
+    }
+
+    .segmented button:last-child { border-right: 0; }
+    .segmented button.active { background: var(--accent); color: #fff; }
+
+    .toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #425466;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .toolbar select {
+      min-width: 104px;
+      min-height: 34px;
+      border: 1px solid #c8d2de;
+      border-radius: 4px;
+      background: #fff;
+      padding: 0 10px;
+      color: var(--text);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card,
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .stat-card {
+      padding: 16px;
+    }
+
+    .stat-card span {
+      display: block;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .stat-card strong {
+      display: block;
+      margin-top: 8px;
+      font: 700 30px/1 "Space Grotesk", "IBM Plex Sans KR", sans-serif;
+      color: var(--accent);
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+      gap: 12px;
+    }
+
+    .panel {
+      padding: 18px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .panel-head span {
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .donut-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: center;
+    }
+
+    .donut-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 360px;
+      background: linear-gradient(180deg, #fbfcff 0%, #f7f9fc 100%);
+      border: 1px solid #ebf0f5;
+      border-radius: 8px;
+    }
+
+    .donut {
+      width: min(320px, 100%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      position: relative;
+      background:
+        conic-gradient(
+          #184e9e 0 24%,
+          #0f766e 24% 44%,
+          #b7791f 44% 61%,
+          #7c3aed 61% 76%,
+          #c2410c 76% 87%,
+          #9bb9df 87% 100%
+        );
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
+    }
+
+    .donut::before {
+      content: "";
+      position: absolute;
+      inset: 52px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: inset 0 0 0 1px #eef2f7;
+    }
+
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 0 72px;
+      z-index: 1;
+    }
+
+    .donut-center span {
+      display: block;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .donut-center strong {
+      display: block;
+      margin-top: 6px;
+      font: 700 40px/1 "Space Grotesk", "IBM Plex Sans KR", sans-serif;
+      color: var(--text);
+    }
+
+    .donut-legend {
+      display: grid;
+      gap: 8px;
+    }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 12px;
+      border: 1px solid #ebf0f5;
+      border-radius: 6px;
+      background: #fbfcff;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+    }
+
+    .legend-label {
+      color: #31465f;
+      font-weight: 700;
+    }
+
+    .legend-value {
+      color: var(--text);
+      font: 700 18px/1 "Space Grotesk", "IBM Plex Sans KR", sans-serif;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .donut-card {
+      padding: 14px;
+      border: 1px solid #ebf0f5;
+      border-radius: 8px;
+      background: #fbfcff;
+    }
+
+    .donut-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .donut-card-head h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .donut-card-head span {
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .mini-donut-wrap {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+
+    .mini-donut {
+      width: 128px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      position: relative;
+      background: conic-gradient(#0f766e 0 67%, #d9efe9 67% 100%);
+    }
+
+    .mini-donut.orange { background: conic-gradient(#b7791f 0 58%, #f5e7ca 58% 100%); }
+    .mini-donut.purple { background: conic-gradient(#7c3aed 0 41%, #eadffd 41% 100%); }
+    .mini-donut.red { background: conic-gradient(#c2410c 0 18%, #f9ddd2 18% 100%); }
+
+    .mini-donut::before {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .mini-donut strong {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 1;
+      font: 700 24px/1 "Space Grotesk", "IBM Plex Sans KR", sans-serif;
+      color: var(--text);
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .mini-list-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: #425466;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .caption {
+      padding: 14px 16px;
+      border: 1px dashed #ccd6e3;
+      border-radius: 8px;
+      background: #fbfcff;
+      color: #4c6078;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .stats-grid,
+      .chart-grid,
+      .donut-layout,
+      .mini-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <section class="hero">
+      <div>
+        <p>Dashboard Preview</p>
+        <h1>원형그래프 대시보드 시안</h1>
+      </div>
+      <div class="note">본 앱 미적용 / 시안 전용</div>
+    </section>
+
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <div class="segmented">
+          <button class="active" type="button">전체</button>
+          <button type="button">오영</button>
+          <button type="button">SEM</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <label>연도
+          <select>
+            <option>전체</option>
+            <option selected>2026년</option>
+            <option>2025년</option>
+          </select>
+        </label>
+        <label>월
+          <select>
+            <option selected>전체</option>
+            <option>1월</option>
+            <option>2월</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card"><span>전체 연계건수</span><strong>128</strong></article>
+      <article class="stat-card"><span>아차사고</span><strong>84</strong></article>
+      <article class="stat-card"><span>사건사고</span><strong>44</strong></article>
+      <article class="stat-card"><span>고위험군</span><strong>31</strong></article>
+    </section>
+
+    <section class="chart-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>재해유형 구성비</h2>
+            <span>사고유형 비중을 한 번에 보는 메인 그래프</span>
+          </div>
+        </div>
+        <div class="donut-layout">
+          <div class="donut-wrap">
+            <div class="donut">
+              <div class="donut-center">
+                <div>
+                  <span>2026년 전체</span>
+                  <strong>128</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-row"><i class="legend-dot" style="background:#184e9e"></i><span class="legend-label">깔림</span><strong class="legend-value">31</strong></div>
+            <div class="legend-row"><i class="legend-dot" style="background:#0f766e"></i><span class="legend-label">끼임</span><strong class="legend-value">26</strong></div>
+            <div class="legend-row"><i class="legend-dot" style="background:#b7791f"></i><span class="legend-label">부딪힘</span><strong class="legend-value">22</strong></div>
+            <div class="legend-row"><i class="legend-dot" style="background:#7c3aed"></i><span class="legend-label">넘어짐</span><strong class="legend-value">19</strong></div>
+            <div class="legend-row"><i class="legend-dot" style="background:#c2410c"></i><span class="legend-label">화학물질 접촉</span><strong class="legend-value">14</strong></div>
+            <div class="legend-row"><i class="legend-dot" style="background:#9bb9df"></i><span class="legend-label">기타</span><strong class="legend-value">16</strong></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>원형그래프 카드</h2>
+            <span>서브 지표는 작은 도넛으로 분리</span>
+          </div>
+        </div>
+        <div class="mini-grid">
+          <article class="donut-card">
+            <div class="donut-card-head"><h3>위험등급 분포</h3><span>중대/높음 중심</span></div>
+            <div class="mini-donut-wrap">
+              <div class="mini-donut"><strong>67%</strong></div>
+              <div class="mini-list">
+                <div class="mini-list-row"><span>중대</span><strong>18</strong></div>
+                <div class="mini-list-row"><span>높음</span><strong>68</strong></div>
+                <div class="mini-list-row"><span>보통</span><strong>31</strong></div>
+                <div class="mini-list-row"><span>낮음</span><strong>11</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="donut-card">
+            <div class="donut-card-head"><h3>오영 비중</h3><span>법인 비교</span></div>
+            <div class="mini-donut-wrap">
+              <div class="mini-donut orange"><strong>58%</strong></div>
+              <div class="mini-list">
+                <div class="mini-list-row"><span>오영</span><strong>74</strong></div>
+                <div class="mini-list-row"><span>SEM</span><strong>54</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="donut-card">
+            <div class="donut-card-head"><h3>부서 집중도</h3><span>상위 3개 부서</span></div>
+            <div class="mini-donut-wrap">
+              <div class="mini-donut purple"><strong>41%</strong></div>
+              <div class="mini-list">
+                <div class="mini-list-row"><span>생산1부</span><strong>22</strong></div>
+                <div class="mini-list-row"><span>공무팀</span><strong>17</strong></div>
+                <div class="mini-list-row"><span>물류관리팀</span><strong>14</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="donut-card">
+            <div class="donut-card-head"><h3>미조치 비중</h3><span>조치 진행상태</span></div>
+            <div class="mini-donut-wrap">
+              <div class="mini-donut red"><strong>18%</strong></div>
+              <div class="mini-list">
+                <div class="mini-list-row"><span>미반영</span><strong>23</strong></div>
+                <div class="mini-list-row"><span>반영</span><strong>105</strong></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <div class="caption">
+      이 시안은 "메인 1개 큰 도넛 + 오른쪽 작은 도넛 카드들" 구조입니다. 실제 적용 시에는 현재 대시보드의 연도/회사 조건과 연결하고, 재해유형 비중/위험등급/법인비교/부서집중도 중 어떤 도넛을 남길지 줄이면 더 정돈됩니다.
+    </div>
+  </main>
+</body>
+</html>

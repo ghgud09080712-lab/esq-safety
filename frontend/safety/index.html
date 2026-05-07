@@ -1,0 +1,570 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESQ 안전사고 관리</title>
+  <script src="/vendor/xlsx/dist/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/frontend/safety/safety.css?v=20260507-login-title">
+</head>
+<body class="sidebar-collapsed">
+  <div class="safety-login" id="safetyLogin" role="dialog" aria-modal="true" aria-labelledby="safetyLoginTitle">
+    <form class="safety-login-card" id="safetyLoginForm">
+      <div>
+        <img class="login-logo" src="/assets/ohyoung-logo.png" alt="OHYOUNG">
+        <span class="login-eyebrow">ESQ Safety Registry</span>
+        <h1 id="safetyLoginTitle">안전사고 통합관리 시스템</h1>
+      </div>
+      <label>
+        <span>아이디</span>
+        <input id="safetyLoginId" name="id" autocomplete="username" required>
+      </label>
+      <label>
+        <span>비밀번호</span>
+        <input id="safetyLoginPassword" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p class="login-error" id="safetyLoginError" aria-live="polite"></p>
+      <button class="btn primary" type="submit">로그인</button>
+    </form>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <strong>ESQ</strong>
+        <span>Safety Registry</span>
+      </div>
+
+      <nav class="nav-list" aria-label="주 메뉴">
+        <button class="nav-item active" data-view="dashboard" type="button">대시보드</button>
+        <button class="nav-item" data-view="incident" type="button">사건사고 조사</button>
+        <button class="nav-item" data-view="nearMiss" type="button">아차사고</button>
+        <button class="nav-item" data-view="nearMissForm" type="button">양식시안</button>
+        <button class="nav-item" data-view="risk" type="button">위험성평가</button>
+        <button class="nav-item" data-view="reports" type="button">통계</button>
+        <button class="nav-item" data-view="settings" type="button">기준정보</button>
+      </nav>
+
+      <div class="side-tools">
+        <div class="tool-item">
+          <button class="side-toggle" id="fileToolToggle" type="button" aria-expanded="false">PDF / Excel 읽기</button>
+          <div class="file-tool-panel" id="fileToolPanel" hidden>
+            <span class="tool-label">PDF / AI 분석</span>
+            <div class="drop-zone" id="safetyDropZone" role="button" tabindex="0">
+              <strong>PDF / Excel 읽기</strong>
+              <p>사건사고조사보고서나 아차사고 발굴개선표 파일을 드래그하거나 클릭해서 불러오세요.</p>
+              <input type="file" id="safetyFileInput" class="hidden-input" accept=".pdf,application/pdf,.xlsx,.xls">
+            </div>
+          </div>
+        </div>
+
+        <div class="tool-item">
+          <span class="tool-label">Gemini API</span>
+          <input type="password" id="apiKey" class="side-input" placeholder="AIzaSy...">
+        </div>
+
+        <div class="tool-status" id="aiStatus">PDF 분석 대기</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">아차사고 발굴 개선표 · 사건(사고)조사보고서</p>
+          <div class="title-row">
+            <button class="btn menu-toggle" id="sidebarToggleBtn" type="button" aria-expanded="false" title="메뉴 펼치기">=</button>
+            <h1>안전사고 통합관리</h1>
+          </div>
+        </div>
+
+        <div class="session-box">
+          <span id="safetyUserBadge">로그인 대기</span>
+          <button class="btn small ghost" id="safetyLogoutBtn" type="button">로그아웃</button>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn" id="exportJsonBtn" type="button">백업</button>
+          <button class="btn" id="shareHtmlBtn" type="button">공유 내보내기</button>
+          <button class="btn danger" id="bulkDeleteBtn" type="button">일괄 삭제</button>
+          <button class="btn primary" id="addRecordBtn" type="button">등록</button>
+        </div>
+      </header>
+
+      <section id="dashboardView" class="view active">
+        <div class="section-head dashboard-head">
+          <div>
+            <h2>대시보드</h2>
+          </div>
+        </div>
+        <div class="dashboard-chart-wrap">
+          <section class="panel dashboard-chart-panel">
+            <div class="panel-head">
+              <div>
+                <span id="typeTrendSummary"></span>
+              </div>
+            </div>
+
+            <div class="donut-dashboard">
+              <div class="donut-main-wrap">
+                <div class="donut-main-stack">
+                  <div class="donut-main-title">
+                    <h3>재해유형 구성비</h3>
+                  </div>
+                  <div class="donut-main-card">
+                    <div id="typeTrendChart" class="donut-main-chart" aria-label="재해유형 구성비 원형그래프"></div>
+                  </div>
+                </div>
+                <div id="typeTrendLegend" class="donut-legend"></div>
+              </div>
+
+              <div class="donut-side-grid">
+                <article class="donut-card">
+                  <div class="donut-card-head">
+                    <h3>위험등급 분포</h3>
+                    <span>현재 조건 기준</span>
+                  </div>
+                  <div class="mini-donut-wrap">
+                    <div id="riskDonut" class="mini-donut-chart"></div>
+                    <div id="riskDonutList" class="mini-list"></div>
+                  </div>
+                </article>
+
+                <article class="donut-card">
+                  <div class="donut-card-head">
+                    <h3>법인 비중</h3>
+                    <span>오영 / SEM</span>
+                  </div>
+                  <div class="mini-donut-wrap">
+                    <div id="companyDonut" class="mini-donut-chart"></div>
+                    <div id="companyDonutList" class="mini-list"></div>
+                  </div>
+                </article>
+
+                <article class="donut-card">
+                  <div class="donut-card-head">
+                    <h3>부서 집중도</h3>
+                    <span>상위 3개 부서</span>
+                  </div>
+                  <div class="mini-donut-wrap">
+                    <div id="departmentDonut" class="mini-donut-chart"></div>
+                    <div id="departmentDonutList" class="mini-list"></div>
+                  </div>
+                </article>
+
+                <article class="donut-card">
+                  <div class="donut-card-head">
+                    <h3>개선조치 반영</h3>
+                    <span>조치 기준</span>
+                  </div>
+                  <div class="mini-donut-wrap">
+                    <div id="actionDonut" class="mini-donut-chart"></div>
+                    <div id="actionDonutList" class="mini-list"></div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="nearMissView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>아차사고 발굴대장</h2>
+            <div class="segmented" id="nearMissCompanyTabs">
+              <button class="active" data-company="all" type="button">전체</button>
+              <button data-company="oyoung" type="button">오영</button>
+              <button data-company="sem" type="button">SEM</button>
+            </div>
+            <div class="mini-summary" id="nearMissSummary"></div>
+          </div>
+          <button class="btn small" data-export="nearMiss" type="button">CSV 내보내기</button>
+        </div>
+
+        <section class="filters">
+          <label>
+            <span>검색</span>
+            <input id="searchInput" type="search" placeholder="부서, 장소, 유형, 내용">
+          </label>
+          <label>
+            <span>부서별</span>
+            <select id="departmentFilter">
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <label>
+            <span>연도별</span>
+            <select id="yearFilter">
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <label>
+            <span>월별</span>
+            <select id="monthFilter">
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <label>
+            <span>위험등급</span>
+            <select id="riskFilter">
+              <option value="all">전체</option>
+              <option value="중대">중대</option>
+              <option value="높음">높음</option>
+              <option value="보통">보통</option>
+              <option value="낮음">낮음</option>
+            </select>
+          </label>
+        </section>
+
+        <div class="table-wrap">
+          <table class="near-miss-table">
+            <thead>
+              <tr>
+                <th>NO.</th>
+                <th>발생월</th>
+                <th>발생일</th>
+                <th>발생부서</th>
+                <th>발굴자</th>
+                <th>장소/설비</th>
+                <th>재해내용</th>
+                <th>사고유형</th>
+                <th>위험도</th>
+              </tr>
+            </thead>
+            <tbody id="nearMissRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="incidentView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>사건사고 조사보고서</h2>
+            <div class="segmented" id="incidentCompanyTabs">
+              <button class="active" data-company="all" type="button">전체</button>
+              <button data-company="oyoung" type="button">오영</button>
+              <button data-company="sem" type="button">SEM</button>
+            </div>
+            <div class="mini-summary" id="incidentSummary"></div>
+          </div>
+          <button class="btn small" data-export="incident" type="button">CSV 내보내기</button>
+        </div>
+
+        <div class="filter-slot"></div>
+
+        <div class="table-wrap">
+            <table class="incident-table">
+            <thead>
+                <tr>
+                  <th>NO</th>
+                  <th>사고일</th>
+                  <th>부서</th>
+                  <th>재해유형</th>
+                  <th>사고명</th>
+                  <th>피해</th>
+                  <th></th>
+                </tr>
+            </thead>
+            <tbody id="incidentRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="nearMissFormView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>아차사고 양식 시안</h2>
+            <div class="mini-summary" id="nearMissFormSummary"></div>
+          </div>
+          <div class="report-top-actions">
+            <label class="sheet-font-control">
+              <span>선택칸 글자</span>
+              <select id="sheetFontSizeSelect">
+                <option value="">기본</option>
+                <option value="11px">작게</option>
+                <option value="12px">보통</option>
+                <option value="13px">크게</option>
+                <option value="14px">아주 크게</option>
+              </select>
+            </label>
+            <button class="btn small" id="printNearMissFormBtn" type="button">프린트</button>
+            <button class="btn small" id="generateRiskAssessmentBtn" type="button">위험요인/대책 추천</button>
+            <button class="btn small ghost" id="resetNearMissDraftBtn" type="button">입력 초기화</button>
+          </div>
+        </div>
+
+        <div class="near-miss-workbench">
+          <div class="near-miss-preview-column">
+            <section class="panel near-miss-form-panel">
+              <div class="segmented wide form-mode-tabs" id="nearMissFormModeTabs">
+                <button class="active" data-form-mode="form" type="button">발굴개선표</button>
+                <button data-form-mode="assessment" type="button">자동 위험성평가</button>
+                <button data-form-mode="preview" type="button">출력 미리보기</button>
+              </div>
+              <div class="near-miss-form-wrap" id="nearMissFormSheet"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section id="actionsView" class="view">
+        <div class="section-head">
+          <h2>개선조치 관리</h2>
+          <button class="btn small" data-export="actions" type="button">CSV 내보내기</button>
+        </div>
+        <div id="actionBoard" class="action-board"></div>
+      </section>
+
+      <section id="riskView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>위험성평가 연계</h2>
+            <div class="mini-summary" id="riskSummary"></div>
+          </div>
+          <button class="btn small" data-export="risk" type="button">CSV 내보내기</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>NO</th>
+                <th>작업/공정</th>
+                <th>유해위험요인</th>
+                <th>감소대책</th>
+                <th>가능성</th>
+                <th>중대성</th>
+                <th>위험도</th>
+              </tr>
+            </thead>
+            <tbody id="riskRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="reportsView" class="view">
+        <div class="report-grid">
+          <article class="panel">
+            <div class="panel-head report-panel-head">
+              <div class="report-heading-copy">
+                <h2>부서별 발생</h2>
+                <span>등록 기준</span>
+              </div>
+              <div class="report-top-actions">
+                <div class="report-controls report-inline-controls">
+                  <div class="segmented" id="deptReportCompanyTabs">
+                    <button class="active" data-company="all" type="button">전체</button>
+                    <button data-company="oyoung" type="button">오영</button>
+                    <button data-company="sem" type="button">SEM</button>
+                  </div>
+                  <label class="compact-select">
+                    <span>연도</span>
+                    <select id="deptReportYearSelect"></select>
+                  </label>
+                  <label class="compact-select">
+                    <span>월</span>
+                    <select id="deptReportMonthSelect"></select>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div id="deptBars" class="bar-list"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head report-panel-head">
+              <div class="report-heading-copy">
+                <h2>재해유형별 발생</h2>
+                <span>등록 기준</span>
+              </div>
+              <div class="report-top-actions">
+                <div class="report-controls report-inline-controls">
+                  <div class="segmented" id="typeReportCompanyTabs">
+                    <button class="active" data-company="all" type="button">전체</button>
+                    <button data-company="oyoung" type="button">오영</button>
+                    <button data-company="sem" type="button">SEM</button>
+                  </div>
+                  <label class="compact-select">
+                    <span>연도</span>
+                    <select id="typeReportYearSelect"></select>
+                  </label>
+                  <label class="compact-select">
+                    <span>월</span>
+                    <select id="typeReportMonthSelect"></select>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div id="reportTypeBars" class="bar-list type-bar-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="settingsView" class="view">
+        <div class="settings-grid">
+          <section class="panel">
+            <h2>재해유형 기준</h2>
+            <div id="typeChips" class="chip-list"></div>
+          </section>
+          <section class="panel">
+            <h2>원인분류 기준</h2>
+            <div id="causeChips" class="chip-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="recordDialog">
+    <form method="dialog" class="dialog-form" id="recordForm">
+      <div class="dialog-head">
+        <h2 id="dialogTitle">안전 기록 등록</h2>
+        <button class="icon-btn" id="closeDialogBtn" type="button" aria-label="닫기">X</button>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          <span>구분</span>
+          <select name="kind" required>
+            <option value="nearMiss">아차사고</option>
+            <option value="incident">사건사고</option>
+          </select>
+        </label>
+        <label>
+          <span>발생일</span>
+          <input name="date" type="date" required>
+        </label>
+        <label>
+          <span>부서</span>
+          <input name="department" required>
+        </label>
+        <label>
+          <span>사업장</span>
+          <select name="company">
+            <option value="오영">오영</option>
+            <option value="SEM">SEM</option>
+          </select>
+        </label>
+        <label>
+          <span>작성자/조사자</span>
+          <input name="author">
+        </label>
+        <label>
+          <span>발생장소</span>
+          <input name="location" required>
+        </label>
+        <label>
+          <span>설비/공정</span>
+          <input name="process">
+        </label>
+        <label>
+          <span>사고유형</span>
+          <select name="type" required></select>
+        </label>
+        <label>
+          <span>원인분류</span>
+          <select name="cause"></select>
+        </label>
+        <label>
+          <span>사고자</span>
+          <input name="victim">
+        </label>
+        <label>
+          <span>피해구분</span>
+          <select name="claimType">
+            <option value="">해당없음</option>
+            <option value="조사중">조사중</option>
+            <option value="요양">요양</option>
+            <option value="공상">공상</option>
+            <option value="미신청">미신청</option>
+          </select>
+        </label>
+        <label>
+          <span>휴업이상일수</span>
+          <input name="lostDays" type="number" min="0" value="0">
+        </label>
+        <label>
+          <span>상태</span>
+          <select name="status">
+            <option>접수</option>
+            <option>조치중</option>
+            <option>검토중</option>
+            <option>완료</option>
+          </select>
+        </label>
+        <label>
+          <span>가능성</span>
+          <input name="likelihood" type="number" min="1" max="5" value="3">
+        </label>
+        <label>
+          <span>중대성</span>
+          <input name="severity" type="number" min="1" max="5" value="3">
+        </label>
+        <label>
+          <span>개선예정일</span>
+          <input name="dueDate" type="date">
+        </label>
+        <label>
+          <span>담당자</span>
+          <input name="owner">
+        </label>
+      </div>
+
+      <label class="wide-label">
+        <span id="summaryLabel" hidden>사건사고 요약</span>
+        <textarea name="summary" id="summaryInput" rows="3" hidden></textarea>
+      </label>
+
+      <label class="wide-label">
+        <span>재해내용/사고경위</span>
+        <textarea name="description" rows="4" required></textarea>
+      </label>
+
+      <label class="wide-label">
+        <span id="actionLabel">개선조치</span>
+        <textarea name="action" rows="3"></textarea>
+      </label>
+
+      <div class="dialog-actions">
+        <button class="btn danger" id="deleteRecordBtn" value="default" type="button">삭제</button>
+        <button class="btn ghost" id="cancelDialogBtn" type="button">취소</button>
+        <button class="btn primary" id="saveRecordBtn" value="default" type="button">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="shareModal" class="share-modal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+    <div class="share-card">
+      <div>
+        <h3 id="shareModalTitle">공유 파일 만들기</h3>
+        <p>현재 안전관리 데이터를 담은 읽기 전용 공유 페이지를 저장합니다. 받은 사람은 파일만 열어서 검색과 필터를 사용할 수 있습니다.</p>
+      </div>
+      <label class="share-field">
+        <span>파일 이름</span>
+        <input id="shareFileName" class="share-input" value="안전사고통합관리_공유">
+      </label>
+      <div class="share-grid">
+        <div class="share-stat">
+          <span>전체</span>
+          <strong id="shareStatTotal">0</strong>
+        </div>
+        <div class="share-stat">
+          <span>아차사고</span>
+          <strong id="shareStatNearMiss">0</strong>
+        </div>
+        <div class="share-stat">
+          <span>사건사고</span>
+          <strong id="shareStatIncident">0</strong>
+        </div>
+      </div>
+      <div class="share-actions">
+        <button class="btn ghost" id="closeShareBtn" type="button">취소</button>
+        <button class="btn primary" id="saveShareBtn" type="button">공유 파일 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/frontend/safety/safety-app.js?v=20260507-login-role-only"></script>
+</body>
+</html>

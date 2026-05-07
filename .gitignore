@@ -1,0 +1,27 @@
+node_modules/
+npm-debug.log*
+
+# Local runtime data
+backend/data/
+backend/safety-local-config.json
+server.out
+server.err
+
+# Local build/deploy tool state
+.firebase/
+.vercel/
+
+# Temporary source files
+tmp_*
+*.pdf
+*.xlsx
+
+# Desktop/mobile build folders not needed by Cloudtype
+android/
+electron-app/
+electron-safety-app/
+www/
+
+# Local generated/share files
+배포백업/
+shared-snapshot/

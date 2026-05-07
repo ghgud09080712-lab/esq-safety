@@ -1,0 +1,17 @@
+/* A4 별첨 위험성평가표 비율 조정 */
+/* 합계가 100%가 되도록 맞춰두면 표가 A4 밖으로 나가지 않습니다. */
+
+.risk-annex-sheet {
+  --risk-annex-no: 5%;
+  --risk-annex-hazard: 24%;
+  --risk-annex-score: 6%;
+  --risk-annex-grade: 6%;
+  --risk-annex-action: 32%;
+  --risk-annex-after: 8%;
+  --risk-annex-owner: 7%;
+
+  --risk-annex-font: 9px;
+  --risk-annex-row-height: 58px;
+  --risk-annex-blank-height: 40px;
+  --risk-annex-measure-height: 28px;
+}

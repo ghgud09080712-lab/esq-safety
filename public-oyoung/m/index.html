@@ -1,0 +1,1060 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>통합안전점검 · ㈜오영</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --dark:#0F172A;--dark2:#1E293B;--dark3:#334155;
+  --muted:#64748B;--muted2:#94A3B8;--light:#F1F5F9;--white:#fff;
+  --radius:12px;--radius-lg:16px;
+}
+html,body{height:100%;background:#0F172A;font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif}
+#app{max-width:430px;margin:0 auto;min-height:100vh;position:relative;overflow-x:hidden}
+
+/* ── 공통 ── */
+.btn{cursor:pointer;border:none;outline:none;font-family:inherit;font-size:13px;transition:opacity .15s,transform .1s}
+.btn:active{transform:scale(0.96);opacity:.85}
+input,textarea{font-family:inherit;outline:none}
+textarea{resize:none}
+
+/* ── 홈 ── */
+#home{background:#0F172A;min-height:100vh}
+.home-header{background:linear-gradient(160deg,#1E3A5F 0%,#0F172A 100%);padding:44px 20px 24px}
+.company-label{color:#475569;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.app-title{color:#F8FAFC;font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:2px}
+.app-date{color:#94A3B8;font-size:12px}
+.inspector-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#94A3B8;border-radius:10px;padding:7px 12px;font-size:11px}
+.inspector-form{margin-top:12px;background:rgba(255,255,255,.05);border-radius:12px;padding:12px}
+.inspector-form input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#F8FAFC;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:8px}
+.inspector-form input:last-child{margin-bottom:0}
+.dept-grid{padding:16px 16px 60px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dept-card{background:#1E293B;border-radius:var(--radius-lg);padding:14px;cursor:pointer;text-align:left;border:1.5px solid #334155;transition:border-color .2s}
+.dept-card.visited{border-color:var(--dept-color, #334155)55}
+.dept-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.dept-dot{width:12px;height:12px;border-radius:50%}
+.dept-name{font-size:13px;font-weight:700;color:#F1F5F9;margin-bottom:2px}
+.dept-stars{font-size:10px;color:#F59E0B;margin-bottom:8px}
+.dept-bar-bg{background:rgba(255,255,255,.06);border-radius:4px;height:3px;margin-bottom:6px}
+.dept-bar{height:3px;border-radius:4px;transition:width .3s}
+.dept-footer{display:flex;justify-content:space-between;align-items:center}
+.dept-prog{font-size:11px;color:#64748B}
+.dept-grade{font-size:11px;font-weight:600}
+.dept-score{font-size:20px;font-weight:800;line-height:1}
+.dept-score-sub{font-size:10px;color:#64748B}
+
+/* ── 점검 ── */
+#inspect{background:#F8FAFC;min-height:100vh;display:none}
+.inspect-header{color:#fff}
+.inspect-topbar{padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.back-btn{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer}
+.inspect-title{font-size:15px;font-weight:700;text-align:center}
+.inspect-stars{font-size:10px;opacity:.8;text-align:center}
+.report-btn{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer}
+.score-banner{padding:4px 16px 12px;display:flex;align-items:flex-end;justify-content:space-between}
+.score-big{font-size:38px;font-weight:900;line-height:1}
+.score-sub{font-size:11px;opacity:.7}
+.grade-label{font-size:17px;font-weight:700}
+.progress-strip{height:3px;background:rgba(0,0,0,.2)}
+.progress-fill{height:3px;background:rgba(255,255,255,.6);transition:width .3s}
+.cat-tabs{display:flex;overflow-x:auto;padding:0 12px;gap:4px;background:rgba(0,0,0,.15);scrollbar-width:none}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{background:transparent;border:none;color:rgba(255,255,255,.8);border-radius:8px 8px 0 0;padding:8px 12px;font-size:11px;cursor:pointer;white-space:nowrap;position:relative;flex-shrink:0;font-family:inherit;transition:all .15s}
+.cat-tab.active{background:rgba(255,255,255,.9);font-weight:700}
+.cat-tab .dot{position:absolute;top:4px;right:4px;width:5px;height:5px;background:#FDE68A;border-radius:50%}
+.prev-bar{margin:12px 16px 0;background:#fff;border-radius:12px;padding:11px 14px;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between}
+.prev-label{font-size:13px;font-weight:600;color:#1E293B}
+.prev-sub{font-size:11px;color:#94A3B8}
+.prev-toggle{border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid}
+.items-body{padding:10px 16px 100px}
+.cat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.cat-title{font-size:13px;font-weight:700;color:#1E293B}
+.cat-max{font-size:12px;color:#94A3B8}
+.item-card{background:#fff;border-radius:14px;padding:13px 14px;margin-bottom:10px;border:1px solid #E2E8F0;border-left:3.5px solid #E2E8F0;transition:border-color .2s}
+.item-card.ok{border-left-color:#1D9E75}
+.item-card.issue{border-left-color:var(--issue-color)}
+.item-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.item-num{font-size:11px;color:#94A3B8;margin-bottom:2px}
+.item-name{font-size:13px;font-weight:600;color:#1E293B;line-height:1.5}
+.item-badge{border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-left:8px}
+.status-btns{display:grid;gap:5px;margin-bottom:4px}
+.status-btn{border-radius:8px;padding:9px 4px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid;transition:all .15s;font-family:inherit}
+.remark-label{display:flex;align-items:center;gap:5px;margin:9px 0 5px;font-size:11px;font-weight:700;color:#64748B}
+.remark-textarea{width:100%;min-height:58px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:9px 11px;font-size:12px;color:#334155;font-family:inherit;line-height:1.5}
+.remark-textarea:focus{border-color:#94A3B8;background:#fff}
+.photo-row{margin-top:9px}
+.photo-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.photo-label{font-size:11px;font-weight:700;color:#64748B}
+.photo-btn{background:#059669;border:1px solid #047857;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
+.photo-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.photo-entry{display:grid;grid-template-columns:86px 1fr;gap:8px;align-items:start;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:9px;padding:8px;min-width:0}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#E2E8F0;border:1px solid #CBD5E1}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-remove{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(15,23,42,.78);color:#fff;font-size:14px;line-height:20px;cursor:pointer}
+.photo-caption-wrap{min-width:0}
+.photo-caption-label{font-size:11px;font-weight:800;color:#334155;margin-bottom:4px}
+.photo-caption{width:100%;border:1px solid #CBD5E1;border-radius:7px;background:#fff;padding:8px 9px;font-size:12px;color:#334155;font-family:inherit;line-height:1.45;min-height:58px;resize:none}
+.photo-caption:focus{border-color:#94A3B8;background:#fff}
+.report-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:7px 0}
+.report-photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid #E2E8F0}
+.report-photo-caption{font-size:10px;color:#475569;line-height:1.4;margin-top:3px;word-break:break-word}
+.ai-btn{width:100%;margin-top:8px;background:#EFF6FF;border:none;border-radius:8px;padding:9px;font-size:12px;color:#3B82F6;cursor:pointer;font-weight:600;font-family:inherit;transition:opacity .15s}
+.ai-box{margin-top:8px;background:#FFF8F0;border-radius:9px;padding:10px 12px;border:1px solid #FDE68A}
+.ai-title{font-size:11px;color:#D97706;font-weight:700;margin-bottom:5px}
+.ai-body{font-size:12px;color:#78350F;line-height:1.7}
+.cat-subtotal{background:#F8FAFC;border-radius:10px;padding:11px 14px;display:flex;justify-content:space-between;border:1px solid #E2E8F0;margin-top:4px}
+.subtotal-label{font-size:12px;color:#64748B}
+.subtotal-val{font-size:16px;font-weight:800}
+
+/* 공무팀 */
+.action-rate-box{margin:10px 16px;background:#fff;border-radius:12px;padding:14px;border:1px solid #E2E8F0}
+.ar-title{font-size:13px;font-weight:700;color:#1E293B;margin-bottom:4px}
+.ar-sub{font-size:11px;color:#94A3B8;margin-bottom:10px}
+.ar-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.ar-label{font-size:11px;color:#64748B;margin-bottom:4px}
+.ar-input{width:100%;border:1px solid #E2E8F0;border-radius:8px;padding:9px;font-size:16px;font-weight:700;text-align:center;font-family:inherit}
+.ar-result{background:#F8FAFC;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.ar-result-label{font-size:11px;color:#64748B}
+.ar-result-val{font-size:16px;font-weight:800}
+
+/* ── 보고서 ── */
+#report{background:#F8FAFC;min-height:100vh;display:none}
+.report-header{color:#fff;padding:14px 16px}
+.report-topbar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.report-meta{font-size:15px;font-weight:700}
+.report-date{font-size:11px;opacity:.8}
+.score-card-big{background:rgba(255,255,255,.15);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:space-between}
+.score-huge{font-size:48px;font-weight:900;line-height:1}
+.score-unit{font-size:12px;opacity:.8}
+.report-body{padding:14px 16px 60px}
+.report-section{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:12px;border:1px solid #E2E8F0}
+.section-title{font-size:13px;font-weight:700;color:#1E293B;margin-bottom:10px}
+.cat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #F1F5F9}
+.cat-row:last-child{border-bottom:none}
+.cat-row-name{font-size:12px;font-weight:600;color:#334155}
+.cat-row-sub{font-size:11px;color:#94A3B8}
+.cat-row-score{font-size:15px;font-weight:800}
+.cat-row-ded{font-size:11px;color:#E24B4A}
+.total-row{display:flex;justify-content:space-between;padding:9px 0 0;margin-top:4px}
+.total-label{font-size:13px;font-weight:700;color:#1E293B}
+.total-val{font-size:18px;font-weight:900}
+.issue-header{font-size:13px;font-weight:700;color:#DC2626;margin-bottom:10px}
+.issue-card{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:10px;border:1px solid #FCA5A580;border-left:3px solid}
+.issue-name{font-size:13px;font-weight:700;color:#1E293B;flex:1;padding-right:8px}
+.issue-badge{border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;color:#fff}
+.issue-cat{font-size:11px;color:#94A3B8;margin:4px 0 6px}
+.issue-memo{font-size:12px;color:#475569;background:#F8FAFC;border-radius:7px;padding:7px 10px;margin-bottom:7px;line-height:1.5}
+.grade-chips{display:flex;gap:5px;flex-wrap:wrap}
+.grade-chip{font-size:10px;border-radius:6px;padding:3px 8px;font-weight:600}
+.no-issue{background:#F0FFF8;border-radius:12px;padding:24px;text-align:center;border:1px solid #6EE7B7}
+.sync-pill{position:fixed;right:14px;bottom:14px;z-index:20;background:rgba(15,23,42,.86);color:#CBD5E1;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:7px 11px;font-size:10px;box-shadow:0 10px 24px rgba(15,23,42,.25)}
+
+</style>
+</head>
+<body>
+<div id="app">
+<div class="sync-pill" id="sync-pill">로컬 저장</div>
+
+<!-- 홈 -->
+<div id="home">
+  <div class="home-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div class="company-label">㈜오영 ESQ본부</div>
+        <div class="app-title">통합안전점검</div>
+        <div class="app-date" id="today-date"></div>
+      </div>
+      <button class="btn inspector-btn" onclick="toggleEdit()">
+        <span id="inspector-btn-label">점검자 입력</span>
+      </button>
+    </div>
+    <div class="inspector-form" id="inspector-form" style="display:none">
+      <input id="inp-name" placeholder="점검자 이름" oninput="updateInspector()">
+      <input id="inp-date" oninput="updateInspector()">
+    </div>
+  </div>
+  <div class="dept-grid" id="dept-grid"></div>
+</div>
+
+<!-- 점검 -->
+<div id="inspect">
+  <div class="inspect-header" id="inspect-header">
+    <div class="inspect-topbar">
+      <button class="btn back-btn" onclick="goHome()">← 홈</button>
+      <div>
+        <div class="inspect-title" id="inspect-dept-name"></div>
+        <div class="inspect-stars" id="inspect-dept-stars"></div>
+      </div>
+      <button class="btn report-btn" onclick="goReport()">보고서</button>
+    </div>
+    <div class="score-banner">
+      <div>
+        <div class="score-big" id="inspect-score">100</div>
+        <div class="score-sub">/ 100점</div>
+      </div>
+      <div style="text-align:right">
+        <div class="grade-label" id="inspect-grade"></div>
+        <div style="font-size:10px;opacity:.7" id="inspect-prog"></div>
+      </div>
+    </div>
+    <div class="progress-strip"><div class="progress-fill" id="inspect-prog-bar" style="width:0%"></div></div>
+    <div class="cat-tabs" id="cat-tabs"></div>
+  </div>
+  <div class="prev-bar">
+    <div>
+      <div class="prev-label">전월 미조치</div>
+      <div class="prev-sub" id="prev-sub-text">있음 선택 시 -3점 반영</div>
+    </div>
+    <button class="btn prev-toggle" id="prev-toggle-btn" onclick="togglePrev()">없음</button>
+  </div>
+  <div class="action-rate-box" id="action-rate-box" style="display:none">
+    <div class="ar-title">① 전월 조치율</div>
+    <div class="ar-sub">미조치 건수 1건당 -5점 감점 (최대 60점)</div>
+    <div class="ar-grid">
+      <div><div class="ar-label">전체 의뢰 건수</div><input class="ar-input" type="number" min="0" id="ar-total" value="0" oninput="calcAR()"></div>
+      <div><div class="ar-label">완료 건수</div><input class="ar-input" type="number" min="0" id="ar-done" value="0" oninput="calcAR()"></div>
+    </div>
+    <div class="ar-result">
+      <span class="ar-result-label" id="ar-label">미조치 0건 × -5점</span>
+      <span class="ar-result-val" id="ar-score-val">60 / 60점</span>
+    </div>
+  </div>
+  <div class="items-body" id="items-body"></div>
+</div>
+
+<!-- 보고서 -->
+<div id="report">
+  <div class="report-header" id="report-header">
+    <div class="report-topbar">
+      <button class="btn back-btn" onclick="goInspect()">← 점검</button>
+      <div>
+        <div class="report-meta" id="report-dept-name"></div>
+        <div class="report-date" id="report-date-info"></div>
+      </div>
+    </div>
+    <div class="score-card-big">
+      <div><div class="score-huge" id="report-score"></div><div class="score-unit">/ 100점</div></div>
+      <div style="text-align:right">
+        <div style="font-size:20px;font-weight:800" id="report-grade"></div>
+        <div id="report-prev-badge" style="display:none;font-size:10px;background:rgba(0,0,0,.2);border-radius:5px;padding:2px 8px;margin-top:3px"></div>
+      </div>
+    </div>
+  </div>
+  <div class="report-body" id="report-body"></div>
+</div>
+
+</div>
+<script src="./firebase-config.js"></script>
+<script>
+window.APP_FIREBASE_CONFIG=window.APP_FIREBASE_CONFIG||{
+  apiKey:"AIzaSyD2mDt-2tNYE4tbEU4mvvcRvuMskJnM1dw",
+  authDomain:"esq-aiproject.firebaseapp.com",
+  projectId:"esq-aiproject",
+  storageBucket:"esq-aiproject.firebasestorage.app",
+  messagingSenderId:"555554601752",
+  appId:"1:555554601752:web:5da89e67c4261b2132fc6d",
+  measurementId:"G-PK1D1CBQQ2"
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+<script>
+// ── 데이터 ──────────────────────────────────────────────────
+const STATUS_A=[
+  {key:"ok",label:"이상없음",short:"✅",ded:0,color:"#1D9E75",bg:"#F0FFF8"},
+  {key:"a", label:"A  -1점", short:"A", ded:1,color:"#F59E0B",bg:"#FFFBEB"},
+  {key:"b", label:"B  -2점", short:"B", ded:2,color:"#E27B4A",bg:"#FFF4EE"},
+  {key:"c", label:"C  -3점", short:"C", ded:3,color:"#E24B4A",bg:"#FFF0F0"},
+];
+const STATUS_B=[
+  {key:"ok",      label:"이상없음",short:"✅",ded:0,color:"#1D9E75",bg:"#F0FFF8"},
+  {key:"light",   label:"△ 경미",  short:"△",ded:1,color:"#F59E0B",bg:"#FFFBEB"},
+  {key:"warn",    label:"× 지적",  short:"×",ded:2,color:"#E27B4A",bg:"#FFF4EE"},
+  {key:"critical",label:"🚨 중대", short:"🚨",ded:5,color:"#E24B4A",bg:"#FFF0F0"},
+];
+const DEPTS=[
+  {id:"prod1",name:"생산1부",stars:5,color:"#2563EB",type:"A",prevDed:3,cats:[
+    {id:"p1c1",name:"① 방호장치 설치 상태",max:15,items:[{id:"p1c1i1",name:"커플링·체인·모터·펌프 등 방호장치 설치 및 이탈 여부"}]},
+    {id:"p1c2",name:"② 유해·위험물질 관리",max:15,items:[{id:"p1c2i1",name:"방호벽·바닥·배수구 등 유해위험물 관리 상태"}]},
+    {id:"p1c3",name:"③ 전기판넬·접지 상태",max:15,items:[{id:"p1c3i1",name:"전기판넬·전기기구 관리 및 접지 상태"}]},
+    {id:"p1c4",name:"④ 개인보호구·복장",max:10,items:[{id:"p1c4i1",name:"개인보호구 착용 및 작업복 복장 상태"}]},
+    {id:"p1c5",name:"⑤ 소화설비·비상대피",max:10,items:[{id:"p1c5i1",name:"소화기·소화설비 유효기간 / 비상구·대피로·비상조명 관리 상태"}]},
+    {id:"p1c6",name:"⑥ MSDS·안전표지",max:15,items:[{id:"p1c6i1",name:"MSDS 최신본 비치 및 안전보건표지 부착 상태"}]},
+    {id:"p1c7",name:"⑦ 5S / My Machine",max:10,items:[{id:"p1c7i1",name:"5S 및 My Machine 관리 기록·이행 상태"}]},
+    {id:"p1c8",name:"⑧ 안전수칙 준수",max:10,items:[{id:"p1c8i1",name:"불안전한 행동 및 불안전한 상태 등 안전수칙 준수 여부"}]},
+  ]},
+  {id:"prod2",name:"생산2부",stars:5,color:"#4F46E5",type:"A",prevDed:3,cats:[
+    {id:"p2c1",name:"① 방호장치 설치 상태",max:15,items:[{id:"p2c1i1",name:"커플링·체인·모터·펌프 등 방호장치 설치 및 이탈 여부"}]},
+    {id:"p2c2",name:"② 유해·위험물질 관리",max:15,items:[{id:"p2c2i1",name:"방호벽·바닥·배수구 등 유해위험물 관리 상태"}]},
+    {id:"p2c3",name:"③ 전기판넬·접지 상태",max:15,items:[{id:"p2c3i1",name:"전기판넬·전기기구 관리 및 접지 상태"}]},
+    {id:"p2c4",name:"④ 개인보호구·복장",max:10,items:[{id:"p2c4i1",name:"개인보호구 착용 및 작업복 복장 상태"}]},
+    {id:"p2c5",name:"⑤ 소화설비·비상대피",max:10,items:[{id:"p2c5i1",name:"소화기·소화설비 유효기간 / 비상구·대피로·비상조명 관리 상태"}]},
+    {id:"p2c6",name:"⑥ MSDS·안전표지",max:15,items:[{id:"p2c6i1",name:"MSDS 최신본 비치 및 안전보건표지 부착 상태"}]},
+    {id:"p2c7",name:"⑦ 5S / My Machine",max:10,items:[{id:"p2c7i1",name:"5S 및 My Machine 관리 기록·이행 상태"}]},
+    {id:"p2c8",name:"⑧ 안전수칙 준수",max:10,items:[{id:"p2c8i1",name:"불안전한 행동 및 불안전한 상태 등 안전수칙 준수 여부"}]},
+  ]},
+  {id:"sem",name:"SEM",stars:5,color:"#7C3AED",type:"A",prevDed:3,cats:[
+    {id:"sc1",name:"① 방호장치 설치 상태",max:15,items:[{id:"sc1i1",name:"커플링·체인·모터·펌프 등 방호장치 설치 및 이탈 여부"}]},
+    {id:"sc2",name:"② 유해·위험물질 관리",max:15,items:[{id:"sc2i1",name:"방호벽·바닥·배수구 등 유해위험물 관리 상태"}]},
+    {id:"sc3",name:"③ 전기판넬·접지 상태",max:15,items:[{id:"sc3i1",name:"전기판넬·전기기구 관리 및 접지 상태"}]},
+    {id:"sc4",name:"④ 개인보호구·복장",max:10,items:[{id:"sc4i1",name:"개인보호구 착용 및 작업복 복장 상태"}]},
+    {id:"sc5",name:"⑤ 소화설비·비상대피",max:10,items:[{id:"sc5i1",name:"소화기·소화설비 유효기간 / 비상구·대피로·비상조명 관리 상태"}]},
+    {id:"sc6",name:"⑥ MSDS·안전표지",max:15,items:[{id:"sc6i1",name:"MSDS 최신본 비치 및 안전보건표지 부착 상태"}]},
+    {id:"sc7",name:"⑦ 5S / My Machine",max:10,items:[{id:"sc7i1",name:"5S 및 My Machine 관리 기록·이행 상태"}]},
+    {id:"sc8",name:"⑧ 안전수칙 준수",max:10,items:[{id:"sc8i1",name:"불안전한 행동 및 불안전한 상태 등 안전수칙 준수 여부"}]},
+  ]},
+  {id:"logistics",name:"물류관리팀",stars:4,color:"#D97706",type:"B",prevDed:10,cats:[
+    {id:"lc1",name:"① 운반기계 설비 상태",max:30,items:[
+      {id:"lc1i1",name:"지게차 정기검사 성적서 유효기간"},
+      {id:"lc1i2",name:"지게차·컨베이어 방호장치 손상·미설치"},
+      {id:"lc1i3",name:"운반기계 일상점검 기록 이력"}]},
+    {id:"lc2",name:"② 적재·창고 안전",max:25,items:[
+      {id:"lc2i1",name:"불안전 적재·선반 변형·파손"},
+      {id:"lc2i2",name:"추락방지 설비(난간 등) 손상·미설치"},
+      {id:"lc2i3",name:"보행자·차량 혼용 구역 분리 상태"}]},
+    {id:"lc3",name:"③ 안전수칙 준수",max:25,items:[
+      {id:"lc3i1",name:"불안전한 행동 및 안전수칙 준수 여부"},
+      {id:"lc3i2",name:"화학물질 용기 표시 미부착"},
+      {id:"lc3i3",name:"MSDS 비치 및 최신 여부"}]},
+    {id:"lc4",name:"④ 표지·정리정돈·소화기",max:20,items:[
+      {id:"lc4i1",name:"소화기 관리"},
+      {id:"lc4i2",name:"통로 장기 방치 물품·폐자재"},
+      {id:"lc4i3",name:"작업장 전반 청결·정리 상태 (5S)"}]},
+  ]},
+  {id:"env",name:"환경관리과",stars:4,color:"#059669",type:"B",prevDed:10,cats:[
+    {id:"ec1",name:"① 수조·설비 안전 상태",max:35,items:[
+      {id:"ec1i1",name:"개방형 수조 안전난간 손상·미설치"},
+      {id:"ec1i2",name:"밀폐공간 경고표지 손상·탈락"},
+      {id:"ec1i3",name:"펌프·교반기 방호장치 손상·미설치"},
+      {id:"ec1i4",name:"전기설비 방수 처리 손상·불량"}]},
+    {id:"ec2",name:"② 화학약품 관리",max:25,items:[
+      {id:"ec2i1",name:"약품 탱크·방류벽 파손·누액"},
+      {id:"ec2i2",name:"약품 용기 표시 미부착"},
+      {id:"ec2i3",name:"MSDS 비치 및 최신 여부"}]},
+    {id:"ec3",name:"③ 기록·서류 이력",max:20,items:[
+      {id:"ec3i1",name:"밀폐공간 정기점검 기록 이력"},
+      {id:"ec3i2",name:"설비 정기검사 성적서 유효기간"}]},
+    {id:"ec4",name:"④ 표지·정리정돈",max:20,items:[
+      {id:"ec4i1",name:"설비·구역 명판·위치표시 부재"},
+      {id:"ec4i2",name:"안전표지 손상·탈락"},
+      {id:"ec4i3",name:"작업장 전반 청결·정리 상태"}]},
+  ]},
+  {id:"rnd",name:"연구개발팀",stars:3,color:"#0891B2",type:"B",prevDed:10,cats:[
+    {id:"rc1",name:"① 정리정돈·5S",max:40,items:[{id:"rc1i1",name:"정리정돈 상태"}]},
+    {id:"rc2",name:"② 화학물질 관리",max:25,items:[
+      {id:"rc2i1",name:"시약 보관 기준(시약장 등) 미준수"},
+      {id:"rc2i2",name:"용기 물질명 표시 미부착"},
+      {id:"rc2i3",name:"폐액 분리 수거·표시 미비"},
+      {id:"rc2i4",name:"MSDS 비치 및 최신 여부"}]},
+    {id:"rc3",name:"③ 기록·서류 이력",max:20,items:[
+      {id:"rc3i1",name:"실험실 일상점검 체크리스트 작성 이력"},
+      {id:"rc3i2",name:"흄후드·소화기 정기점검 성적서 유효기간"}]},
+    {id:"rc4",name:"④ 설비·전기 상태",max:15,items:[
+      {id:"rc4i1",name:"실험기기 방호장치 손상·미설치"},
+      {id:"rc4i2",name:"전기 콘센트 문어발·접지 불량 상시 방치"},
+      {id:"rc4i3",name:"안전표지 손상·탈락"}]},
+  ]},
+  {id:"qa",name:"품질관리부",stars:3,color:"#DB2777",type:"B",prevDed:10,cats:[
+    {id:"qc1",name:"① 정리정돈·5S",max:40,items:[{id:"qc1i1",name:"정리정돈 상태"}]},
+    {id:"qc2",name:"② 화학물질 관리",max:25,items:[
+      {id:"qc2i1",name:"냉장고 약품 혼재 보관"},
+      {id:"qc2i2",name:"용기 물질명 표시 미부착"},
+      {id:"qc2i3",name:"질소탱크 관리 상태"},
+      {id:"qc2i4",name:"MSDS 비치 및 최신 여부"}]},
+    {id:"qc3",name:"③ 기록·서류 이력",max:20,items:[
+      {id:"qc3i1",name:"실험실 일상점검 체크리스트 작성 이력"},
+      {id:"qc3i2",name:"흄후드·소화기 정기점검 성적서 유효기간"}]},
+    {id:"qc4",name:"④ 설비·전기 및 보호구",max:15,items:[
+      {id:"qc4i1",name:"개인보호구 착용 및 작업복 복장 상태"},
+      {id:"qc4i2",name:"전기 콘센트 문어발·접지 불량 상시 방치"},
+      {id:"qc4i3",name:"안전표지 손상·탈락"}]},
+  ]},
+  {id:"ts",name:"TS팀",stars:3,color:"#EA580C",type:"B",prevDed:10,cats:[
+    {id:"tc1",name:"① 정리정돈·5S",max:40,items:[{id:"tc1i1",name:"정리정돈 상태"}]},
+    {id:"tc2",name:"② 화학물질 관리",max:25,items:[
+      {id:"tc2i1",name:"용기 물질명 표시 미부착"},
+      {id:"tc2i2",name:"폐액 분리 수거·표시 미비"},
+      {id:"tc2i3",name:"MSDS 비치 및 최신 여부"}]},
+    {id:"tc3",name:"③ 기록·서류 이력",max:20,items:[
+      {id:"tc3i1",name:"연구실 일상점검 체크리스트 작성 이력"},
+      {id:"tc3i2",name:"설비 정기점검 성적서 유효기간"}]},
+    {id:"tc4",name:"④ 설비·표지 상태",max:15,items:[
+      {id:"tc4i1",name:"실험기기·염색기 방호장치 손상·미설치"},
+      {id:"tc4i2",name:"고온 부위 경고표지 손상·탈락"},
+      {id:"tc4i3",name:"전기 콘센트 문어발 상시 방치"}]},
+  ]},
+  {id:"admin",name:"총무팀",stars:2,color:"#475569",type:"B",prevDed:10,cats:[
+    {id:"ac1",name:"① 주방 가스·화재 설비",max:35,items:[
+      {id:"ac1i1",name:"가스 배관·호스 노후·손상 여부"},
+      {id:"ac1i2",name:"가스 자동차단장치 작동 상태"},
+      {id:"ac1i3",name:"주방 소화기·자동소화장치 유효기간"},
+      {id:"ac1i4",name:"배기 후드·필터 기름때 과적 상태"}]},
+    {id:"ac2",name:"② 주방 설비·위생 상태",max:30,items:[
+      {id:"ac2i1",name:"조리기기 방호장치 손상·미설치"},
+      {id:"ac2i2",name:"전기 콘센트 문어발·습기 노출 방치"},
+      {id:"ac2i3",name:"식품 보관 냉장·냉동 온도 관리 기록"}]},
+    {id:"ac3",name:"③ 정리정돈·5S",max:20,items:[
+      {id:"ac3i1",name:"청결 상태 (식당 포함)"},
+      {id:"ac3i2",name:"작업장·식당 정리정돈 상태"},
+      {id:"ac3i3",name:"폐기물·잡자재 분리 관리"}]},
+    {id:"ac4",name:"④ 표지·기록 상태",max:15,items:[
+      {id:"ac4i1",name:"비상구 표지 손상·통로 장애물"},
+      {id:"ac4i2",name:"소화기·가스 점검 기록 이력"}]},
+  ]},
+  {id:"facility",name:"공무팀",stars:5,color:"#DC2626",type:"C",prevDed:0,cats:[
+    {id:"fc1",name:"① 전월 조치율",max:60,special:"action_rate",items:[]},
+    {id:"fc2",name:"② 5S / My Machine",max:20,items:[{id:"fc2i1",name:"5S 및 My Machine 관리 기록·이행 상태"}]},
+    {id:"fc3",name:"③ 안전수칙 준수",max:20,items:[{id:"fc3i1",name:"불안전한 행동 및 불안전한 상태 등 안전수칙 준수 여부"}]},
+  ]},
+];
+
+// ── 상태 ──────────────────────────────────────────────────
+const state={
+  inspector:{name:"",date:new Date().toLocaleDateString("ko-KR")},
+  results:{},   // itemId -> statusKey
+  memos:{},     // itemId -> string
+  photos:{},    // itemId -> [{url,path,createdAt}]
+  prevMonth:{}, // deptId -> bool
+  arData:{},    // deptId -> {total,done}
+  aiAnalysis:{},// itemId -> obj
+  memoOpen:{},  // itemId -> bool
+  currentDeptId:null,
+  currentCatIdx:0,
+  loadingAI:null,
+};
+
+const STORAGE_KEY="oyoung-safety-inspection-v1";
+const SYNC_DOC_PATH="shared/safety-inspection-oyoung";
+const ENABLE_CLOUD_PHOTOS=false;
+let db=null;
+let syncDocRef=null;
+let storage=null;
+let saveTimer=null;
+let applyingRemote=false;
+
+function persistedState(remote=false){
+  const photos=remote
+    ? Object.fromEntries(Object.entries(state.photos).map(([itemId,list])=>[
+        itemId,(list||[]).filter(p=>p.path&&/^https?:\/\//.test(p.url||""))
+      ]).filter(([,list])=>list.length))
+    : state.photos;
+  return {
+    inspector:state.inspector,
+    results:state.results,
+    memos:state.memos,
+    photos,
+    prevMonth:state.prevMonth,
+    arData:state.arData,
+    aiAnalysis:state.aiAnalysis,
+    updatedAt:new Date().toISOString()
+  };
+}
+function applyPersisted(data){
+  if(!data||typeof data!=="object") return;
+  ["inspector","results","memos","photos","prevMonth","arData","aiAnalysis"].forEach(key=>{
+    if(data[key]&&typeof data[key]==="object") state[key]={...state[key],...data[key]};
+  });
+  syncInspectorInputs();
+  rerenderCurrentView();
+}
+function setSyncStatus(text,color){
+  const pill=document.getElementById("sync-pill");
+  if(!pill) return;
+  pill.textContent=text;
+  pill.style.color=color||"#CBD5E1";
+}
+function saveLocal(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(persistedState(false)));}catch{}
+}
+function loadLocal(){
+  try{applyPersisted(JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch{}
+}
+function scheduleSave(){
+  if(applyingRemote) return;
+  saveLocal();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveRemote,450);
+}
+async function saveRemote(){
+  if(!syncDocRef){setSyncStatus("로컬 저장","#CBD5E1");return;}
+  try{
+    setSyncStatus("동기화 중","#FDE68A");
+    await syncDocRef.set(persistedState(true),{merge:true});
+    setSyncStatus("PC·모바일 연동","#BBF7D0");
+  }catch{
+    setSyncStatus("로컬 저장","#FCA5A5");
+  }
+}
+function initSync(){
+  loadLocal();
+  try{
+    const cfg=window.APP_FIREBASE_CONFIG;
+    if(!window.firebase||!cfg){setSyncStatus("로컬 저장","#CBD5E1");return;}
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    db=firebase.firestore();
+    if(ENABLE_CLOUD_PHOTOS&&firebase.storage) storage=firebase.storage();
+    syncDocRef=db.doc(SYNC_DOC_PATH);
+    syncDocRef.onSnapshot(snap=>{
+      if(!snap.exists){saveRemote();return;}
+      applyingRemote=true;
+      applyPersisted(snap.data());
+      applyingRemote=false;
+      saveLocal();
+      setSyncStatus("PC·모바일 연동","#BBF7D0");
+    },()=>{
+      setSyncStatus("로컬 저장","#FCA5A5");
+    });
+  }catch{
+    setSyncStatus("로컬 저장","#FCA5A5");
+  }
+}
+
+// ── 유틸 ──────────────────────────────────────────────────
+function getStatuses(type){return type==="A"?STATUS_A:STATUS_B;}
+function getDept(id){return DEPTS.find(d=>d.id===id);}
+function getGrade(s){
+  if(s>=95)return{label:"⭐ 우수",color:"#1D9E75"};
+  if(s>=90)return{label:"✅ 양호",color:"#3B82F6"};
+  if(s>=85)return{label:"🔶 보통",color:"#F59E0B"};
+  if(s>=80)return{label:"⚠️ 미흡",color:"#E27B4A"};
+  return{label:"🔴 불량",color:"#E24B4A"};
+}
+function calcScore(dept){
+  const st=getStatuses(dept.type==="C"?"B":dept.type);
+  let total=0;
+  for(const cat of dept.cats){
+    if(cat.special==="action_rate"){
+      const ar=state.arData[dept.id]||{total:0,done:0};
+      const unresolved=Math.max(0,ar.total-ar.done);
+      total+=Math.max(0,60-unresolved*5);
+    } else {
+      let ded=0;
+      for(const item of cat.items){
+        const k=state.results[item.id];
+        if(k){const sv=st.find(s=>s.key===k);if(sv)ded+=sv.ded;}
+      }
+      total+=Math.max(0,cat.max-ded);
+    }
+  }
+  if(state.prevMonth[dept.id]&&dept.prevDed>0) total=Math.max(0,total-dept.prevDed);
+  return Math.min(100,total);
+}
+function getDeptProg(dept){
+  const all=dept.cats.flatMap(c=>c.items);
+  return{done:all.filter(i=>state.results[i.id]).length,total:all.length};
+}
+function allItems(dept){return dept.cats.flatMap(c=>c.items);}
+function escapeHTML(v){
+  return String(v||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+// ── 초기화 ────────────────────────────────────────────────
+function init(){
+  initSync();
+  const today=new Date().toLocaleDateString("ko-KR");
+  document.getElementById("today-date").textContent=state.inspector.date||today;
+  syncInspectorInputs();
+  renderHome();
+}
+function syncInspectorInputs(){
+  const nameEl=document.getElementById("inp-name");
+  const dateEl=document.getElementById("inp-date");
+  const todayEl=document.getElementById("today-date");
+  const btnEl=document.getElementById("inspector-btn-label");
+  if(nameEl) nameEl.value=state.inspector.name||"";
+  if(dateEl) dateEl.value=state.inspector.date||new Date().toLocaleDateString("ko-KR");
+  if(todayEl) todayEl.textContent=state.inspector.date||new Date().toLocaleDateString("ko-KR");
+  if(btnEl) btnEl.textContent=state.inspector.name||"점검자 입력";
+}
+function rerenderCurrentView(){
+  if(state.currentDeptId&&document.getElementById("report").style.display==="block") renderReport();
+  else if(state.currentDeptId&&document.getElementById("inspect").style.display==="block") renderInspect();
+  else renderHome();
+}
+
+// ── 홈 ────────────────────────────────────────────────────
+function renderHome(){
+  const grid=document.getElementById("dept-grid");
+  grid.innerHTML="";
+  DEPTS.forEach(dept=>{
+    const{done,total}=getDeptProg(dept);
+    const score=done>0?calcScore(dept):null;
+    const grade=score!==null?getGrade(score):null;
+    const pct=total>0?Math.round(done/total*100):0;
+    const stars="★".repeat(dept.stars)+"☆".repeat(5-dept.stars);
+    const el=document.createElement("button");
+    el.className="btn dept-card"+(done>0?" visited":"");
+    el.style.setProperty("--dept-color",dept.color);
+    el.innerHTML=`
+      <div class="dept-icon" style="background:${dept.color}20">
+        <div class="dept-dot" style="background:${dept.color}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="dept-name">${dept.name}</div>
+        ${score!==null?`<div><div class="dept-score" style="color:${grade.color}">${score}</div><div class="dept-score-sub">점</div></div>`:""}
+      </div>
+      <div class="dept-stars">${stars}</div>
+      <div class="dept-bar-bg"><div class="dept-bar" style="background:${dept.color};width:${pct}%"></div></div>
+      <div class="dept-footer">
+        <span class="dept-prog">${done}/${total} 완료</span>
+        ${grade?`<span class="dept-grade" style="color:${grade.color}">${grade.label}</span>`:""}
+      </div>
+    `;
+    el.onclick=()=>openDept(dept.id);
+    grid.appendChild(el);
+  });
+}
+
+// ── 점검 화면 ─────────────────────────────────────────────
+function openDept(deptId){
+  state.currentDeptId=deptId;
+  state.currentCatIdx=0;
+  renderInspect();
+  showView("inspect");
+}
+function renderInspect(){
+  const dept=getDept(state.currentDeptId);
+  const score=calcScore(dept);
+  const grade=getGrade(score);
+  const{done,total}=getDeptProg(dept);
+  const pct=total>0?Math.round(done/total*100):0;
+
+  // 헤더 색
+  document.getElementById("inspect-header").style.background=dept.color;
+  document.getElementById("inspect-dept-name").textContent=dept.name;
+  document.getElementById("inspect-dept-stars").textContent="★".repeat(dept.stars);
+  document.getElementById("inspect-score").textContent=score;
+  document.getElementById("inspect-grade").textContent=grade.label;
+  document.getElementById("inspect-grade").style.color="#fff";
+  document.getElementById("inspect-prog").textContent=`${done}/${total} 항목 완료`;
+  document.getElementById("inspect-prog-bar").style.width=pct+"%";
+
+  // 전월 미조치
+  const prevOn=state.prevMonth[dept.id];
+  const pb=document.getElementById("prev-toggle-btn");
+  pb.textContent=prevOn?"있음":"없음";
+  pb.style.color=prevOn?"#DC2626":"#059669";
+  pb.style.borderColor=prevOn?"#FCA5A5":"#6EE7B7";
+  pb.style.background=prevOn?"#FEF2F2":"#F0FFF8";
+  document.getElementById("prev-sub-text").textContent=`있음 선택 시 -${dept.prevDed}점 반영`;
+
+  // 공무팀 전월조치율
+  const arBox=document.getElementById("action-rate-box");
+  if(dept.type==="C"){
+    arBox.style.display="block";
+    arBox.style.borderTop=`3px solid ${dept.color}`;
+    const ar=state.arData[dept.id]||{total:0,done:0};
+    document.getElementById("ar-total").value=ar.total||0;
+    document.getElementById("ar-done").value=ar.done||0;
+    calcAR(false);
+  } else {
+    arBox.style.display="none";
+  }
+
+  // 카테고리 탭
+  const tabs=document.getElementById("cat-tabs");
+  tabs.innerHTML="";
+  dept.cats.forEach((cat,idx)=>{
+    const hasIssue=cat.items.some(i=>{const k=state.results[i.id];return k&&k!=="ok";});
+    const tab=document.createElement("button");
+    tab.className="btn cat-tab"+(idx===state.currentCatIdx?" active":"");
+    tab.style.color=idx===state.currentCatIdx?dept.color:"rgba(255,255,255,.8)";
+    tab.textContent=cat.name.slice(0,7);
+    if(hasIssue){const dot=document.createElement("span");dot.className="dot";tab.appendChild(dot);}
+    tab.onclick=()=>{state.currentCatIdx=idx;renderInspect();};
+    tabs.appendChild(tab);
+  });
+
+  renderItems();
+}
+function renderItems(){
+  const dept=getDept(state.currentDeptId);
+  const cat=dept.cats[state.currentCatIdx];
+  const st=getStatuses(dept.type==="C"?"B":dept.type);
+  const body=document.getElementById("items-body");
+  body.innerHTML="";
+
+  if(cat.special==="action_rate") return;
+
+  // 카테고리 헤더
+  const hdr=document.createElement("div");
+  hdr.className="cat-header";
+  hdr.innerHTML=`<div class="cat-title">${cat.name}</div><div class="cat-max">${cat.max}점</div>`;
+  body.appendChild(hdr);
+
+  cat.items.forEach((item,idx)=>{
+    const statusKey=state.results[item.id];
+    const cur=st.find(s=>s.key===statusKey);
+    const isIssue=statusKey&&statusKey!=="ok";
+    const ai=state.aiAnalysis[item.id];
+    const photos=state.photos[item.id]||[];
+
+    const card=document.createElement("div");
+    card.className="item-card"+(isIssue?" issue":statusKey==="ok"?" ok":"");
+    if(isIssue) card.style.setProperty("--issue-color",cur.color);
+    if(isIssue) card.style.borderLeftColor=cur.color;
+    else if(statusKey==="ok") card.style.borderLeftColor="#1D9E75";
+
+    // 상태 버튼 그리드
+    const btnCols=`repeat(${st.length},1fr)`;
+    const btns=st.map(s=>{
+      const active=statusKey===s.key;
+      return `<button class="btn status-btn" 
+        style="background:${active?s.color:s.bg};color:${active?"#fff":s.color};border-color:${s.color}60"
+        onclick="setResult('${item.id}','${s.key}')">${s.label}</button>`;
+    }).join("");
+
+    const memoVal=escapeHTML(state.memos[item.id]||"");
+
+    card.innerHTML=`
+      <div class="item-top">
+        <div style="flex:1;padding-right:8px">
+          <div class="item-num">항목 ${idx+1}</div>
+          <div class="item-name">${item.name}</div>
+        </div>
+        ${cur?`<div class="item-badge" style="background:${cur.color}">${cur.short}</div>`:""}
+      </div>
+      <div class="status-btns" style="grid-template-columns:${btnCols}">${btns}</div>
+      <div class="remark-label">비고 <span style="font-weight:400;color:#94A3B8">왜 그런지 설명</span></div>
+      <textarea class="remark-textarea" placeholder="예: 방호커버 일부 이탈, 즉시 재고정 필요" oninput="saveMemo('${item.id}',this.value)">${memoVal}</textarea>
+      <div class="photo-row">
+        <div class="photo-actions">
+          <div class="photo-label">현장 사진 <span style="font-weight:400;color:#94A3B8">${photos.length}장</span></div>
+          <button class="photo-btn" onclick="document.getElementById('photo-${item.id}').click()">카메라 촬영</button>
+          <input id="photo-${item.id}" type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoInput('${item.id}','${item.name.replace(/'/g,"\\'")}',this)">
+        </div>
+        ${photos.length?`<div class="photo-grid">${photos.map((p,pidx)=>`
+          <div class="photo-entry">
+            <div class="photo-thumb">
+              <img src="${escapeHTML(p.url)}" alt="점검 사진">
+              <button class="photo-remove" onclick="removePhoto('${item.id}',${pidx})">×</button>
+            </div>
+            <div class="photo-caption-wrap">
+              <div class="photo-caption-label">사진 ${pidx+1} 설명</div>
+              <textarea class="photo-caption" placeholder="예: 방호커버 이탈 부위" oninput="savePhotoCaption('${item.id}',${pidx},this.value)">${escapeHTML(p.caption||"")}</textarea>
+            </div>
+          </div>`).join("")}</div>`:""}
+      </div>
+      ${isIssue&&!ai?`<button class="btn ai-btn" id="ai-btn-${item.id}" onclick="runAI('${item.id}','${item.name.replace(/'/g,"\\'")}')">
+        ${state.loadingAI===item.id?"🤖 AI 분석 중...":"🤖 AI 위험도 분석"}
+      </button>`:""}
+      ${ai?`<div class="ai-box">
+        <div class="ai-title">🤖 AI 분석 · <span style="color:${ai.riskLevel==="높음"?"#DC2626":ai.riskLevel==="중간"?"#D97706":"#059669"}">위험도 ${ai.riskLevel}</span></div>
+        <div class="ai-body">
+          <div>원인 · ${ai.cause}</div>
+          <div>조치 · ${ai.action}</div>
+          <div>기한 · <b style="color:#DC2626">${ai.deadline}</b></div>
+        </div>
+      </div>`:""}
+    `;
+    body.appendChild(card);
+  });
+
+  // 소계
+  const ded=cat.items.reduce((sum,item)=>{
+    const k=state.results[item.id];if(!k)return sum;
+    const sv=st.find(s=>s.key===k);return sum+(sv?.ded||0);
+  },0);
+  const catScore=Math.max(0,cat.max-ded);
+  const sub=document.createElement("div");
+  sub.className="cat-subtotal";
+  sub.innerHTML=`<span class="subtotal-label">${cat.name} 소계</span>
+    <span class="subtotal-val" style="color:${dept.color}">${catScore} / ${cat.max}점</span>`;
+  body.appendChild(sub);
+}
+
+function setResult(itemId,key){
+  state.results[itemId]=key;
+  scheduleSave();
+  renderInspect();
+}
+function toggleMemo(itemId){
+  state.memoOpen[itemId]=!state.memoOpen[itemId];
+  renderItems();
+}
+function saveMemo(itemId,val){
+  state.memos[itemId]=val;
+  scheduleSave();
+}
+function savePhotoCaption(itemId,idx,val){
+  const list=state.photos[itemId]||[];
+  if(!list[idx]) return;
+  list[idx]={...list[idx],caption:val};
+  state.photos[itemId]=list;
+  scheduleSave();
+}
+function safeFileName(value){
+  return String(value||"photo").replace(/[^\w.-]+/g,"_").slice(0,50);
+}
+function compressPhoto(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const max=900;
+        const scale=Math.min(1,max/Math.max(img.width,img.height));
+        const canvas=document.createElement("canvas");
+        canvas.width=Math.round(img.width*scale);
+        canvas.height=Math.round(img.height*scale);
+        const ctx=canvas.getContext("2d");
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(blob=>{
+          if(!blob){reject(new Error("사진 압축 실패"));return;}
+          resolve({blob,dataUrl:canvas.toDataURL("image/jpeg",0.72)});
+        },"image/jpeg",0.72);
+      };
+      img.onerror=reject;
+      img.src=reader.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function handlePhotoInput(itemId,itemName,input){
+  const file=input.files&&input.files[0];
+  input.value="";
+  if(!file) return;
+  const dept=getDept(state.currentDeptId);
+  setSyncStatus("사진 저장 중","#FDE68A");
+  try{
+    const compressed=await compressPhoto(file);
+    const createdAt=new Date().toISOString();
+    let photo={url:compressed.dataUrl,path:"",createdAt,deptId:dept.id,itemName,caption:""};
+    if(storage){
+      try{
+        const path=`oyoung-safety-photos/${dept.id}/${itemId}/${Date.now()}-${safeFileName(file.name||"photo.jpg")}.jpg`;
+        const ref=storage.ref(path);
+        await ref.put(compressed.blob,{contentType:"image/jpeg"});
+        photo.url=await ref.getDownloadURL();
+        photo.path=path;
+      }catch{
+        photo.path="";
+      }
+    }
+    state.photos[itemId]=[...(state.photos[itemId]||[]),photo];
+    scheduleSave();
+    renderInspect();
+    setSyncStatus(photo.path?"사진 저장 완료":"기기 저장 완료",photo.path?"#BBF7D0":"#CBD5E1");
+  }catch{
+    setSyncStatus("사진 저장 실패","#FCA5A5");
+  }
+}
+async function removePhoto(itemId,idx){
+  const list=state.photos[itemId]||[];
+  const [photo]=list.splice(idx,1);
+  state.photos[itemId]=list;
+  scheduleSave();
+  renderInspect();
+  try{if(storage&&photo?.path) await storage.ref(photo.path).delete();}catch{}
+}
+function togglePrev(){
+  const dept=getDept(state.currentDeptId);
+  state.prevMonth[dept.id]=!state.prevMonth[dept.id];
+  scheduleSave();
+  renderInspect();
+}
+function calcAR(shouldSave=true){
+  const dept=getDept(state.currentDeptId);
+  if(!dept) return;
+  const t=parseInt(document.getElementById("ar-total").value)||0;
+  const d=parseInt(document.getElementById("ar-done").value)||0;
+  state.arData[dept.id]={total:t,done:d};
+  if(shouldSave) scheduleSave();
+  const unresolved=Math.max(0,t-d);
+  const sc=Math.max(0,60-unresolved*5);
+  document.getElementById("ar-label").textContent=`미조치 ${unresolved}건 × -5점`;
+  document.getElementById("ar-score-val").textContent=`${sc} / 60점`;
+  document.getElementById("ar-score-val").style.color=dept.color;
+  document.getElementById("inspect-score").textContent=calcScore(dept);
+}
+
+// ── AI 분석 ───────────────────────────────────────────────
+async function runAI(itemId,itemName){
+  state.loadingAI=itemId;
+  renderItems();
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,
+        messages:[{role:"user",content:`산업현장 안전점검 항목: "${itemName}"\n메모: "${state.memos[itemId]||"없음"}"\n결과: 부적합\n\nJSON만 출력:\n{"riskLevel":"높음/중간/낮음","cause":"원인 1문장","action":"조치 1문장","deadline":"즉시/24시간 이내/1주일 이내"}`}]
+      })
+    });
+    const data=await res.json();
+    const text=data.content?.[0]?.text||"{}";
+    state.aiAnalysis[itemId]=JSON.parse(text.replace(/```json|```/g,"").trim());
+  }catch{
+    state.aiAnalysis[itemId]={riskLevel:"분석실패",cause:"오류 발생",action:"수동 확인 필요",deadline:"-"};
+  }
+  state.loadingAI=null;
+  renderItems();
+}
+
+// ── 보고서 ────────────────────────────────────────────────
+function goReport(){
+  renderReport();
+  showView("report");
+}
+function renderReport(){
+  const dept=getDept(state.currentDeptId);
+  const score=calcScore(dept);
+  const grade=getGrade(score);
+  const st=getStatuses(dept.type==="C"?"B":dept.type);
+  const ar=state.arData[dept.id]||{total:0,done:0};
+
+  document.getElementById("report-header").style.background=dept.color;
+  document.getElementById("report-dept-name").textContent=`${dept.name} 보고서`;
+  document.getElementById("report-date-info").textContent=
+    `${state.inspector.date}${state.inspector.name?" · "+state.inspector.name:""}`;
+  document.getElementById("report-score").textContent=score;
+  document.getElementById("report-grade").textContent=grade.label;
+  const prevBadge=document.getElementById("report-prev-badge");
+  if(state.prevMonth[dept.id]&&dept.prevDed>0){
+    prevBadge.style.display="block";
+    prevBadge.textContent=`전월미조치 -${dept.prevDed}점 반영`;
+  } else {
+    prevBadge.style.display="none";
+  }
+
+  const body=document.getElementById("report-body");
+  body.innerHTML="";
+
+  // 등급 기준
+  const gradeBox=document.createElement("div");
+  gradeBox.className="report-section";
+  gradeBox.innerHTML=`<div class="grade-chips">
+    ${[["⭐ 우수","#1D9E75","95↑"],["✅ 양호","#3B82F6","90↑"],
+       ["🔶 보통","#F59E0B","85↑"],["⚠️ 미흡","#E27B4A","80↑"],["🔴 불량","#E24B4A","79↓"]]
+    .map(([l,c,r])=>`<span class="grade-chip" style="color:${c};background:${c}20">${l} ${r}</span>`).join("")}
+  </div>`;
+  body.appendChild(gradeBox);
+
+  // 카테고리 점수
+  const catBox=document.createElement("div");
+  catBox.className="report-section";
+  catBox.innerHTML=`<div class="section-title">카테고리별 점수</div>`;
+  dept.cats.forEach(cat=>{
+    const row=document.createElement("div");
+    row.className="cat-row";
+    if(cat.special==="action_rate"){
+      const unresolved=Math.max(0,ar.total-ar.done);
+      const cs=Math.max(0,60-unresolved*5);
+      row.innerHTML=`<div><div class="cat-row-name">${cat.name}</div>
+        <div class="cat-row-sub">미조치 ${unresolved}건 × -5점</div></div>
+        <div class="cat-row-score" style="color:${dept.color}">${cs}<span style="font-size:11px;color:#94A3B8">/${cat.max}</span></div>`;
+    } else {
+      const ded=cat.items.reduce((sum,item)=>{
+        const k=state.results[item.id];if(!k)return sum;
+        const sv=st.find(s=>s.key===k);return sum+(sv?.ded||0);
+      },0);
+      const cs=Math.max(0,cat.max-ded);
+      row.innerHTML=`<div class="cat-row-name">${cat.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${ded>0?`<span class="cat-row-ded">-${ded}점</span>`:""}
+          <span class="cat-row-score" style="color:${cs===cat.max?dept.color:"#E24B4A"}">${cs}<span style="font-size:11px;color:#94A3B8">/${cat.max}</span></span>
+        </div>`;
+    }
+    catBox.appendChild(row);
+  });
+  if(state.prevMonth[dept.id]&&dept.prevDed>0){
+    const pr=document.createElement("div");pr.className="cat-row";
+    pr.innerHTML=`<span class="cat-row-name" style="color:#E24B4A">전월 미조치 감점</span>
+      <span style="font-size:13px;font-weight:700;color:#E24B4A">-${dept.prevDed}</span>`;
+    catBox.appendChild(pr);
+  }
+  const total=document.createElement("div");total.className="total-row";
+  total.innerHTML=`<span class="total-label">합  계</span>
+    <span class="total-val" style="color:${dept.color}">${score} / 100점</span>`;
+  catBox.appendChild(total);
+  body.appendChild(catBox);
+
+  // 지적 항목
+  const issueItems=dept.cats.flatMap(cat=>
+    cat.items.filter(i=>{const k=state.results[i.id];return (k&&k!=="ok")||(state.photos[i.id]||[]).length;})
+      .map(i=>({...i,catName:cat.name,status:st.find(s=>s.key===state.results[i.id])}))
+  );
+
+  if(issueItems.length>0){
+    const ih=document.createElement("div");
+    ih.className="issue-header";
+    ih.textContent=`⚠️ 지적 항목 ${issueItems.length}건`;
+    body.appendChild(ih);
+
+    issueItems.forEach(item=>{
+      const ai=state.aiAnalysis[item.id];
+      const photos=state.photos[item.id]||[];
+      const card=document.createElement("div");
+      card.className="issue-card";
+      card.style.borderLeftColor=item.status?.color||dept.color;
+      card.innerHTML=`
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <div class="issue-name">${item.name}</div>
+          ${item.status?`<span class="issue-badge" style="background:${item.status.color}">${item.status.short}</span>`:`<span class="issue-badge" style="background:${dept.color}">사진</span>`}
+        </div>
+        <div class="issue-cat">${item.catName}</div>
+        ${state.memos[item.id]?`<div class="issue-memo"><b>비고 · </b>${escapeHTML(state.memos[item.id])}</div>`:""}
+        ${photos.length?`<div class="report-photos">${photos.map(p=>`
+          <div>
+            <img src="${escapeHTML(p.url)}" alt="점검 사진">
+            ${p.caption?`<div class="report-photo-caption">${escapeHTML(p.caption)}</div>`:""}
+          </div>`).join("")}</div>`:""}
+        ${ai?`<div class="ai-box">
+          <div class="ai-title">🤖 AI · <span style="color:${ai.riskLevel==="높음"?"#DC2626":ai.riskLevel==="중간"?"#D97706":"#059669"}">위험도 ${ai.riskLevel}</span></div>
+          <div class="ai-body">
+            <div>원인 · ${ai.cause}</div><div>조치 · ${ai.action}</div>
+            <div>기한 · <b style="color:#DC2626">${ai.deadline}</b></div>
+          </div>
+        </div>`:item.status?`<button class="btn ai-btn" onclick="runAIReport('${item.id}','${item.name.replace(/'/g,"\\'")}')">
+          ${state.loadingAI===item.id?"분석 중...":"🤖 AI 위험도 분석"}
+        </button>`:""}
+      `;
+      body.appendChild(card);
+    });
+  } else {
+    const noIssue=document.createElement("div");
+    noIssue.className="no-issue";
+    noIssue.innerHTML=`<div style="font-size:28px;margin-bottom:6px">🎉</div>
+      <div style="font-size:14px;font-weight:700;color:#059669">지적 항목 없음</div>
+      <div style="font-size:12px;color:#6EE7B7;margin-top:4px">모든 항목이 이상없습니다</div>`;
+    body.appendChild(noIssue);
+  }
+}
+async function runAIReport(itemId,itemName){
+  await runAI(itemId,itemName);
+  renderReport();
+}
+
+// ── 점검자 ────────────────────────────────────────────────
+function toggleEdit(){
+  const f=document.getElementById("inspector-form");
+  f.style.display=f.style.display==="none"?"block":"none";
+}
+function updateInspector(){
+  state.inspector.name=document.getElementById("inp-name").value;
+  state.inspector.date=document.getElementById("inp-date").value||new Date().toLocaleDateString("ko-KR");
+  document.getElementById("today-date").textContent=state.inspector.date;
+  document.getElementById("inspector-btn-label").textContent=state.inspector.name||"점검자 입력";
+  scheduleSave();
+}
+
+// ── 뷰 전환 ───────────────────────────────────────────────
+function showView(v){
+  ["home","inspect","report"].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.display=id===v?"block":"none";
+  });
+  window.scrollTo(0,0);
+}
+function goHome(){renderHome();showView("home");}
+function goInspect(){renderInspect();showView("inspect");}
+
+init();
+</script>
+</body>
+</html>
+

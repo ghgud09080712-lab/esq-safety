@@ -1,0 +1,319 @@
+/* Data-area-only polish layer.
+   Remove this file link from index.html to return to the previous state. */
+
+.tool-label {
+  margin-bottom: 2px;
+}
+
+.api-input,
+.modal-input,
+.modal-number,
+.modal-textarea,
+.popup-input,
+.share-input,
+#king-filters select,
+#king-filters input,
+.chart-period-select,
+select#monthSelect {
+  min-height: 36px;
+  background: #ffffff;
+  border-color: #c8d2de;
+  color: #172539;
+  border-radius: 4px;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.api-input:focus,
+.modal-input:focus,
+.modal-number:focus,
+.modal-textarea:focus,
+.popup-input:focus,
+.share-input:focus,
+#king-filters select:focus,
+#king-filters input:focus,
+.chart-period-select:focus,
+select#monthSelect:focus,
+.search-box:focus-within {
+  border-color: #184e9e !important;
+  box-shadow: 0 0 0 2px rgba(24, 78, 158, 0.10);
+}
+
+.info-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(213, 227, 246, 0.10);
+  color: rgba(236, 244, 255, 0.76);
+  border-radius: 6px;
+}
+
+.search-box {
+  min-width: 320px;
+  background: #ffffff;
+  border-radius: 4px;
+  min-height: 38px;
+}
+
+.search-input {
+  font-size: 14px;
+}
+
+#gridWrapper {
+  padding-top: 10px;
+}
+
+#myGrid,
+.ag-theme-quartz {
+  border-color: #c8d2de;
+  background: #ffffff;
+  border-radius: 4px;
+}
+
+.ag-theme-quartz {
+  --ag-header-height: 40px;
+  --ag-row-height: 36px;
+  --ag-header-background-color: #f5f7fa;
+  --ag-header-foreground-color: #31465f;
+  --ag-row-border-color: #ebf0f5;
+  --ag-selected-row-background-color: #edf3fb;
+  --ag-odd-row-background-color: #fcfdff;
+  --ag-font-size: 13px;
+}
+
+.ag-theme-quartz .ag-header-cell,
+.ag-theme-quartz .ag-header-group-cell {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.ag-theme-quartz .ag-cell {
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.ag-theme-quartz .ag-row {
+  transition: background-color 0.12s ease;
+}
+
+.ag-theme-quartz .ag-row:hover {
+  background: #f7faff !important;
+}
+
+.ag-theme-quartz .ag-header {
+  border-bottom: 1px solid #dbe3ec;
+}
+
+.ag-theme-quartz .ag-root-wrapper {
+  border: 0 !important;
+  border-radius: 4px;
+}
+
+.ag-theme-quartz .ag-pinned-left-header,
+.ag-theme-quartz .ag-header-viewport,
+.ag-theme-quartz .ag-center-cols-viewport {
+  background: inherit;
+}
+
+.footer-stats {
+  font-size: 13px;
+  gap: 12px;
+  color: #425466;
+}
+
+.footer-stats b {
+  font-weight: 700;
+}
+
+.footer-divider {
+  height: 12px;
+  background: #dbe3ec;
+}
+
+.footer-save-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5f6f82;
+}
+
+.modal-head {
+  padding-bottom: 12px;
+}
+
+.modal-form label {
+  gap: 5px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.modal-panel {
+  border: 1px solid #dde5ee;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.modal-panel-title {
+  color: #214163;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.modal-input,
+.modal-number,
+.modal-textarea {
+  padding: 9px 10px;
+}
+
+.modal-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.share-modal {
+  background: rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(6px);
+}
+
+.share-card {
+  width: min(560px, 100%);
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  padding: 20px;
+  gap: 16px;
+}
+
+.share-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #172539;
+}
+
+.share-card p {
+  font-size: 13px;
+  color: #5f6f82;
+  line-height: 1.6;
+}
+
+.share-field {
+  gap: 6px;
+}
+
+.share-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #425466;
+}
+
+.share-input {
+  min-height: 38px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  background: #ffffff;
+  border: 1px solid #c8d2de;
+  color: #172539;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.share-grid {
+  gap: 8px;
+}
+
+.share-stat {
+  background: #f7f9fc;
+  border: 1px solid #dbe3ec;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.share-stat-label {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.share-stat-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f3552;
+}
+
+.share-actions {
+  gap: 8px;
+  padding-top: 2px;
+}
+
+#rvModal {
+  padding: 10px;
+}
+
+#rvBox {
+  width: min(1520px, calc(100vw - 20px));
+  max-width: none;
+  max-height: calc(100vh - 20px);
+  border-radius: 8px;
+}
+
+#rvBox .rv-head {
+  padding: 14px 18px;
+}
+
+#rv-sum {
+  gap: 8px;
+  padding: 12px 18px;
+}
+
+#rv-body {
+  padding: 12px 18px 16px;
+}
+
+.rv-table-wrap {
+  overflow-x: hidden;
+}
+
+.rv-table {
+  font-size: 11px;
+}
+
+.rv-table th {
+  padding: 6px 6px;
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.rv-table td {
+  padding: 6px 6px;
+  line-height: 1.3;
+}
+
+.rv-table td.money {
+  letter-spacing: -0.01em;
+}
+
+.rv-table .dept-cell,
+.rv-table td.lft {
+  word-break: keep-all;
+  white-space: normal;
+}
+
+.rv-table-wrap-compact .rv-table,
+.rv-table-wrap-tight .rv-table {
+  font-size: 10px;
+}
+
+.rv-table-wrap-compact .rv-table th,
+.rv-table-wrap-tight .rv-table th {
+  font-size: 9px;
+  padding: 5px 4px;
+}
+
+.rv-table-wrap-compact .rv-table td,
+.rv-table-wrap-tight .rv-table td {
+  padding: 5px 4px;
+}

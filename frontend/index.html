@@ -1,0 +1,348 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>개선제안정리</title>
+<script src="/vendor/ag-grid-community/dist/ag-grid-community.min.js"></script>
+<script src="/vendor/xlsx/dist/xlsx.full.min.js"></script>
+<script src="/vendor/firebase/firebase-app-compat.js"></script>
+<script src="/vendor/firebase/firebase-auth-compat.js"></script>
+<script src="/vendor/firebase/firebase-firestore-compat.js"></script>
+<script src="/vendor/firebase/firebase-storage-compat.js"></script>
+<script src="./firebase-config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/frontend/src/styles.css?v=20260422-duplicate-check">
+<link rel="stylesheet" href="/frontend/src/styles-professional.css?v=20260421-sidebar-push-keep">
+<link rel="stylesheet" href="/frontend/src/styles-data-tune.css">
+</head>
+<body class="ag-theme-quartz">
+
+<aside id="sidebar" class="collapsed">
+  <div class="sidebar-header">
+    <div class="brand-lockup brand-lockup-sidebar">
+      <div class="brand-copy">
+        <div class="brand-name">ESQ본부</div>
+        <div class="brand-sub">Improvement Management</div>
+      </div>
+    </div>
+    <h2>WORKPLACE TOOLS</h2>
+  </div>
+
+  <div class="sidebar-content">
+    <div class="tool-item">
+      <button class="btn panel-toggle" id="analysisToggleBtn" onclick="toggleAnalysisPanel()" aria-expanded="false">
+        <span>PDF / Excel 분석</span>
+        <span id="analysisToggleIcon">+</span>
+      </button>
+    </div>
+
+    <div id="analysisToolsPanel" class="analysis-tools">
+    <!-- 드롭존 -->
+    <div class="tool-item">
+      <span class="tool-label">파일로 데이터 추가</span>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <span class="icon">📤</span>
+        <p><b>PDF / Excel</b><br>여기에 드롭하거나 클릭</p>
+        <input type="file" id="fileInput" class="hidden-input" accept=".xlsx,.xls,.pdf" onchange="handleFileChange(event)">
+      </div>
+    </div>
+
+    <!-- Gemini API 설정 -->
+    <div class="tool-item">
+      <span class="tool-label">AI 설정 <span class="api-badge claude">Gemini API</span></span>
+      <input type="password" id="apiKey" class="api-input" placeholder="AIzaSy...">
+      <div class="info-box">
+        📄 PDF 분석 시 <b class="accent-text">Gemini 1.5 Flash</b> 사용<br>
+        키 발급: <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>
+      </div>
+    </div>
+    </div>
+
+    <!-- 데이터 관리 -->
+    <div class="tool-item">
+      <span class="tool-label">데이터 편집</span>
+      <button class="btn btn-primary" onclick="addNewRow()">➕ 새 행 추가</button>
+      <button class="btn btn-danger-text" onclick="deleteSelected()">🗑 선택 삭제</button>
+    </div>
+
+    <div class="tool-item">
+      <span class="tool-label">파일 저장 / 공유</span>
+      <button class="btn btn-share" onclick="exportAsHTML()">📤 공유 파일 만들기</button>
+      <button class="btn btn-success" onclick="exportToExcel()">⬇ 엑셀 내보내기</button>
+    </div>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="tool-item">
+      <button class="btn btn-ghost-muted" onclick="clearAll()">데이터 전체 초기화</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ── 메인 화면 ── -->
+<main>
+  <header>
+    <div class="page-heading">
+      <div class="title-row">
+        <button id="sidebarToggleBtn" class="btn btn-square" type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('sidebar')?.classList.toggle('collapsed');">☰</button>
+        <h1>ESQ본부 개선제안 관리시스템</h1>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="manualSave()">💾 저장</button>
+      <button class="btn btn-king" onclick="openKingViewer()">👑 제안왕</button>
+      <button class="btn btn-a-grade" id="aGradeViewBtn" onclick="openAGradeFile()">⭐ A급 개선제안</button>
+      <button class="btn btn-duplicate" onclick="openDuplicateViewer()">🔎 중복의심</button>
+      <button class="btn btn-grade-chart" onclick="openGradeChart()">📈 통계</button>
+      <button class="btn btn-reward" onclick="openRewardViewer()">🏅 시상금 조회</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label">필터링:</span>
+      <select id="monthSelect" onchange="filterByMonth(this.value)">
+        <option value="전체">전체 보기</option>
+      </select>
+    </div>
+    <div class="search-box" id="searchBox">
+      <span class="search-icon">🔍</span>
+      <input id="globalSearch" class="search-input" type="text" placeholder="이름, 부서, 제안명 등 검색..." oninput="applyGlobalSearch(this.value)" onfocus="document.getElementById('searchBox').style.borderColor='var(--accent)'" onblur="document.getElementById('searchBox').style.borderColor='var(--border)'">
+      <button class="search-clear-btn" onclick="clearSearch()" title="검색 초기화">✕</button>
+    </div>
+    <div class="toolbar-actions">
+    </div>
+  </div>
+
+  <div id="gridWrapper">
+    <div id="myGrid"></div>
+  </div>
+
+  <footer>
+    <div class="footer-stats">
+      <span id="currentViewMode" class="accent-text">[전체 통계]</span>
+      <div>건수: <b id="stat-total">0</b></div>
+      <div class="footer-divider"></div>
+      <div>시상금: <b id="stat-reward" class="accent-text">0</b>원</div>
+      <div class="footer-divider"></div>
+      <div>안전: <b id="stat-safety" class="btn-danger-text">0</b>건</div>
+    </div>
+    <div id="saveStatus" class="footer-save-status">저장 완료</div>
+  </footer>
+</main>
+
+
+<!-- 편집 모달 -->
+<div id="puuiseoEditModal" class="modal-overlay edit-modal-overlay">
+  <div class="edit-modal-card">
+    <div class="modal-head">
+      <span class="modal-title">📋 품의서 정보 입력</span>
+      <button class="btn-dialog-close" onclick="document.getElementById('puuiseoEditModal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-form">
+      <label>제목
+        <input id="pe_title" class="modal-input" />
+      </label>
+      <div class="modal-grid-2">
+        <label>수　　신<input id="pe_susin" value="경리부" class="modal-input" /></label>
+        <label>발　　신<input id="pe_balsin" value="ESQ본부" class="modal-input" /></label>
+      </div>
+      <div class="modal-grid-2">
+        <label>작 성 자<input id="pe_writer" class="modal-input" /></label>
+        <label>작 성 일<input id="pe_date" class="modal-input" /></label>
+      </div>
+      <div class="modal-panel">
+        <div class="modal-panel-title">등급별 수량 수정</div>
+        <div class="modal-grid-3">
+          <label>실시 A급<input id="pe_A" type="number" min="0" class="modal-number" /></label>
+          <label>실시 B급<input id="pe_B" type="number" min="0" class="modal-number" /></label>
+          <label>실시 C급<input id="pe_C" type="number" min="0" class="modal-number" /></label>
+          <label>채택<input id="pe_chaetaek" type="number" min="0" class="modal-number" /></label>
+          <label>참가<input id="pe_chamga" type="number" min="0" class="modal-number" /></label>
+          <label>건의<input id="pe_geonui" type="number" min="0" class="modal-number" /></label>
+        </div>
+      </div>
+      <label>품의사유 추가 내용
+        <textarea id="pe_reason" rows="3" class="modal-textarea"></textarea>
+      </label>
+
+    </div>
+    <div class="modal-actions">
+      <button class="btn-solid-gray modal-action-grow" onclick="document.getElementById('puuiseoEditModal').style.display='none'">취소</button>
+      <button class="btn-solid-blue modal-action-grow-2" onclick="renderPuuiseo()">📄 미리보기</button>
+    </div>
+  </div>
+</div>
+
+<!-- A4 미리보기 + 실시간 편집 모달 -->
+<div id="puuiseoModal" class="modal-overlay puuiseo-modal">
+  <!-- 상단 툴바 -->
+  <div class="puuiseo-toolbar">
+    <span class="puuiseo-toolbar-title">📋 품의서</span>
+    <span class="puuiseo-toolbar-note">셀 클릭 → 바로 수정 · 행/열 번호 클릭 → 크기 조절 · 선 편집 버튼 → 선 클릭해서 점선↔실선 변환</span>
+    <div class="grow"></div>
+    <button class="btn-solid-blue-light btn-toolbar btn-toolbar-wide" onclick="savePuuiseoExcel()">💾 엑셀 저장</button>
+    <button id="borderModeBtn" class="btn-solid-blue btn-toolbar" onclick="toggleBorderMode()">✏️ 선 편집</button>
+    <button id="borderSaveBtn" class="btn-solid-blue-dark btn-toolbar hidden-input" onclick="saveBorderState()">💾 선 저장</button>
+    <button class="btn-solid-blue-pale btn-toolbar" onclick="printPuuiseo()">🖨 인쇄</button>
+    <button class="btn-outline-soft btn-toolbar btn-toolbar-close" onclick="document.getElementById('puuiseoModal').style.display='none'; borderEditMode=false; removeLineHandles(); var btn=document.getElementById('borderModeBtn'); if(btn){btn.style.background='#2f6fed';btn.textContent='✏️ 선 편집';}">✕</button>
+  </div>
+
+  <!-- 전체 스크롤 영역 (행번호+열헤더+내용 모두 같이 스크롤) -->
+  <div id="puuiseoScrollArea" class="scroll-area">
+    <!-- 열 헤더 (sticky top) -->
+    <div id="colHeaderBar" class="sticky-col-header">
+      <div class="row-header-corner"></div>
+      <div id="colHeaderInner" class="header-inner"></div>
+    </div>
+    <!-- 내용 행 (행번호 + A4) -->
+    <div class="scroll-content">
+      <!-- 행 번호 (sticky left) -->
+      <div id="rowHeaderPanel" class="sticky-row-panel">
+        <div id="rowHeaderInner"></div>
+      </div>
+      <!-- A4 용지 -->
+      <div class="paper-wrap">
+        <div id="puuiseoContent" class="edit-mode paper-sheet"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 행/열 크기 입력 팝업 -->
+<div id="headerSizePopup" class="popup-card">
+  <div id="headerSizeLabel" class="popup-label"></div>
+  <input id="headerSizeInput" type="number" min="4" max="500"
+    class="popup-input"
+    onkeydown="if(event.key==='Enter')applyHeaderSize();if(event.key==='Escape')closeHeaderPopup();">
+  <div class="popup-actions">
+    <button class="btn-solid-gray popup-btn popup-flex-1" onclick="closeHeaderPopup()">취소</button>
+    <button class="btn-solid-blue popup-btn popup-flex-2" onclick="applyHeaderSize()">적용</button>
+  </div>
+</div>
+
+
+
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="loadingText" class="loading-text">분석 중...</div>
+  <div id="loadingSub" class="loading-sub"></div>
+</div>
+
+<!-- ── 시상금 조회 모달 ── -->
+
+<div id="rvModal">
+  <div id="rvBox">
+    <div class="rv-head">
+      <span class="icon-lg">🏅</span>
+      <span class="modal-title-line">월별 시상금 조회</span>
+      <button class="btn-modal-close" onclick="document.getElementById('rvModal').style.display='none'">✕ 닫기</button>
+    </div>
+    <div class="rv-tabs" id="rv-tabs"></div>
+    <div id="rv-sum"></div>
+    <div id="rv-body"></div>
+  </div>
+</div>
+
+
+<div id="kingModal">
+  <div id="kingBox">
+    <div class="king-head">
+      <span class="icon-lg">👑</span>
+      <div class="king-head-copy">
+        <span class="king-title">제안왕 랭킹</span>
+        <span class="king-desc">엑셀 3번째 시트의 제안왕 데이터를 점수식으로 다시 계산해 보기 쉽게 보여줍니다.</span>
+      </div>
+      <button class="king-close-btn btn-modal-close" onclick="document.getElementById('kingModal').style.display='none'">✕ 닫기</button>
+    </div>
+    <div id="king-summary"></div>
+    <div id="king-filters">
+      <select id="kingDeptFilter" onchange="renderKingViewer()"></select>
+      <input id="kingNameSearch" type="text" placeholder="이름 검색으로 순위 찾기..." oninput="renderKingViewer()" />
+    </div>
+    <div id="king-podium"></div>
+    <div id="king-body"></div>
+  </div>
+</div>
+
+
+<div id="duplicateModal">
+  <div id="duplicateBox">
+    <div class="duplicate-head">
+      <span class="icon-lg">🔎</span>
+      <div class="duplicate-head-copy">
+        <span class="duplicate-title">중복의심 제안 검토</span>
+        <span class="duplicate-desc">제안명이 비슷한 항목을 묶어서 보여줍니다. 삭제 없이 확인만 합니다.</span>
+      </div>
+      <button class="btn-modal-close duplicate-close-btn" onclick="document.getElementById('duplicateModal').style.display='none'">✕ 닫기</button>
+    </div>
+    <div id="duplicateSummary"></div>
+    <div id="duplicateBody"></div>
+  </div>
+</div>
+
+
+<div id="gradeChartModal">
+  <div id="gradeChartBox">
+    <div class="chart-head">
+      <span class="icon-lg">📈</span>
+      <span class="modal-title-line">부서별 제안건수 통계</span>
+      <button class="btn-modal-close-dark" onclick="document.getElementById('gradeChartModal').style.display='none'">✕ 닫기</button>
+    </div>
+    <div id="gradeChartSummary"></div>
+    <div class="chart-modebar">
+      <button id="chartModeMonthBtn" class="chart-mode-btn on" onclick="setGradeChartMode('month')">월 통계</button>
+      <button id="chartModeYearBtn" class="chart-mode-btn" onclick="setGradeChartMode('year')">연 통계</button>
+      <button id="chartModeGoalBtn" class="chart-mode-btn" onclick="setGradeChartMode('goal')">목표달성률</button>
+      <select id="gradeChartPeriod" class="chart-period-select" onchange="setGradeChartPeriod(this.value)"></select>
+      <select id="goalChartMonth" class="chart-period-select" onchange="setGoalChartMonth(this.value)"></select>
+    </div>
+    <div id="gradeChartBody"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="shareModal" class="share-modal" onclick="if(event.target===this)closeShareDialog()">
+  <div class="share-card">
+    <div>
+      <h3>공유 파일 만들기</h3>
+      <p>현재 데이터만 담긴 읽기 전용 공유 페이지를 새로 저장합니다. 상대방은 링크나 파일을 열어 검색과 필터를 그대로 사용할 수 있습니다.</p>
+    </div>
+    <div class="share-field">
+      <label for="shareFileName">파일 이름</label>
+      <input id="shareFileName" class="share-input" type="text" value="개선제안정리_공유" />
+    </div>
+    <div class="share-grid">
+      <div class="share-stat">
+        <div class="share-stat-label">총 건수</div>
+        <div class="share-stat-value" id="shareStatTotal">0</div>
+      </div>
+      <div class="share-stat">
+        <div class="share-stat-label">현재 필터</div>
+        <div class="share-stat-value" id="shareStatMonth">전체</div>
+      </div>
+      <div class="share-stat">
+        <div class="share-stat-label">검색어</div>
+        <div class="share-stat-value" id="shareStatSearch">없음</div>
+      </div>
+    </div>
+    <div class="share-actions">
+      <button class="btn" onclick="closeShareDialog()">취소</button>
+      <button class="btn btn-king" onclick="saveShareSnapshot()">공유 파일 저장</button>
+    </div>
+  </div>
+</div>
+
+<script src="/frontend/src/app-state.js"></script>
+<script src="/frontend/src/grade-grid.js?v=20260422-duplicate-check"></script>
+<script src="/frontend/src/a-grade.js?v=20260421-keep-drive-links"></script>
+<script src="/frontend/src/share-king.js?v=20260421-goal-tab-in-chart"></script>
+<script src="/frontend/src/puuiseo-excel.js"></script>
+<script src="/frontend/src/puuiseo-editor.js"></script>
+
+</body>
+</html>
+

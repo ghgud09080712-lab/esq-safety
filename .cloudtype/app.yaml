@@ -1,0 +1,9 @@
+name: esq-safety
+app: node@20
+options:
+  env:
+    - name: NODE_ENV
+      value: production
+  install: npm ci --omit=dev
+  ports: 4173/http
+  start: npm start
