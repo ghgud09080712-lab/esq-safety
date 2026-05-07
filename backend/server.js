@@ -53,7 +53,8 @@ async function readSafetyConfig() {
 
 function defaultSafetyUsers() {
   return [
-    { id: "admin", password: "admin1234", name: "중앙관리자", role: "admin", department: "ESQ" },
+    { id: "admin", password: "admin1234", passwords: ["admin1234", "1234"], name: "중앙관리자", role: "admin", department: "ESQ" },
+    { id: "관리자", password: "1234", passwords: ["1234", "admin1234"], name: "중앙관리자", role: "admin", department: "ESQ" },
     { id: "dept", password: "dept1234", name: "부서사용자", role: "department", department: "부서" },
     { id: "생산1부", password: "1234", name: "생산1부", role: "department", department: "생산1부" }
   ];
@@ -62,8 +63,23 @@ function defaultSafetyUsers() {
 async function readSafetyUsers() {
   const data = await readJson(safetyUsersPath, null);
   const users = Array.isArray(data?.users) ? data.users : null;
-  if (users && users.length) return users;
   const fallback = defaultSafetyUsers();
+  if (users && users.length) {
+    const merged = [...users];
+    for (const user of fallback) {
+      const existing = merged.find((item) => String(item.id || "").toLowerCase() === String(user.id || "").toLowerCase());
+      if (existing) {
+        if (Array.isArray(user.passwords)) existing.passwords = Array.from(new Set([...(Array.isArray(existing.passwords) ? existing.passwords : []), ...user.passwords]));
+        existing.name = existing.name || user.name;
+        existing.role = existing.role || user.role;
+        existing.department = existing.department || user.department;
+      } else {
+        merged.push(user);
+      }
+    }
+    await writeJson(safetyUsersPath, { users: merged, updatedAt: new Date().toISOString() });
+    return merged;
+  }
   await writeJson(safetyUsersPath, { users: fallback, updatedAt: new Date().toISOString() });
   return fallback;
 }
@@ -348,7 +364,11 @@ app.post("/api/safety-auth/login", async (req, res) => {
     return res.status(400).json({ ok: false, message: "아이디와 비밀번호를 입력하세요." });
   }
   const users = await readSafetyUsers();
-  const user = users.find((item) => String(item.id || "").toLowerCase() === id.toLowerCase() && String(item.password || "") === password);
+  const user = users.find((item) => {
+    const sameId = String(item.id || "").toLowerCase() === id.toLowerCase();
+    const validPasswords = [item.password, ...(Array.isArray(item.passwords) ? item.passwords : [])].map((value) => String(value || ""));
+    return sameId && validPasswords.includes(password);
+  });
   if (!user) {
     return res.status(401).json({ ok: false, message: "아이디 또는 비밀번호가 맞지 않습니다." });
   }
