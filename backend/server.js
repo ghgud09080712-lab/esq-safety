@@ -14,6 +14,7 @@ const aGradePdfDir = path.join(dataDir, "a-grade-pdfs");
 const sharedGridDataPath = path.join(dataDir, "shared-grid-data.json");
 const safetyDataPath = path.join(dataDir, "safety-data.json");
 const safetyUsersPath = path.join(dataDir, "safety-users.json");
+const safetySettingsPath = path.join(dataDir, "safety-settings.json");
 const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
@@ -603,6 +604,20 @@ app.put("/api/shared-data", async (req, res) => {
 app.get("/api/safety-data", async (_req, res) => {
   const data = await readJson(safetyDataPath, { records: [], updatedAt: null });
   res.json(data);
+});
+
+app.get("/api/safety-settings", async (_req, res) => {
+  const data = await readJson(safetySettingsPath, { departmentStamps: {}, updatedAt: null });
+  res.json(data);
+});
+
+app.put("/api/safety-settings", async (req, res) => {
+  const payload = {
+    departmentStamps: req.body?.departmentStamps && typeof req.body.departmentStamps === "object" ? req.body.departmentStamps : {},
+    updatedAt: new Date().toISOString()
+  };
+  await writeJson(safetySettingsPath, payload);
+  res.json({ ok: true, departments: Object.keys(payload.departmentStamps).length, updatedAt: payload.updatedAt });
 });
 
 app.put("/api/safety-data", async (req, res) => {

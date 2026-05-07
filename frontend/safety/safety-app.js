@@ -91,6 +91,7 @@ let typeReportYearFilter = "all";
 let typeReportMonthFilter = "all";
 let nearMissFormMode = "form";
 let nearMissFormDraft = null;
+let safetySettings = { departmentStamps: {} };
 let activeRiskActionPickerIndex = null;
 let activeSupervisorActionPickerKey = "";
 let activeSheetField = "";
@@ -162,6 +163,10 @@ function applyAuthUser(user) {
   if (badge) {
     badge.textContent = `${safeText(user?.name || user?.id)} · ${role === "admin" ? "중앙관리" : "부서용"}`;
   }
+}
+
+function getCurrentUserDepartment() {
+  return cleanDepartment(currentSafetyUser?.department || currentSafetyUser?.id || "");
 }
 
 function bindAuthHandlers() {
@@ -292,11 +297,51 @@ function loadNearMissFormDraft() {
   }
   if (!nearMissFormDraft.date) nearMissFormDraft.date = today();
   if (!normalizeAccidentType(nearMissFormDraft.type)) nearMissFormDraft.type = "기타";
+  applyDepartmentStampToDraft({ force: false });
 }
 
 function saveNearMissFormDraft() {
   if (!nearMissFormDraft) return;
   localStorage.setItem(NEAR_MISS_FORM_DRAFT_KEY, JSON.stringify(nearMissFormDraft));
+}
+
+function getDepartmentStampSet(department) {
+  const key = cleanDepartment(department);
+  if (!key) return null;
+  return safetySettings?.departmentStamps?.[key] || null;
+}
+
+function applyDepartmentStampToDraft(options = {}) {
+  if (!nearMissFormDraft) return;
+  const department = cleanDepartment(nearMissFormDraft.department || getCurrentUserDepartment());
+  const stamps = getDepartmentStampSet(department);
+  if (!stamps) return;
+  const force = Boolean(options.force);
+  if (force || !nearMissFormDraft.approvalWriteStamp) nearMissFormDraft.approvalWriteStamp = stamps.write || "";
+  if (force || !nearMissFormDraft.approvalReviewStamp) nearMissFormDraft.approvalReviewStamp = stamps.review || "";
+  if (force || !nearMissFormDraft.approvalApproveStamp) nearMissFormDraft.approvalApproveStamp = stamps.approve || "";
+}
+
+async function loadSafetySettings() {
+  try {
+    const response = await fetch("/api/safety-settings", { cache: "no-store" });
+    if (!response.ok) return;
+    const payload = await response.json().catch(() => ({}));
+    safetySettings = {
+      departmentStamps: payload.departmentStamps && typeof payload.departmentStamps === "object" ? payload.departmentStamps : {}
+    };
+  } catch (error) {
+    console.warn("safety settings load failed:", error);
+  }
+}
+
+async function saveSafetySettings() {
+  const response = await fetch("/api/safety-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(safetySettings)
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
 }
 
 function setNearMissDraftValue(key, value) {
@@ -317,6 +362,12 @@ function setNearMissDraftValue(key, value) {
 
 function syncNearMissDraftInputs() {
   if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
+  if (IS_DEPARTMENT_MODE) {
+    const department = getCurrentUserDepartment();
+    if (department && !nearMissFormDraft.department) nearMissFormDraft.department = department;
+    applyDepartmentStampToDraft({ force: false });
+    saveNearMissFormDraft();
+  }
   $$("[data-near-miss-draft]").forEach((field) => {
     const key = field.dataset.nearMissDraft;
     if (!key) return;
@@ -416,15 +467,16 @@ function draftField(field, value, options = {}) {
 
 function stampField(field, label) {
   const value = nearMissFormDraft?.[field] || "";
+  const locked = IS_DEPARTMENT_MODE ? " disabled" : "";
   return `
     <div class="stamp-cell">
       ${value ? `<img class="stamp-image" src="${escapeHtml(value)}" alt="${escapeHtml(label)} 도장">` : `<span class="stamp-placeholder">도장</span>`}
       <div class="stamp-actions">
         <label class="stamp-upload-btn">
           등록
-          <input data-stamp-upload="${escapeHtml(field)}" type="file" accept="image/*">
+          <input data-stamp-upload="${escapeHtml(field)}" type="file" accept="image/*"${locked}>
         </label>
-        ${value ? `<button class="stamp-remove-btn" data-stamp-remove="${escapeHtml(field)}" type="button">삭제</button>` : ""}
+        ${value && !IS_DEPARTMENT_MODE ? `<button class="stamp-remove-btn" data-stamp-remove="${escapeHtml(field)}" type="button">삭제</button>` : ""}
       </div>
     </div>
   `;
@@ -909,6 +961,43 @@ async function handleStampUpload(input) {
     renderNearMissForm();
   } catch (error) {
     alert(error.message || "도장 등록에 실패했습니다.");
+  } finally {
+    input.value = "";
+  }
+}
+
+async function handleDepartmentStampUpload(input) {
+  if (IS_DEPARTMENT_MODE) return;
+  const slot = input?.dataset?.departmentStampUpload;
+  const file = input?.files?.[0];
+  const department = cleanDepartment($("#stampDepartmentInput")?.value || "");
+  if (!slot || !file) return;
+  if (!department) {
+    alert("부서명을 먼저 입력하세요.");
+    input.value = "";
+    return;
+  }
+  if (!file.type.startsWith("image/")) {
+    alert("이미지 파일만 등록할 수 있습니다.");
+    input.value = "";
+    return;
+  }
+  try {
+    safetySettings.departmentStamps = safetySettings.departmentStamps || {};
+    safetySettings.departmentStamps[department] = {
+      ...(safetySettings.departmentStamps[department] || {}),
+      [slot]: await readPhotoFile(file)
+    };
+    await saveSafetySettings();
+    renderDepartmentStampList();
+    if (cleanDepartment(nearMissFormDraft?.department) === department) {
+      applyDepartmentStampToDraft({ force: true });
+      saveNearMissFormDraft();
+      renderNearMissForm();
+    }
+    setAiStatus(`${department} 도장 저장 완료`, "success");
+  } catch (error) {
+    alert(error.message || "부서 도장 저장에 실패했습니다.");
   } finally {
     input.value = "";
   }
@@ -2378,6 +2467,26 @@ function renderRisk() {
 function renderSettings() {
   $("#typeChips").innerHTML = TYPES.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("");
   $("#causeChips").innerHTML = CAUSES.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("");
+  renderDepartmentStampList();
+}
+
+function renderDepartmentStampList() {
+  const list = $("#departmentStampList");
+  if (!list) return;
+  const entries = Object.entries(safetySettings.departmentStamps || {}).sort(([a], [b]) => a.localeCompare(b, "ko"));
+  if (!entries.length) {
+    list.innerHTML = `<div class="empty-state">등록된 부서 도장이 없습니다.</div>`;
+    return;
+  }
+  list.innerHTML = entries.map(([department, stamps]) => `
+    <div class="department-stamp-row">
+      <strong>${escapeHtml(department)}</strong>
+      <div class="department-stamp-preview"><span>작성</span>${stamps.write ? `<img src="${escapeHtml(stamps.write)}" alt="작성 도장">` : "<em>-</em>"}</div>
+      <div class="department-stamp-preview"><span>검토</span>${stamps.review ? `<img src="${escapeHtml(stamps.review)}" alt="검토 도장">` : "<em>-</em>"}</div>
+      <div class="department-stamp-preview"><span>승인</span>${stamps.approve ? `<img src="${escapeHtml(stamps.approve)}" alt="승인 도장">` : "<em>-</em>"}</div>
+      <button class="btn small ghost" data-department-stamp-remove="${escapeHtml(department)}" type="button">삭제</button>
+    </div>
+  `).join("");
 }
 
 function updateDepartmentFilter() {
@@ -3727,6 +3836,23 @@ function bindUiHandlers() {
       syncSheetFontControl();
     });
 
+    $("#settingsView")?.addEventListener("change", (event) => {
+      const input = event.target.closest("[data-department-stamp-upload]");
+      if (!input) return;
+      handleDepartmentStampUpload(input);
+    });
+
+    $("#settingsView")?.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-department-stamp-remove]");
+      if (!button || IS_DEPARTMENT_MODE) return;
+      const department = button.dataset.departmentStampRemove;
+      if (!department || !confirm(`${department} 도장을 삭제할까요?`)) return;
+      delete safetySettings.departmentStamps[department];
+      await saveSafetySettings();
+      renderDepartmentStampList();
+      setAiStatus(`${department} 도장 삭제 완료`, "success");
+    });
+
     $("#nearMissFormView")?.addEventListener("click", (event) => {
       const removeButton = event.target.closest("[data-photo-remove]");
       if (!removeButton) return;
@@ -4014,11 +4140,13 @@ async function init() {
     }
     applyAuthUser(session.user);
     hideLogin();
+    await loadSafetySettings();
     await syncGeminiApiKeyUi();
     loadRecords();
     loadSidebarState();
     loadActiveView();
     loadNearMissFormDraft();
+    if (IS_DEPARTMENT_MODE) applyDepartmentStampToDraft({ force: true });
     populateSelects();
     syncNearMissDraftInputs();
     bindUiHandlers();

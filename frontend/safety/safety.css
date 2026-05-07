@@ -1210,6 +1210,78 @@ body.sidebar-collapsed .sidebar {
   display: none;
 }
 
+.stamp-upload-btn:has(input:disabled) {
+  display: none;
+}
+
+.stamp-admin-form {
+  display: grid;
+  gap: 12px;
+}
+
+.stamp-admin-form label {
+  display: grid;
+  gap: 6px;
+  color: #173865;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stamp-admin-form input:not([type="file"]) {
+  height: 36px;
+  border: 1px solid #cbd6e3;
+  border-radius: 6px;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.stamp-admin-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-stamp-upload {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  background: #eef5ff;
+}
+
+.department-stamp-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.department-stamp-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) repeat(3, minmax(88px, 120px)) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #d8e2ee;
+  border-radius: 6px;
+  padding: 8px;
+  background: #f8fbff;
+}
+
+.department-stamp-preview {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 6px;
+  align-items: center;
+  color: #4c5f78;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.department-stamp-preview img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
 .a4-block {
   display: grid;
   grid-template-columns: 40px 1fr;
@@ -1680,6 +1752,10 @@ body.department-mode button:disabled {
 }
 
 body.department-mode .topbar-actions {
+  display: none !important;
+}
+
+body.department-mode .admin-only {
   display: none !important;
 }
 

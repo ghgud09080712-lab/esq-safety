@@ -411,6 +411,30 @@
             <h2>원인분류 기준</h2>
             <div id="causeChips" class="chip-list"></div>
           </section>
+          <section class="panel admin-only">
+            <h2>부서 도장 관리</h2>
+            <div class="stamp-admin-form">
+              <label>
+                <span>부서명</span>
+                <input id="stampDepartmentInput" placeholder="예: 생산1부">
+              </label>
+              <div class="stamp-admin-upload-row">
+                <label class="stamp-upload-btn admin-stamp-upload">
+                  작성 도장
+                  <input data-department-stamp-upload="write" type="file" accept="image/*">
+                </label>
+                <label class="stamp-upload-btn admin-stamp-upload">
+                  검토 도장
+                  <input data-department-stamp-upload="review" type="file" accept="image/*">
+                </label>
+                <label class="stamp-upload-btn admin-stamp-upload">
+                  승인 도장
+                  <input data-department-stamp-upload="approve" type="file" accept="image/*">
+                </label>
+              </div>
+            </div>
+            <div id="departmentStampList" class="department-stamp-list"></div>
+          </section>
         </div>
       </section>
     </main>
