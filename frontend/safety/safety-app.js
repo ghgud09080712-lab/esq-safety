@@ -796,6 +796,10 @@ function buildNearMissPrintHtml() {
 }
 
 function printNearMissForm() {
+  if (IS_DEPARTMENT_MODE) {
+    alert("프린트는 관리자만 사용할 수 있습니다.");
+    return;
+  }
   const html = buildNearMissPrintHtml();
   if (!html) return;
   const printWindow = window.open("", "_blank", "width=900,height=1000");
