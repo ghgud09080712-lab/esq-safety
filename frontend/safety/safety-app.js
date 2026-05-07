@@ -255,6 +255,9 @@ function getDefaultNearMissFormDraft() {
     effectivenessStatus: "적합",
     effectivenessDate: "",
     effectivenessNextDate: "",
+    approvalWriteStamp: "",
+    approvalReviewStamp: "",
+    approvalApproveStamp: "",
     beforePhoto: "",
     afterPhoto: "",
     beforePhotoScale: "1",
@@ -409,6 +412,22 @@ function draftField(field, value, options = {}) {
     return `<textarea class="${classes.join(" ")}" data-near-miss-draft="${escapeHtml(field)}" placeholder="${placeholder}" rows="${options.rows || 2}"${style}>${escapedValue}</textarea>`;
   }
   return `<input class="${classes.join(" ")}" data-near-miss-draft="${escapeHtml(field)}" type="${options.type || "text"}" value="${escapedValue}" placeholder="${placeholder}"${style}>`;
+}
+
+function stampField(field, label) {
+  const value = nearMissFormDraft?.[field] || "";
+  return `
+    <div class="stamp-cell">
+      ${value ? `<img class="stamp-image" src="${escapeHtml(value)}" alt="${escapeHtml(label)} 도장">` : `<span class="stamp-placeholder">도장</span>`}
+      <div class="stamp-actions">
+        <label class="stamp-upload-btn">
+          등록
+          <input data-stamp-upload="${escapeHtml(field)}" type="file" accept="image/*">
+        </label>
+        ${value ? `<button class="stamp-remove-btn" data-stamp-remove="${escapeHtml(field)}" type="button">삭제</button>` : ""}
+      </div>
+    </div>
+  `;
 }
 
 function riskDraftField(index, field, value, options = {}) {
@@ -682,9 +701,12 @@ function buildNearMissPrintHtml() {
       background-color: transparent !important;
     }
     .print-field-text { color: #000; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
-    .photo-actions, .photo-drag-hint, .photo-fit-toggle, .photo-layer-handle { display: none !important; }
+    .photo-actions, .photo-drag-hint, .photo-fit-toggle, .photo-layer-handle,
+    .stamp-actions, .stamp-placeholder { display: none !important; }
     .photo-upload-field { min-height: 100% !important; }
     .photo-preview { width: 100% !important; height: 100% !important; }
+    .stamp-cell { min-height: 100% !important; display: grid !important; place-items: center !important; }
+    .stamp-image { max-width: 42px !important; max-height: 42px !important; object-fit: contain !important; }
     .info-item strong:has(.print-field-text),
     .narrative-item div:has(.print-field-text),
     .risk-row div:has(.print-field-text),
@@ -866,6 +888,27 @@ async function handleNearMissPhotoUpload(input) {
     renderNearMissForm();
   } catch (error) {
     alert(error.message || "사진 등록에 실패했습니다.");
+  } finally {
+    input.value = "";
+  }
+}
+
+async function handleStampUpload(input) {
+  const field = input?.dataset?.stampUpload;
+  const file = input?.files?.[0];
+  if (!field || !file) return;
+  if (!file.type.startsWith("image/")) {
+    alert("이미지 파일만 등록할 수 있습니다.");
+    input.value = "";
+    return;
+  }
+  try {
+    if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
+    nearMissFormDraft[field] = await readPhotoFile(file);
+    saveNearMissFormDraft();
+    renderNearMissForm();
+  } catch (error) {
+    alert(error.message || "도장 등록에 실패했습니다.");
   } finally {
     input.value = "";
   }
@@ -2114,9 +2157,9 @@ function renderNearMissForm() {
         <header class="a4-header">
           <div class="a4-title">아차사고 발굴·개선표</div>
           <div class="a4-approvals">
-            <div class="approval-col"><span>작성</span><div></div></div>
-            <div class="approval-col"><span>검토</span><div></div></div>
-            <div class="approval-col"><span>승인</span><div></div></div>
+            <div class="approval-col"><span>작성</span>${stampField("approvalWriteStamp", "작성")}</div>
+            <div class="approval-col"><span>검토</span>${stampField("approvalReviewStamp", "검토")}</div>
+            <div class="approval-col"><span>승인</span>${stampField("approvalApproveStamp", "승인")}</div>
           </div>
         </header>
 
@@ -3669,6 +3712,11 @@ function bindUiHandlers() {
         handleNearMissPhotoUpload(photoInput);
         return;
       }
+      const stampInput = event.target.closest("[data-stamp-upload]");
+      if (stampInput) {
+        handleStampUpload(stampInput);
+        return;
+      }
       const field = event.target.closest("[data-near-miss-draft]");
       if (!field) return;
       if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
@@ -3683,6 +3731,17 @@ function bindUiHandlers() {
       const removeButton = event.target.closest("[data-photo-remove]");
       if (!removeButton) return;
       const field = removeButton.dataset.photoRemove;
+      if (!field) return;
+      if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
+      nearMissFormDraft[field] = "";
+      saveNearMissFormDraft();
+      renderNearMissForm();
+    });
+
+    $("#nearMissFormView")?.addEventListener("click", (event) => {
+      const removeButton = event.target.closest("[data-stamp-remove]");
+      if (!removeButton) return;
+      const field = removeButton.dataset.stampRemove;
       if (!field) return;
       if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
       nearMissFormDraft[field] = "";

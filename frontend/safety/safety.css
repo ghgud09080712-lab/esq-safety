@@ -1161,6 +1161,55 @@ body.sidebar-collapsed .sidebar {
   border-bottom: 1px solid #202020;
 }
 
+.stamp-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 56px;
+  overflow: hidden;
+}
+
+.stamp-placeholder {
+  color: #9aa8b8;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.stamp-image {
+  max-width: 44px;
+  max-height: 44px;
+  object-fit: contain;
+}
+
+.stamp-actions {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: flex;
+  gap: 2px;
+}
+
+.stamp-upload-btn,
+.stamp-remove-btn {
+  border: 1px solid #c9d4e2;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #173865;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.stamp-remove-btn {
+  color: #a23b2a;
+}
+
+.stamp-upload-btn input {
+  display: none;
+}
+
 .a4-block {
   display: grid;
   grid-template-columns: 40px 1fr;
@@ -3167,6 +3216,16 @@ dialog::backdrop {
     color: #000 !important;
     box-shadow: none !important;
     cursor: default !important;
+  }
+
+  body.printing-near-miss-form .stamp-actions,
+  body.printing-near-miss-form .stamp-placeholder {
+    display: none !important;
+  }
+
+  body.printing-near-miss-form .stamp-image {
+    max-width: 42px !important;
+    max-height: 42px !important;
   }
 
   body.printing-near-miss-form .effectiveness-check-btn {
