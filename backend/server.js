@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
@@ -58,7 +58,8 @@ async function readSafetyConfig() {
 function defaultSafetyUsers() {
   return [
     { id: "admin", password: "admin1234", name: "중앙관리자", role: "admin", department: "ESQ" },
-    { id: "dept", password: "dept1234", name: "부서사용자", role: "department", department: "부서" }
+    { id: "dept", password: "dept1234", name: "부서사용자", role: "department", department: "부서" },
+    { id: "생산1부", password: "1234", name: "생산1부", role: "department", department: "생산1부" }
   ];
 }
 
@@ -657,3 +658,4 @@ function listenOnPort(targetPort) {
 
 const listenPorts = [...new Set([port, 4173, 3000].filter((value) => Number.isFinite(value) && value > 0))];
 listenPorts.forEach(listenOnPort);
+
