@@ -53,8 +53,7 @@ async function readSafetyConfig() {
 
 function defaultSafetyUsers() {
   return [
-    { id: "admin", password: "admin1234", passwords: ["admin1234", "1234"], name: "중앙관리자", role: "admin", department: "ESQ" },
-    { id: "관리자", password: "1234", passwords: ["1234", "admin1234"], name: "중앙관리자", role: "admin", department: "ESQ" },
+    { id: "ESQ", password: "5749", name: "중앙관리자", role: "admin", department: "ESQ" },
     { id: "dept", password: "dept1234", name: "부서사용자", role: "department", department: "부서" },
     { id: "생산1부", password: "1234", name: "생산1부", role: "department", department: "생산1부" }
   ];
@@ -65,7 +64,7 @@ async function readSafetyUsers() {
   const users = Array.isArray(data?.users) ? data.users : null;
   const fallback = defaultSafetyUsers();
   if (users && users.length) {
-    const merged = [...users];
+    const merged = users.filter((item) => String(item.role || "") !== "admin");
     for (const user of fallback) {
       const existing = merged.find((item) => String(item.id || "").toLowerCase() === String(user.id || "").toLowerCase());
       if (existing) {
