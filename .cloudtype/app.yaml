@@ -6,6 +6,8 @@ options:
       value: production
     - name: PORT
       value: "4173"
+    - name: DATA_DIR
+      value: "/data"
   install: rm -rf node_modules package-lock.json && npm install --omit=dev
   ports: 4173/http
   start: npm start
