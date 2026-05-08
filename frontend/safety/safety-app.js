@@ -103,6 +103,7 @@ let activeRiskActionPickerIndex = null;
 let activeSupervisorActionPickerKey = "";
 let activeSheetField = "";
 let currentSafetyUser = null;
+let appToastTimer = null;
 
 function $(selector) {
   return document.querySelector(selector);
@@ -405,7 +406,7 @@ async function submitNearMissFormDraft() {
   if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
   const record = getNearMissFormDraftRecord();
   if (!safeText(record.department).trim() || !safeText(record.summary || record.description).trim()) {
-    alert("부서명과 사고명 또는 사고개요를 입력한 뒤 보내주세요.");
+    showAppToast("입력 확인 필요", "부서명과 사고명 또는 사고개요를 입력한 뒤 보내주세요.", "error");
     return;
   }
   try {
@@ -423,9 +424,9 @@ async function submitNearMissFormDraft() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) throw new Error(payload.message || "제출에 실패했습니다.");
     setAiStatus("관리자에게 양식시안을 보냈습니다.", "success");
-    alert("관리자에게 전송했습니다.");
+    showAppToast("저장 및 전송 완료", "관리자에게 양식시안을 보냈습니다.", "success");
   } catch (error) {
-    alert(error.message || "전송에 실패했습니다.");
+    showAppToast("전송 실패", error.message || "전송에 실패했습니다.", "error");
   }
 }
 
@@ -1469,6 +1470,30 @@ function setAiStatus(message, type = "") {
   el.textContent = message || "";
   el.classList.toggle("error", type === "error");
   el.classList.toggle("success", type === "success");
+}
+
+function showAppToast(title, message = "", type = "success") {
+  let toast = $("#appToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    toast.className = "app-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  clearTimeout(appToastTimer);
+  toast.className = `app-toast ${type || "success"} show`;
+  toast.innerHTML = `
+    <span class="app-toast-icon">${type === "error" ? "!" : "✓"}</span>
+    <span class="app-toast-copy">
+      <strong>${escapeHtml(title)}</strong>
+      ${message ? `<em>${escapeHtml(message)}</em>` : ""}
+    </span>
+  `;
+  appToastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, type === "error" ? 4200 : 2600);
 }
 
 function badge(text, extra = "") {
