@@ -3,6 +3,11 @@ const SIDEBAR_COLLAPSED_KEY = "esqSafetyRegistry.sidebarCollapsed";
 const ACTIVE_VIEW_KEY = "esqSafetyRegistry.activeView";
 const NEAR_MISS_FORM_DRAFT_KEY = "esqSafetyRegistry.nearMissFormDraft";
 const AUTH_SESSION_KEY = "esqSafetyRegistry.authSession";
+const STAMP_FIELD_TO_SLOT = {
+  approvalWriteStamp: "write",
+  approvalReviewStamp: "review",
+  approvalApproveStamp: "approve"
+};
 let IS_DEPARTMENT_MODE = false;
 const VALID_VIEWS = ["dashboard", "nearMiss", "incident", "nearMissForm", "risk", "reports", "settings"];
 const DASHBOARD_YEARS = Array.from({ length: 11 }, (_, index) => String(2016 + index));
@@ -1228,6 +1233,7 @@ async function handleNearMissPhotoUpload(input) {
 async function handleStampUpload(input) {
   const field = input?.dataset?.stampUpload;
   const file = input?.files?.[0];
+  const slot = STAMP_FIELD_TO_SLOT[field];
   if (!field || !file) return;
   if (!file.type.startsWith("image/")) {
     alert("이미지 파일만 등록할 수 있습니다.");
@@ -1236,7 +1242,21 @@ async function handleStampUpload(input) {
   }
   try {
     if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
-    nearMissFormDraft[field] = await readPhotoFile(file);
+    const dataUrl = await readPhotoFile(file);
+    nearMissFormDraft[field] = dataUrl;
+    if (slot) {
+      const department = cleanDepartment(nearMissFormDraft.department || getCurrentUserDepartment());
+      if (department && department !== K.unclassified) {
+        safetySettings.departmentStamps = safetySettings.departmentStamps || {};
+        safetySettings.departmentStamps[department] = {
+          ...(safetySettings.departmentStamps[department] || {}),
+          [slot]: dataUrl
+        };
+        await saveSafetySettings();
+        renderDepartmentStampList();
+        setAiStatus(`${department} 도장을 저장했습니다.`, "success");
+      }
+    }
     saveNearMissFormDraft();
     renderNearMissForm();
   } catch (error) {
@@ -4168,6 +4188,12 @@ function bindUiHandlers() {
       if (!field) return;
       if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
       nearMissFormDraft[field] = "";
+      const slot = STAMP_FIELD_TO_SLOT[field];
+      const department = cleanDepartment(nearMissFormDraft.department || getCurrentUserDepartment());
+      if (slot && department && department !== K.unclassified && safetySettings.departmentStamps?.[department]) {
+        delete safetySettings.departmentStamps[department][slot];
+        saveSafetySettings().catch((error) => console.warn("stamp setting delete failed:", error));
+      }
       saveNearMissFormDraft();
       renderNearMissForm();
     });
