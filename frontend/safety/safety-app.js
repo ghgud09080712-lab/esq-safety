@@ -2361,6 +2361,15 @@ function getRelevantActionOptions(text, action, fallbackOptions) {
   return fallbackOptions;
 }
 
+function isIrrelevantSupervisorActionOption(kind, option, contextText) {
+  if (kind !== "eduAction") return false;
+  const optionText = safeText(option).replace(/\s+/g, "");
+  const context = safeText(contextText);
+  const doorRelated = /문|도어|개폐|게이트|셔터|출입문|문짝/.test(context);
+  if (/문개폐.*손|개폐.*손|손.*넣/.test(optionText) && !doorRelated) return true;
+  return false;
+}
+
 function getSupervisorActionOptions(kind, record, currentAction) {
   const text = [
     record.type,
@@ -2375,7 +2384,9 @@ function getSupervisorActionOptions(kind, record, currentAction) {
   const location = safeText(record.location || record.process || "해당 작업구간");
   const type = safeText(record.type || "위험요인");
   const baseAction = compactSummary(record.action || currentAction || "");
-  const withBase = (...items) => uniqueTextItems([baseAction, ...items].filter(Boolean)).slice(0, 5);
+  const withBase = (...items) => uniqueTextItems([baseAction, ...items].filter(Boolean))
+    .filter((item) => !isIrrelevantSupervisorActionOption(kind, item, text))
+    .slice(0, 5);
 
   if (kind === "adminAction") {
     if (/화상|고온|뜨거|열|스팀|증기|보온|단열|내열|장갑/.test(text)) {
@@ -2465,6 +2476,30 @@ function getSupervisorActionOptions(kind, record, currentAction) {
       "MSDS 주요 위험성과 세안·세척 절차를 공유한다.",
       "누출 발생 시 초기 대응 및 보고 절차를 교육한다.",
       "비산·접촉 위험 작업 전 주의사항을 TBM으로 공유한다."
+    );
+  }
+  if (/끼임|협착|롤러|회전|벨트|체인|구동부/.test(text)) {
+    return withBase(
+      "가동부 주변 작업 전 전원 차단 및 접근금지 사항을 교육한다.",
+      "끼임 위험부 접근 금지와 전용 공구 사용 기준을 TBM으로 공유한다.",
+      "정비·청소 작업 시 잠금표시 절차와 확인사항을 교육한다.",
+      "회전체 주변 작업 전 위험구간 확인 및 작업자 간 신호 기준을 공유한다."
+    );
+  }
+  if (/부딪|충돌|머리|돌출|간섭|개구부|구조물/.test(text)) {
+    return withBase(
+      "작업 전 설비 간섭부와 머리 부딪힘 위험 위치를 공유한다.",
+      "통행 시 시야 확보와 위험표지 확인 사항을 TBM으로 교육한다.",
+      "돌출부·개구부 주변 이동 시 주의사항을 관련 작업자에게 전파한다.",
+      "개선 전후 사진으로 동일 위험구간 재발방지 교육을 실시한다."
+    );
+  }
+  if (/넘어짐|미끄|걸림|통로|계단|바닥|방치|정리/.test(text)) {
+    return withBase(
+      "작업 전 통행로 장애물과 미끄럼·걸림 위험요인을 공유한다.",
+      "자재 정리정돈 기준과 보행 동선 확보 사항을 교육한다.",
+      "계단·발판 이용 시 손잡이 사용과 전방 주시 사항을 전파한다.",
+      "TBM에서 통로 확보 및 작업 후 정리정돈 상태를 확인한다."
     );
   }
   return withBase(
