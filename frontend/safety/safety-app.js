@@ -670,10 +670,13 @@ function draftField(field, value, options = {}) {
 
 function stampField(field, label) {
   const value = nearMissFormDraft?.[field] || "";
+  const slot = STAMP_FIELD_TO_SLOT[field] || "";
+  const savedStamp = getDepartmentStampSet(nearMissFormDraft?.department || getCurrentUserDepartment())?.[slot] || "";
   return `
     <div class="stamp-cell">
       ${value ? `<img class="stamp-image" src="${escapeHtml(value)}" alt="${escapeHtml(label)} 도장">` : `<span class="stamp-placeholder">도장</span>`}
       <div class="stamp-actions">
+        ${savedStamp ? `<button class="stamp-approve-btn" data-stamp-approve="${escapeHtml(field)}" type="button">확인</button>` : ""}
         <label class="stamp-upload-btn">
           등록
           <input data-stamp-upload="${escapeHtml(field)}" type="file" accept="image/*">
@@ -4182,6 +4185,23 @@ function bindUiHandlers() {
     });
 
     $("#nearMissFormView")?.addEventListener("click", (event) => {
+      const approveButton = event.target.closest("[data-stamp-approve]");
+      if (approveButton) {
+        const field = approveButton.dataset.stampApprove;
+        const slot = STAMP_FIELD_TO_SLOT[field];
+        const stamp = getDepartmentStampSet(nearMissFormDraft?.department || getCurrentUserDepartment())?.[slot] || "";
+        if (!field || !stamp) {
+          alert("등록된 도장이 없습니다. 먼저 도장을 등록해주세요.");
+          return;
+        }
+        if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
+        nearMissFormDraft[field] = stamp;
+        saveNearMissFormDraft();
+        renderNearMissForm();
+        setAiStatus(`${approveButton.textContent.trim()} 도장을 찍었습니다.`, "success");
+        return;
+      }
+
       const removeButton = event.target.closest("[data-stamp-remove]");
       if (!removeButton) return;
       const field = removeButton.dataset.stampRemove;

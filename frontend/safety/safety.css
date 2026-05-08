@@ -1237,6 +1237,7 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
 }
 
 .stamp-upload-btn,
+.stamp-approve-btn,
 .stamp-remove-btn {
   border: 1px solid #c9d4e2;
   border-radius: 3px;
@@ -1247,6 +1248,12 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
   line-height: 1;
   padding: 2px 4px;
   cursor: pointer;
+}
+
+.stamp-approve-btn {
+  background: #1f57a8;
+  border-color: #1f57a8;
+  color: #ffffff;
 }
 
 .stamp-remove-btn {
