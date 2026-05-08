@@ -71,7 +71,8 @@ function defaultSafetyUsers() {
   return [
     { id: "ESQ", password: "5749", name: "중앙관리자", role: "admin", department: "ESQ" },
     { id: "dept", password: "dept1234", name: "부서사용자", role: "department", department: "부서" },
-    { id: "생산1부", password: "1234", name: "생산1부", role: "department", department: "생산1부" }
+    { id: "생산1부", password: "1234", name: "생산1부", role: "department", department: "생산1부" },
+    { id: "TS", password: "1234", name: "T/S팀", role: "department", department: "T/S팀" }
   ];
 }
 
