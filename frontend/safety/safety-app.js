@@ -470,12 +470,14 @@ function renderDashboardSubmissions() {
   const pendingEl = $("#dashboardSubmissionPending");
   const reviewedEl = $("#dashboardSubmissionReviewed");
   const recent = $("#dashboardSubmissionRecent");
+  const alertPanel = document.querySelector(".admin-dashboard-alert");
 
   if (title) title.textContent = pending ? `미확인 제출 ${pending}건` : "미확인 제출 없음";
   if (caption) caption.textContent = pending ? "먼저 확인해야 할 부서 제출 양식이 있습니다." : "현재 대기 중인 제출 양식은 없습니다.";
   if (totalEl) totalEl.textContent = total;
   if (pendingEl) pendingEl.textContent = pending;
   if (reviewedEl) reviewedEl.textContent = reviewed;
+  if (alertPanel) alertPanel.classList.toggle("has-pending", pending > 0);
   if (!recent) return;
 
   const sorted = formSubmissions
