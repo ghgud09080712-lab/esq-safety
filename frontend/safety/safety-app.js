@@ -513,7 +513,7 @@ async function loadFormSubmissionToDraft(id) {
   };
   delete nearMissFormDraft.submittedRecord;
   saveNearMissFormDraft();
-  nearMissFormMode = "form";
+  nearMissFormMode = "preview";
   switchView("nearMissForm", { keepSubmissionSelection: true });
   renderFormSubmissions();
   renderNearMissForm();
@@ -1026,7 +1026,11 @@ function buildNearMissPrintHtml() {
 function openNearMissFormPreviewWindow() {
   const html = buildNearMissPrintHtml();
   if (!html) return false;
-  const previewWindow = window.open("", "_blank", "width=980,height=1050,scrollbars=yes,resizable=yes");
+  const width = 980;
+  const height = 1050;
+  const left = Math.max(0, Math.round((window.screen.availWidth - width) / 2));
+  const top = Math.max(0, Math.round((window.screen.availHeight - height) / 2));
+  const previewWindow = window.open("", "_blank", `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
   if (!previewWindow) return false;
   previewWindow.document.open();
   previewWindow.document.write(html);
