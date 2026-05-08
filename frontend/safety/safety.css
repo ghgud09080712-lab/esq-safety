@@ -398,6 +398,11 @@ body.sidebar-collapsed .sidebar {
   align-items: flex-start;
 }
 
+body.admin-mode #nearMissFormView.awaiting-submission-selection .near-miss-workbench,
+body.admin-mode #nearMissFormView.awaiting-submission-selection .report-top-actions {
+  display: none;
+}
+
 .near-miss-preview-column {
   min-width: 0;
   width: fit-content;
@@ -1365,6 +1370,11 @@ body.sidebar-collapsed .sidebar {
 
 .form-submission-row:hover {
   background: #eef6ff;
+}
+
+.form-submission-row.selected {
+  background: #e8f1ff;
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .form-submission-title-cell {

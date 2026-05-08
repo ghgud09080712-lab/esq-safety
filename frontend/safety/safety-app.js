@@ -93,6 +93,7 @@ let nearMissFormMode = "form";
 let nearMissFormDraft = null;
 let safetySettings = { departmentStamps: {} };
 let formSubmissions = [];
+let activeFormSubmissionId = "";
 let activeRiskActionPickerIndex = null;
 let activeSupervisorActionPickerKey = "";
 let activeSheetField = "";
@@ -408,6 +409,7 @@ function renderFormSubmissions() {
   if (!list) return;
   if (!formSubmissions.length) {
     list.innerHTML = `<tr><td colspan="7" class="empty-table-cell">제출된 양식이 없습니다.</td></tr>`;
+    syncSubmissionReviewVisibility();
     return;
   }
   const sorted = formSubmissions
@@ -416,7 +418,7 @@ function renderFormSubmissions() {
   list.innerHTML = sorted.map((item, index) => {
     const data = getSubmissionDisplayData(item);
     return `
-      <tr class="form-submission-row ${data.reviewed ? "reviewed" : "pending"}" data-load-form-submission="${escapeHtml(item.id)}" title="클릭해서 양식 불러오기">
+      <tr class="form-submission-row ${data.reviewed ? "reviewed" : "pending"} ${activeFormSubmissionId === item.id ? "selected" : ""}" data-load-form-submission="${escapeHtml(item.id)}" title="클릭해서 양식 불러오기">
         <td>${index + 1}</td>
         <td>${escapeHtml(data.department)}</td>
         <td>${escapeHtml(data.sender)}</td>
@@ -427,6 +429,7 @@ function renderFormSubmissions() {
       </tr>
     `;
   }).join("");
+  syncSubmissionReviewVisibility();
 }
 
 function getSubmissionDisplayData(item) {
@@ -487,9 +490,16 @@ function renderDashboardSubmissions() {
   }).join("");
 }
 
+function syncSubmissionReviewVisibility() {
+  const view = $("#nearMissFormView");
+  if (!view) return;
+  view.classList.toggle("awaiting-submission-selection", !IS_DEPARTMENT_MODE && !activeFormSubmissionId);
+}
+
 async function loadFormSubmissionToDraft(id) {
   const item = formSubmissions.find((entry) => entry.id === id);
   if (!item?.draft) return;
+  activeFormSubmissionId = id;
   nearMissFormDraft = {
     ...getDefaultNearMissFormDraft(),
     ...item.draft
@@ -497,7 +507,8 @@ async function loadFormSubmissionToDraft(id) {
   delete nearMissFormDraft.submittedRecord;
   saveNearMissFormDraft();
   nearMissFormMode = "form";
-  switchView("nearMissForm");
+  switchView("nearMissForm", { keepSubmissionSelection: true });
+  renderFormSubmissions();
   renderNearMissForm();
   setAiStatus("제출 양식을 불러왔습니다.", "success");
 }
@@ -1673,6 +1684,9 @@ function loadActiveView() {
 
 function switchView(viewName, options = {}) {
   const nextView = VALID_VIEWS.includes(viewName) ? viewName : "dashboard";
+  if (nextView === "nearMissForm" && !IS_DEPARTMENT_MODE && !options.keepSubmissionSelection) {
+    activeFormSubmissionId = "";
+  }
   activeView = nextView;
   if (!options.skipSave) localStorage.setItem(ACTIVE_VIEW_KEY, nextView);
   $$(".nav-item").forEach((button) => {
@@ -1682,6 +1696,7 @@ function switchView(viewName, options = {}) {
     view.classList.toggle("active", view.id === `${nextView}View`);
   });
   placeFiltersForView();
+  syncSubmissionReviewVisibility();
 }
 
 function placeFiltersForView() {
@@ -2358,6 +2373,7 @@ function getReducedRiskScore(likelihood, severity) {
 function renderNearMissForm() {
   const summary = $("#nearMissFormSummary");
   const sheet = $("#nearMissFormSheet");
+  syncSubmissionReviewVisibility();
   $$("#nearMissFormModeTabs button").forEach((button) => {
     button.classList.toggle("active", button.dataset.formMode === nearMissFormMode);
   });
