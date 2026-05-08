@@ -2268,8 +2268,8 @@ textarea {
 
 .admin-dashboard-alert.has-pending {
   border-color: #f4b84d;
-  box-shadow: 0 16px 42px rgba(184, 111, 0, .18), 0 0 0 1px rgba(245, 183, 77, .28);
-  animation: pending-alert-glow 1.8s ease-in-out infinite;
+  box-shadow: 0 18px 54px rgba(184, 111, 0, .26), 0 0 0 2px rgba(245, 183, 77, .38);
+  animation: pending-alert-glow 1.05s ease-in-out infinite;
 }
 
 .admin-dashboard-alert.has-pending::after {
@@ -2277,9 +2277,9 @@ textarea {
   position: absolute;
   inset: -50%;
   pointer-events: none;
-  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .72) 48%, rgba(255, 246, 204, .64) 52%, transparent 61%);
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .88) 47%, rgba(255, 223, 120, .82) 52%, transparent 63%);
   transform: translateX(-60%) rotate(8deg);
-  animation: pending-alert-sweep 2.4s ease-in-out infinite;
+  animation: pending-alert-sweep 1.55s ease-in-out infinite;
 }
 
 .admin-dashboard-alert-head {
@@ -2379,12 +2379,19 @@ textarea {
 }
 
 .dashboard-submission-item.pending .submission-status-dot {
-  animation: pending-dot-pulse 1.2s ease-in-out infinite;
+  animation: pending-dot-pulse .82s ease-in-out infinite;
 }
 
 .admin-dashboard-alert.has-pending #dashboardSubmissionPending {
-  color: #b86f00;
-  animation: pending-number-pop 1.45s ease-in-out infinite;
+  color: #c25700;
+  text-shadow: 0 0 14px rgba(255, 184, 77, .65);
+  animation: pending-number-pop .95s ease-in-out infinite;
+}
+
+.admin-dashboard-alert.has-pending .dashboard-submission-item.pending {
+  border-color: rgba(245, 183, 77, .75);
+  background: linear-gradient(90deg, rgba(255, 250, 232, .98), rgba(255, 255, 255, .92));
+  animation: pending-row-blink 1.15s ease-in-out infinite;
 }
 
 .dashboard-submission-item.reviewed .submission-status-dot {
@@ -2424,6 +2431,12 @@ textarea {
   font-weight: 900;
 }
 
+.dashboard-submission-item.pending .submission-state {
+  background: #ffe6a6;
+  color: #8a4700;
+  animation: pending-state-flash .9s ease-in-out infinite;
+}
+
 .dashboard-submission-item.reviewed .submission-state {
   background: #eef3f8;
   color: #52657a;
@@ -2441,10 +2454,10 @@ textarea {
 
 @keyframes pending-alert-glow {
   0%, 100% {
-    box-shadow: 0 16px 42px rgba(184, 111, 0, .16), 0 0 0 1px rgba(245, 183, 77, .24);
+    box-shadow: 0 18px 54px rgba(184, 111, 0, .22), 0 0 0 2px rgba(245, 183, 77, .34);
   }
   50% {
-    box-shadow: 0 18px 52px rgba(184, 111, 0, .28), 0 0 0 3px rgba(245, 183, 77, .38);
+    box-shadow: 0 22px 68px rgba(184, 111, 0, .42), 0 0 0 5px rgba(245, 183, 77, .56);
   }
 }
 
@@ -2465,20 +2478,38 @@ textarea {
 @keyframes pending-dot-pulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(245, 183, 77, .55);
+    box-shadow: 0 0 0 0 rgba(245, 183, 77, .78);
   }
   50% {
-    transform: scale(1.25);
-    box-shadow: 0 0 0 7px rgba(245, 183, 77, 0);
+    transform: scale(1.45);
+    box-shadow: 0 0 0 10px rgba(245, 183, 77, 0);
   }
 }
 
 @keyframes pending-number-pop {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
   50% {
-    transform: translateY(-1px);
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+
+@keyframes pending-row-blink {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(245, 183, 77, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(245, 183, 77, .28);
+  }
+}
+
+@keyframes pending-state-flash {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.18);
   }
 }
 
