@@ -535,8 +535,56 @@ async function loadFormSubmissionToDraft(id) {
   setAiStatus("제출 양식을 불러왔습니다.", "success");
 }
 
+function getRecordFromFormSubmission(item) {
+  const draft = item?.draft || {};
+  const submitted = draft.submittedRecord || {};
+  const sourceId = safeText(item?.id || "");
+  const compactId = sourceId.replace(/^FORM-/, "").replace(/[^\dA-Za-z]/g, "").slice(0, 22) || Date.now();
+  return normalizeRecord({
+    ...submitted,
+    id: `NM-SUB-${compactId}`,
+    kind: "nearMiss",
+    company: cleanDepartment(submitted.department || draft.department) === "SEM" ? K.sem : K.oyoung,
+    date: submitted.date || draft.date || today(),
+    department: submitted.department || draft.department || item?.user?.department || "",
+    author: submitted.author || draft.author || item?.user?.name || item?.user?.id || "",
+    owner: submitted.owner || draft.owner || submitted.author || draft.author || item?.user?.name || "",
+    location: submitted.location || draft.location || "",
+    process: submitted.process || draft.process || submitted.location || draft.location || "",
+    type: submitted.type || draft.type || "기타",
+    cause: submitted.cause || draft.cause || "",
+    summary: submitted.summary || draft.summary || "",
+    description: submitted.description || draft.description || submitted.summary || draft.summary || "",
+    action: submitted.action || draft.action || "",
+    completedDate: submitted.completedDate || draft.completedDate || "",
+    status: K.received,
+    likelihood: submitted.likelihood || 3,
+    severity: submitted.severity || 3,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+async function addSubmissionToNearMissRecords(id) {
+  const item = formSubmissions.find((entry) => entry.id === id);
+  if (!item) return null;
+  const record = getRecordFromFormSubmission(item);
+  const existingIndex = records.findIndex((row) => row.id === record.id);
+  if (existingIndex >= 0) {
+    records[existingIndex] = {
+      ...records[existingIndex],
+      ...record,
+      updatedAt: new Date().toISOString()
+    };
+  } else {
+    records.unshift(record);
+  }
+  await saveRecords();
+  return record;
+}
+
 async function markFormSubmissionReviewed(id) {
   try {
+    const record = await addSubmissionToNearMissRecords(id);
     const response = await fetch(`/api/safety-form-submissions/${encodeURIComponent(id)}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -544,8 +592,10 @@ async function markFormSubmissionReviewed(id) {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     await loadFormSubmissions();
+    renderAll();
+    if (record) setAiStatus(`${record.department} 아차사고 발굴대장에 자동 등록했습니다.`, "success");
   } catch (error) {
-    alert(error.message || "확인처리에 실패했습니다.");
+    alert(error.message || "확인처리 또는 아차사고 등록에 실패했습니다.");
   }
 }
 
