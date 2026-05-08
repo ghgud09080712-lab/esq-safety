@@ -665,16 +665,15 @@ function draftField(field, value, options = {}) {
 
 function stampField(field, label) {
   const value = nearMissFormDraft?.[field] || "";
-  const locked = IS_DEPARTMENT_MODE ? " disabled" : "";
   return `
     <div class="stamp-cell">
       ${value ? `<img class="stamp-image" src="${escapeHtml(value)}" alt="${escapeHtml(label)} 도장">` : `<span class="stamp-placeholder">도장</span>`}
       <div class="stamp-actions">
         <label class="stamp-upload-btn">
           등록
-          <input data-stamp-upload="${escapeHtml(field)}" type="file" accept="image/*"${locked}>
+          <input data-stamp-upload="${escapeHtml(field)}" type="file" accept="image/*">
         </label>
-        ${value && !IS_DEPARTMENT_MODE ? `<button class="stamp-remove-btn" data-stamp-remove="${escapeHtml(field)}" type="button">삭제</button>` : ""}
+        ${value ? `<button class="stamp-remove-btn" data-stamp-remove="${escapeHtml(field)}" type="button">삭제</button>` : ""}
       </div>
     </div>
   `;
