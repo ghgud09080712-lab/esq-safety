@@ -494,6 +494,13 @@ function syncSubmissionReviewVisibility() {
   const view = $("#nearMissFormView");
   if (!view) return;
   view.classList.toggle("awaiting-submission-selection", !IS_DEPARTMENT_MODE && !activeFormSubmissionId);
+  view.classList.toggle("submission-preview-open", !IS_DEPARTMENT_MODE && Boolean(activeFormSubmissionId));
+}
+
+function closeSubmissionPreview() {
+  activeFormSubmissionId = "";
+  renderFormSubmissions();
+  syncSubmissionReviewVisibility();
 }
 
 async function loadFormSubmissionToDraft(id) {
@@ -4124,6 +4131,14 @@ function bindUiHandlers() {
 
     $("#printNearMissFormBtn")?.addEventListener("click", () => {
       printNearMissForm();
+    });
+
+    $("#printSubmissionPreviewBtn")?.addEventListener("click", () => {
+      printNearMissForm();
+    });
+
+    $("#closeSubmissionPreviewBtn")?.addEventListener("click", () => {
+      closeSubmissionPreview();
     });
 
     $("#submitNearMissFormBtn")?.addEventListener("click", () => {

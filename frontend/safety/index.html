@@ -346,6 +346,16 @@
         <div class="near-miss-workbench">
           <div class="near-miss-preview-column">
             <section class="panel near-miss-form-panel">
+              <div class="submission-preview-head admin-only">
+                <div>
+                  <span>제출 양식 미리보기</span>
+                  <strong>선택한 부서 제출 양식</strong>
+                </div>
+                <div>
+                  <button class="btn small" id="printSubmissionPreviewBtn" type="button">프린트</button>
+                  <button class="btn small ghost" id="closeSubmissionPreviewBtn" type="button">닫기</button>
+                </div>
+              </div>
               <div class="segmented wide form-mode-tabs" id="nearMissFormModeTabs">
                 <button class="active" data-form-mode="form" type="button">발굴개선표</button>
                 <button data-form-mode="assessment" type="button">자동 위험성평가</button>

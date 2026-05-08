@@ -403,10 +403,73 @@ body.admin-mode #nearMissFormView.awaiting-submission-selection .report-top-acti
   display: none;
 }
 
+body.admin-mode #nearMissFormView .report-top-actions {
+  display: none;
+}
+
+body.admin-mode #nearMissFormView.submission-preview-open .near-miss-workbench {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+  background: rgba(15, 23, 42, .56);
+}
+
+body.admin-mode #nearMissFormView.submission-preview-open .near-miss-preview-column {
+  width: min(980px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+}
+
+body.admin-mode #nearMissFormView.submission-preview-open .near-miss-form-panel {
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .34);
+}
+
 .near-miss-preview-column {
   min-width: 0;
   width: fit-content;
   max-width: 100%;
+}
+
+.submission-preview-head {
+  display: none;
+}
+
+body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid #d8e3ef;
+  border-radius: 6px;
+  background: #f8fbff;
+}
+
+.submission-preview-head span,
+.submission-preview-head strong {
+  display: block;
+}
+
+.submission-preview-head span {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.submission-preview-head strong {
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.submission-preview-head > div:last-child {
+  display: flex;
+  gap: 6px;
 }
 
 .sheet-font-control {
