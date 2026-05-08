@@ -398,34 +398,13 @@ body.sidebar-collapsed .sidebar {
   align-items: flex-start;
 }
 
-body.admin-mode #nearMissFormView.awaiting-submission-selection .near-miss-workbench,
+body.admin-mode #nearMissFormView .near-miss-workbench,
 body.admin-mode #nearMissFormView.awaiting-submission-selection .report-top-actions {
   display: none;
 }
 
 body.admin-mode #nearMissFormView .report-top-actions {
   display: none;
-}
-
-body.admin-mode #nearMissFormView.submission-preview-open .near-miss-workbench {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow: auto;
-  padding: 24px;
-  background: rgba(15, 23, 42, .56);
-}
-
-body.admin-mode #nearMissFormView.submission-preview-open .near-miss-preview-column {
-  width: min(980px, calc(100vw - 48px));
-  max-width: calc(100vw - 48px);
-}
-
-body.admin-mode #nearMissFormView.submission-preview-open .near-miss-form-panel {
-  box-shadow: 0 24px 70px rgba(15, 23, 42, .34);
 }
 
 .near-miss-preview-column {

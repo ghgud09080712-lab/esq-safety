@@ -517,6 +517,7 @@ async function loadFormSubmissionToDraft(id) {
   switchView("nearMissForm", { keepSubmissionSelection: true });
   renderFormSubmissions();
   renderNearMissForm();
+  openNearMissFormPreviewWindow();
   setAiStatus("제출 양식을 불러왔습니다.", "success");
 }
 
@@ -897,6 +898,35 @@ function buildNearMissPrintHtml() {
     html, body { margin: 0; padding: 0; background: #fff; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .print-root { width: 190mm; margin: 0 auto; }
+    .preview-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 190mm;
+      box-sizing: border-box;
+      margin: 0 auto 12px;
+      padding: 10px 14px;
+      background: #143a67;
+      color: #fff;
+      font-family: "IBM Plex Sans KR", Arial, sans-serif;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, .16);
+    }
+    .preview-toolbar strong { font-size: 15px; }
+    .preview-toolbar div { display: flex; gap: 6px; }
+    .preview-toolbar button {
+      min-height: 30px;
+      padding: 0 12px;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 4px;
+      background: #fff;
+      color: #143a67;
+      font-weight: 800;
+      cursor: pointer;
+    }
     .near-miss-form-wrap { display: block !important; }
     .draft-paper {
       width: 190mm !important;
@@ -975,14 +1005,34 @@ function buildNearMissPrintHtml() {
       line-height: 1 !important;
     }
     @media print {
+      .preview-toolbar { display: none !important; }
       .print-root { margin: 0; }
     }
   </style>
 </head>
 <body>
+  <div class="preview-toolbar">
+    <strong>제출 양식 미리보기</strong>
+    <div>
+      <button type="button" onclick="window.print()">프린트</button>
+      <button type="button" onclick="window.close()">닫기</button>
+    </div>
+  </div>
   <div class="print-root">${clone.innerHTML}</div>
 </body>
 </html>`;
+}
+
+function openNearMissFormPreviewWindow() {
+  const html = buildNearMissPrintHtml();
+  if (!html) return false;
+  const previewWindow = window.open("", "_blank", "width=980,height=1050,scrollbars=yes,resizable=yes");
+  if (!previewWindow) return false;
+  previewWindow.document.open();
+  previewWindow.document.write(html);
+  previewWindow.document.close();
+  previewWindow.focus();
+  return true;
 }
 
 function printNearMissForm() {
