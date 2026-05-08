@@ -927,7 +927,16 @@ function buildNearMissPrintHtml() {
       font-weight: 800;
       cursor: pointer;
     }
+    .preview-toolbar button.active {
+      background: #fffbeb;
+      color: #9a5a00;
+      border-color: #f5c76b;
+    }
     .near-miss-form-wrap { display: block !important; }
+    body.preview-page-1 .draft-paper:nth-child(2),
+    body.preview-page-2 .draft-paper:nth-child(1) {
+      display: none !important;
+    }
     .draft-paper {
       width: 190mm !important;
       height: 277mm !important;
@@ -1006,13 +1015,30 @@ function buildNearMissPrintHtml() {
     }
     @media print {
       .preview-toolbar { display: none !important; }
+      body.preview-page-1 .draft-paper:nth-child(2),
+      body.preview-page-2 .draft-paper:nth-child(1) { display: block !important; }
       .print-root { margin: 0; }
     }
   </style>
+  <script>
+    function showPreviewPage(page) {
+      document.body.classList.toggle("preview-page-1", page === 1);
+      document.body.classList.toggle("preview-page-2", page === 2);
+      document.querySelectorAll("[data-preview-page]").forEach(function(button) {
+        button.classList.toggle("active", Number(button.dataset.previewPage) === page);
+      });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+    window.addEventListener("DOMContentLoaded", function() { showPreviewPage(1); });
+  </script>
 </head>
-<body>
+<body class="preview-page-1">
   <div class="preview-toolbar">
     <strong>제출 양식 미리보기</strong>
+    <div>
+      <button type="button" class="active" data-preview-page="1" onclick="showPreviewPage(1)">발굴개선표</button>
+      <button type="button" data-preview-page="2" onclick="showPreviewPage(2)">위험성평가</button>
+    </div>
     <div>
       <button type="button" onclick="window.print()">프린트</button>
       <button type="button" onclick="window.close()">닫기</button>
