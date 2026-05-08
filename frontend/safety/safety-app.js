@@ -143,7 +143,19 @@ function saveAuthSession(user) {
 }
 
 function clearAuthSession() {
+  clearNearMissFormDraftStorage();
   localStorage.removeItem(AUTH_SESSION_KEY);
+}
+
+function getNearMissFormDraftStorageKey() {
+  const userId = String(currentSafetyUser?.id || loadAuthSession()?.user?.id || "").trim();
+  return userId ? `${NEAR_MISS_FORM_DRAFT_KEY}.${userId}` : NEAR_MISS_FORM_DRAFT_KEY;
+}
+
+function clearNearMissFormDraftStorage() {
+  const userId = String(currentSafetyUser?.id || loadAuthSession()?.user?.id || "").trim();
+  localStorage.removeItem(NEAR_MISS_FORM_DRAFT_KEY);
+  if (userId) localStorage.removeItem(`${NEAR_MISS_FORM_DRAFT_KEY}.${userId}`);
 }
 
 function showLogin(message = "") {
@@ -309,7 +321,8 @@ function getDefaultNearMissFormDraft() {
 
 function loadNearMissFormDraft() {
   try {
-    const saved = JSON.parse(localStorage.getItem(NEAR_MISS_FORM_DRAFT_KEY) || "{}");
+    localStorage.removeItem(NEAR_MISS_FORM_DRAFT_KEY);
+    const saved = JSON.parse(localStorage.getItem(getNearMissFormDraftStorageKey()) || "{}");
     nearMissFormDraft = {
       ...getDefaultNearMissFormDraft(),
       ...(saved && typeof saved === "object" ? saved : {})
@@ -324,7 +337,7 @@ function loadNearMissFormDraft() {
 
 function saveNearMissFormDraft() {
   if (!nearMissFormDraft) return;
-  localStorage.setItem(NEAR_MISS_FORM_DRAFT_KEY, JSON.stringify(nearMissFormDraft));
+  localStorage.setItem(getNearMissFormDraftStorageKey(), JSON.stringify(nearMissFormDraft));
 }
 
 function getDepartmentStampSet(department) {
