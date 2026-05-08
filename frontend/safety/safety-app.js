@@ -325,7 +325,14 @@ function saveNearMissFormDraft() {
 function getDepartmentStampSet(department) {
   const key = cleanDepartment(department);
   if (!key) return null;
-  return safetySettings?.departmentStamps?.[key] || null;
+  const stamps = safetySettings?.departmentStamps || {};
+  if (stamps[key]) return stamps[key];
+  const compactKey = key.replace(/\s/g, "").toUpperCase();
+  const matched = Object.entries(stamps).find(([departmentName]) => {
+    const normalized = cleanDepartment(departmentName);
+    return normalized === key || normalized.replace(/\s/g, "").toUpperCase() === compactKey;
+  });
+  return matched?.[1] || null;
 }
 
 function applyDepartmentStampToDraft(options = {}) {
@@ -555,8 +562,8 @@ function syncNearMissDraftInputs() {
   if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
   if (IS_DEPARTMENT_MODE) {
     const department = getCurrentUserDepartment();
-    if (department && !nearMissFormDraft.department) nearMissFormDraft.department = department;
-    applyDepartmentStampToDraft({ force: false });
+    if (department) nearMissFormDraft.department = department;
+    applyDepartmentStampToDraft({ force: true });
     saveNearMissFormDraft();
   }
   $$("[data-near-miss-draft]").forEach((field) => {
