@@ -394,8 +394,8 @@ body.sidebar-collapsed .sidebar {
 
 .app-toast {
   position: fixed;
-  top: 96px;
-  right: 24px;
+  top: 88px;
+  left: 50%;
   z-index: 3000;
   display: flex;
   align-items: center;
@@ -410,13 +410,13 @@ body.sidebar-collapsed .sidebar {
   color: #0f1f3d;
   opacity: 0;
   pointer-events: none;
-  transform: translate3d(18px, -8px, 0);
+  transform: translate3d(-50%, -12px, 0);
   transition: opacity .18s ease, transform .18s ease;
 }
 
 .app-toast.show {
   opacity: 1;
-  transform: translate3d(0, 0, 0);
+  transform: translate3d(-50%, 0, 0);
 }
 
 .app-toast.success {
