@@ -3920,7 +3920,7 @@ async function requestGeminiPdfAnalysis(base64, prompt) {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error?.message || `HTTP ${response.status}`);
-      return { text: safeText(result.text), model: safeText(result.model) };
+      return { text: safeText(result.text), model: safeText(result.model), ocr: result.ocr || null };
     }, "server");
   }
 
@@ -4122,7 +4122,8 @@ async function processSafetyPdf(file) {
     await saveRecords();
     renderAll();
     switchView(imported.some((row) => row.kind === "incident") ? "incident" : "nearMiss");
-    setAiStatus(`PDF \uBD84\uC11D \uC644\uB8CC: ${imported.length}\uAC74 \uB4F1\uB85D`, "success");
+    const ocrLabel = analysis.ocr?.used ? "PaddleOCR + " : "";
+    setAiStatus(`${ocrLabel}PDF \uBD84\uC11D \uC644\uB8CC: ${imported.length}\uAC74 \uB4F1\uB85D`, "success");
   } catch (error) {
     console.error("PDF parse failed:", error);
     setAiStatus(`\uBD84\uC11D \uC2E4\uD328: ${error.message}`, "error");
