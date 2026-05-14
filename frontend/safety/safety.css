@@ -1018,6 +1018,49 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
   line-height: 1.45;
 }
 
+.risk-action-manual {
+  display: grid;
+  gap: 6px;
+  margin: 10px 12px 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd6e5;
+}
+
+.risk-action-manual label {
+  color: #10294d;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.risk-action-manual textarea {
+  width: 100%;
+  min-height: 74px;
+  resize: vertical;
+  border: 1px solid #b9c7d8;
+  border-radius: 6px;
+  padding: 8px;
+  color: #0b1f3a;
+  font: 700 12px/1.45 Arial, "Malgun Gothic", sans-serif;
+  background: #fff;
+}
+
+.risk-action-manual textarea:focus {
+  outline: 2px solid rgba(37, 99, 235, .18);
+  border-color: #2f5db3;
+}
+
+.risk-action-manual button {
+  justify-self: end;
+  border: 1px solid #234f9f;
+  border-radius: 6px;
+  background: #2f5db3;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 .risk-annex-table tbody td:nth-child(1),
 .risk-annex-table tbody td:nth-child(3),
 .risk-annex-table tbody td:nth-child(4),

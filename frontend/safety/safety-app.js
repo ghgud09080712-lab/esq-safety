@@ -816,6 +816,7 @@ function renderRiskActionPopup(index, draft) {
   const hazard = savedDraft.hazard || draft.hazard || `유해위험요인 ${index + 1}`;
   const selected = splitActionItems(savedDraft.action || draft.action || "");
   const options = uniqueTextItems(Array.isArray(savedDraft.actionOptions) && savedDraft.actionOptions.length ? savedDraft.actionOptions : (draft.actionOptions || []));
+  const manualValue = selected.join("\n");
   const buttons = options.map((option) => {
     const active = selected.some((item) => item.replace(/\s+/g, "") === option.replace(/\s+/g, ""));
     return `<button class="risk-action-panel-option${active ? " active" : ""}" type="button" data-risk-action-index="${index}" data-risk-action-option="${escapeHtml(option)}">${escapeHtml(option)}</button>`;
@@ -828,6 +829,11 @@ function renderRiskActionPopup(index, draft) {
       </div>
       <p>${escapeHtml(hazard)}</p>
       <div class="risk-action-panel-options">${buttons || `<span class="risk-action-panel-empty">추천 대책 없음</span>`}</div>
+      <div class="risk-action-manual">
+        <label for="riskActionManual${index}">직접 입력</label>
+        <textarea id="riskActionManual${index}" data-risk-action-manual="${index}" rows="3" placeholder="현장 상황에 맞는 감소대책을 직접 입력하세요.">${escapeHtml(manualValue)}</textarea>
+        <button type="button" data-risk-action-apply-manual="${index}">직접 입력 적용</button>
+      </div>
     </div>
   `;
 }
@@ -835,6 +841,7 @@ function renderRiskActionPopup(index, draft) {
 function renderSupervisorActionPopup(field, label, value, options = []) {
   if (activeSupervisorActionPickerKey !== field) return "";
   const selectedKey = safeText(value).replace(/\s+/g, "");
+  const manualId = `supervisorActionManual${field}`;
   const buttons = uniqueTextItems(options).map((option) => {
     const active = option.replace(/\s+/g, "") === selectedKey;
     return `<button class="risk-action-panel-option${active ? " active" : ""}" type="button" data-supervisor-action-option="${escapeHtml(field)}" data-supervisor-action-value="${escapeHtml(option)}">${escapeHtml(option)}</button>`;
@@ -847,6 +854,11 @@ function renderSupervisorActionPopup(field, label, value, options = []) {
       </div>
       <p>사고개요·위험요인·개선대책을 기준으로 관련 있는 후보만 표시합니다.</p>
       <div class="risk-action-panel-options">${buttons || `<span class="risk-action-panel-empty">추천 대책 없음</span>`}</div>
+      <div class="risk-action-manual">
+        <label for="${escapeHtml(manualId)}">직접 입력</label>
+        <textarea id="${escapeHtml(manualId)}" data-supervisor-action-manual="${escapeHtml(field)}" rows="3" placeholder="${escapeHtml(label)} 개선대책을 직접 입력하세요.">${escapeHtml(value || "")}</textarea>
+        <button type="button" data-supervisor-action-apply-manual="${escapeHtml(field)}">직접 입력 적용</button>
+      </div>
     </div>
   `;
 }
@@ -5220,6 +5232,19 @@ function bindUiHandlers() {
         return;
       }
 
+      const supervisorManualApply = event.target.closest("[data-supervisor-action-apply-manual]");
+      if (supervisorManualApply) {
+        const field = supervisorManualApply.dataset.supervisorActionApplyManual || "";
+        const input = field ? $(`[data-supervisor-action-manual="${field}"]`) : null;
+        const value = safeText(input?.value).trim();
+        if (!field) return;
+        setNearMissDraftValue(field, value);
+        activeSupervisorActionPickerKey = "";
+        saveNearMissFormDraft();
+        renderNearMissForm();
+        return;
+      }
+
       const supervisorOpen = event.target.closest("[data-supervisor-action-open], [data-supervisor-action-cell]");
       if (supervisorOpen) {
         const field = supervisorOpen.dataset.supervisorActionOpen || supervisorOpen.dataset.supervisorActionCell || "";
@@ -5247,6 +5272,23 @@ function bindUiHandlers() {
         };
         saveNearMissFormDraft();
         activeRiskActionPickerIndex = index;
+        renderNearMissForm();
+        return;
+      }
+
+      const riskManualApply = event.target.closest("[data-risk-action-apply-manual]");
+      if (riskManualApply) {
+        const index = Number(riskManualApply.dataset.riskActionApplyManual);
+        const input = Number.isFinite(index) ? $(`[data-risk-action-manual="${index}"]`) : null;
+        const value = safeText(input?.value).trim();
+        if (!Number.isFinite(index)) return;
+        nearMissFormDraft.riskRows = Array.isArray(nearMissFormDraft.riskRows) ? nearMissFormDraft.riskRows : [];
+        nearMissFormDraft.riskRows[index] = {
+          ...(nearMissFormDraft.riskRows[index] || {}),
+          action: value
+        };
+        saveNearMissFormDraft();
+        activeRiskActionPickerIndex = null;
         renderNearMissForm();
         return;
       }
