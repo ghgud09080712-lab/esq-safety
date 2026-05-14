@@ -2,7 +2,6 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
-const { spawn } = require("child_process");
 
 const app = express();
 const port = Number(process.env.PORT || 4173);
@@ -24,7 +23,6 @@ const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
 const firebaseConfigPath = path.join(rootDir, "firebase-config.js");
-const safetyOcrScriptPath = path.join(rootDir, "tools", "safety_paddle_ocr.py");
 
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -140,87 +138,6 @@ function isRetryableGeminiError(message) {
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getSafetyOcrPythonCommands() {
-  const configured = String(process.env.SAFETY_PYTHON || "").trim();
-  return configured ? [configured] : ["python", "python3"];
-}
-
-function runSafetyOcrWithPython(command, base64, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, [safetyOcrScriptPath], {
-      cwd: rootDir,
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-    let stdout = "";
-    let stderr = "";
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new Error("PaddleOCR 처리 시간이 초과되었습니다."));
-    }, Number(options.timeoutMs || 90000));
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
-      if (stdout.length > 2_000_000) child.kill("SIGKILL");
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `PaddleOCR 종료 코드 ${code}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(stdout || "{}"));
-      } catch (error) {
-        reject(new Error(`PaddleOCR 결과를 읽지 못했습니다: ${error.message}`));
-      }
-    });
-    child.stdin.end(JSON.stringify({
-      base64,
-      maxPages: Number(process.env.SAFETY_OCR_MAX_PAGES || 5),
-      dpi: Number(process.env.SAFETY_OCR_DPI || 180)
-    }));
-  });
-}
-
-async function runSafetyPaddleOcr(base64) {
-  if (String(process.env.SAFETY_PADDLE_OCR || "1") === "0") {
-    return { ok: false, skipped: true, text: "", error: "PaddleOCR disabled" };
-  }
-  for (const command of getSafetyOcrPythonCommands()) {
-    try {
-      const result = await runSafetyOcrWithPython(command, base64);
-      return {
-        ok: Boolean(result.ok),
-        engine: result.engine || "PaddleOCR",
-        pages: Number(result.pages || 0),
-        text: String(result.text || "").trim(),
-        error: result.error || ""
-      };
-    } catch (error) {
-      if (error.code === "ENOENT") continue;
-      return { ok: false, text: "", error: error.message || "PaddleOCR 실행 실패" };
-    }
-  }
-  return { ok: false, text: "", error: "Python 실행 파일을 찾지 못했습니다." };
-}
-
-function buildPromptWithOcrText(prompt, ocrText) {
-  const text = String(ocrText || "").replace(/\s+\n/g, "\n").trim();
-  if (!text) return prompt;
-  return `${prompt}
-
-[PaddleOCR로 먼저 추출한 텍스트]
-아래 OCR 텍스트는 PDF 이미지에서 추출한 보조 정보입니다. PDF 원본과 함께 비교하되, 표의 칸 이름(부서명, 발굴자, 작성자, 공정/장소/설비, 사고개요, 위험요인, 개선대책)을 우선해서 판단하세요. 발굴자는 작성자가 아니라 발굴자 칸의 이름만 사용하세요.
-${text.slice(0, 12000)}`;
 }
 
 async function requestSafetyGeminiPdf(apiKey, base64, prompt) {
@@ -476,10 +393,7 @@ app.post("/api/safety-auth/login", async (req, res) => {
 
 app.get("/api/safety-gemini/status", async (_req, res) => {
   const config = await readSafetyConfig();
-  res.json({
-    configured: Boolean(getSafetyGeminiApiKey(config)),
-    paddleOcr: String(process.env.SAFETY_PADDLE_OCR || "1") !== "0"
-  });
+  res.json({ configured: Boolean(getSafetyGeminiApiKey(config)) });
 });
 
 app.post("/api/safety-gemini/analyze-pdf", async (req, res) => {
@@ -496,18 +410,8 @@ app.post("/api/safety-gemini/analyze-pdf", async (req, res) => {
       return res.status(400).json({ error: { message: "PDF 데이터와 프롬프트가 필요합니다." } });
     }
 
-    const ocr = await runSafetyPaddleOcr(base64);
-    const effectivePrompt = buildPromptWithOcrText(prompt, ocr.text);
-    const result = await requestSafetyGeminiPdf(apiKey, base64, effectivePrompt);
-    return res.json({
-      ...result,
-      ocr: {
-        used: Boolean(ocr.ok && ocr.text),
-        engine: ocr.engine || "PaddleOCR",
-        pages: ocr.pages || 0,
-        error: ocr.ok ? "" : ocr.error || ""
-      }
-    });
+    const result = await requestSafetyGeminiPdf(apiKey, base64, prompt);
+    return res.json(result);
   } catch (error) {
     return res.status(500).json({ error: { message: error.message || "Gemini PDF 분석 실패" } });
   }
