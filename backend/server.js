@@ -167,6 +167,33 @@ async function requestSafetyGeminiPdf(apiKey, base64, prompt) {
   throw lastError || new Error("Gemini PDF 분석 실패");
 }
 
+async function requestSafetyGeminiText(apiKey, prompt) {
+  let lastError;
+  const models = (await listSafetyGeminiModels(apiKey)).slice(0, 3);
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const model = models[attempt - 1] || models[0] || await pickSafetyGeminiModel(apiKey);
+      if (!model) throw new Error("사용 가능한 Gemini 모델을 찾지 못했습니다.");
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.15, response_mime_type: "application/json" }
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error?.message || `HTTP ${response.status}`);
+      return { text: payload.candidates?.[0]?.content?.parts?.[0]?.text || "", model };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= 3 || !isRetryableGeminiError(error?.message)) break;
+      await wait(attempt * 3000);
+    }
+  }
+  throw lastError || new Error("Gemini 분석 실패");
+}
+
 function sanitizeFilename(name) {
   return String(name || "proposal.pdf").replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_");
 }
@@ -414,6 +441,26 @@ app.post("/api/safety-gemini/analyze-pdf", async (req, res) => {
     return res.json(result);
   } catch (error) {
     return res.status(500).json({ error: { message: error.message || "Gemini PDF 분석 실패" } });
+  }
+});
+
+app.post("/api/safety-gemini/recommend-risk", async (req, res) => {
+  try {
+    const config = await readSafetyConfig();
+    const apiKey = getSafetyGeminiApiKey(config);
+    if (!apiKey) {
+      return res.status(503).json({ error: { message: "Gemini API 키가 서버 로컬 설정에 없습니다." } });
+    }
+
+    const prompt = String(req.body?.prompt || "").trim();
+    if (!prompt) {
+      return res.status(400).json({ error: { message: "위험성평가 프롬프트가 필요합니다." } });
+    }
+
+    const result = await requestSafetyGeminiText(apiKey, prompt);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ error: { message: error.message || "Gemini 위험성평가 추천 실패" } });
   }
 });
 

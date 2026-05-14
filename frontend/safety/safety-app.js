@@ -1179,22 +1179,122 @@ function printNearMissForm() {
   }, 450);
 }
 
-function generateNearMissRiskAssessment() {
+function parseGeminiJsonObject(rawText) {
+  const stripped = safeText(rawText).replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const match = stripped.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("AI response did not contain a JSON object.");
+  return JSON.parse(match[0]);
+}
+
+function buildExpertRiskPrompt(record) {
+  const payload = {
+    department: record.department,
+    date: record.date,
+    author: record.author,
+    owner: record.owner,
+    location: record.location,
+    process: record.process,
+    type: record.type,
+    summary: record.summary,
+    description: record.description,
+    cause: record.cause,
+    currentAction: record.action,
+    adminAction: record.adminAction,
+    techAction: record.techAction,
+    eduAction: record.eduAction
+  };
+  return [
+    "너는 제조업 현장 산업안전보건 전문가다.",
+    "아래 아차사고 발굴개선표 입력값을 읽고, 이 상황에만 맞는 위험성평가 초안을 작성한다.",
+    "절대 범용 문구만 쓰지 말고, 입력값의 장소/설비/작업대상/원인/위험행동을 문장에 직접 반영한다.",
+    "대책은 실행 가능한 현장 조치로 작성한다. 예: 보호커버 설치, 방호덮개, 동선분리, 지정 보관 위치, 누출부 체결점검, 잠금표시, 난간/덮개, 점검주기, 작업허가 등.",
+    "교육만으로 끝내지 말고 가능하면 제거·대체·공학적 대책을 먼저 제시한다.",
+    "관련 없는 보호구, 장갑, 교육 문구를 억지로 넣지 않는다.",
+    "재해유형이 애매하면 사고개요와 위험요인을 읽고 가장 타당한 관점으로 판단한다.",
+    "한국어로만 작성한다.",
+    "JSON object만 반환한다. markdown 금지.",
+    "형식:",
+    "{",
+    "  \"riskRows\": [",
+    "    {\"hazard\":\"구체 유해위험요인\", \"estimate\":\"적정|보완|해당없음\", \"action\":\"구체 위험성 감소대책\", \"actionOptions\":[\"선택 가능한 대책 1\", \"선택 가능한 대책 2\"], \"dueDate\":\"YYYY-MM-DD 또는 빈 문자열\", \"doneDate\":\"YYYY-MM-DD 또는 빈 문자열\", \"owner\":\"담당자\"}",
+    "  ],",
+    "  \"adminAction\":\"관리적 예방대책 1문장\",",
+    "  \"techAction\":\"기술적 예방대책 1문장\",",
+    "  \"eduAction\":\"교육적 예방대책 1문장\"",
+    "}",
+    "riskRows는 2~5개만 작성한다. 각각 서로 다른 위험요인으로 작성한다.",
+    "estimate는 개선이 필요한 항목이면 보완으로 한다.",
+    "actionOptions는 해당 hazard에 바로 맞는 대안만 2~4개 작성한다.",
+    `입력값: ${JSON.stringify(payload, null, 2)}`
+  ].join("\n");
+}
+
+function normalizeExpertRiskRows(payload, record) {
+  const rows = Array.isArray(payload?.riskRows) ? payload.riskRows : [];
+  const fallbackRows = buildRiskDrafts(record).slice(0, 5);
+  const sourceRows = rows.length ? rows : fallbackRows;
+  const dueDate = safeText(record.dueDate || record.date || "");
+  const doneDate = safeText(record.completedDate || record.dueDate || record.date || "");
+  const owner = safeText(record.owner || record.author || "-");
+  return sourceRows
+    .map((row, index) => ({
+      hazard: compactSummary(row.hazard || row.description || fallbackRows[index]?.hazard || "", ""),
+      estimate: ["적정", "보완", "해당없음"].includes(safeText(row.estimate)) ? safeText(row.estimate) : "보완",
+      action: compactSummary(row.action || fallbackRows[index]?.action || "", ""),
+      actionOptions: uniqueTextItems(Array.isArray(row.actionOptions) ? row.actionOptions.map(safeText) : [row.action, fallbackRows[index]?.action].filter(Boolean)).slice(0, 4),
+      dueDate: safeText(row.dueDate || dueDate),
+      doneDate: safeText(row.doneDate || doneDate),
+      owner: safeText(row.owner || owner)
+    }))
+    .filter((row) => row.hazard && row.action)
+    .slice(0, 5);
+}
+
+async function requestExpertRiskAssessment(record) {
+  if (!await hasServerGeminiConfig()) throw new Error("Gemini API 키가 설정되지 않았습니다.");
+  const response = await fetch("/api/safety-gemini/recommend-risk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: buildExpertRiskPrompt(record) })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error?.message || `HTTP ${response.status}`);
+  return parseGeminiJsonObject(result.text);
+}
+
+async function generateNearMissRiskAssessment() {
   if (!nearMissFormDraft) nearMissFormDraft = getDefaultNearMissFormDraft();
   const record = getNearMissFormDraftRecord();
-  const drafts = buildRiskDrafts(record).slice(0, 8);
-  nearMissFormDraft.riskRows = drafts.map((draft) => ({
-    hazard: draft.hazard,
-    estimate: draft.estimate,
-    action: draft.action,
-    actionOptions: draft.actionOptions || [],
-    dueDate: draft.dueDate,
-    doneDate: draft.doneDate,
-    owner: draft.owner
-  }));
+  let payload = null;
+  try {
+    setAiStatus("AI가 현장 상황에 맞는 위험성평가를 작성하는 중...");
+    payload = await requestExpertRiskAssessment(record);
+  } catch (error) {
+    console.warn("expert risk recommendation failed:", error);
+    setAiStatus(`AI 추천 실패: ${error.message || "로컬 추천으로 전환합니다."}`, "warning");
+  }
+
+  if (payload) {
+    nearMissFormDraft.riskRows = normalizeExpertRiskRows(payload, record);
+    if (payload.adminAction) nearMissFormDraft.adminAction = compactSummary(payload.adminAction, "");
+    if (payload.techAction) nearMissFormDraft.techAction = compactSummary(payload.techAction, "");
+    if (payload.eduAction) nearMissFormDraft.eduAction = compactSummary(payload.eduAction, "");
+  } else {
+    const drafts = buildRiskDrafts(record).slice(0, 8);
+    nearMissFormDraft.riskRows = drafts.map((draft) => ({
+      hazard: draft.hazard,
+      estimate: draft.estimate,
+      action: draft.action,
+      actionOptions: draft.actionOptions || [],
+      dueDate: draft.dueDate,
+      doneDate: draft.doneDate,
+      owner: draft.owner
+    }));
+  }
   saveNearMissFormDraft();
   nearMissFormMode = "assessment";
   renderNearMissForm();
+  if (payload) setAiStatus("상황 맞춤 위험성평가 작성 완료", "success");
 }
 
 function readPhotoFile(file) {
