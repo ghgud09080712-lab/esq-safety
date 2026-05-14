@@ -5392,9 +5392,9 @@ function bindUiHandlers() {
         return;
       }
 
-      const supervisorOpen = event.target.closest("[data-supervisor-action-open], [data-supervisor-action-cell]");
+      const supervisorOpen = event.target.closest("[data-supervisor-action-open]");
       if (supervisorOpen) {
-        const field = supervisorOpen.dataset.supervisorActionOpen || supervisorOpen.dataset.supervisorActionCell || "";
+        const field = supervisorOpen.dataset.supervisorActionOpen || "";
         if (!field) return;
         activeRiskActionPickerIndex = null;
         activeSupervisorActionPickerKey = activeSupervisorActionPickerKey === field ? "" : field;
