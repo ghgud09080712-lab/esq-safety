@@ -911,7 +911,7 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
 .risk-annex-table tbody td:nth-child(6) {
   font-size: calc(var(--risk-annex-font) - 1px);
   line-height: 1.18;
-  text-align: center;
+  text-align: left;
   vertical-align: middle;
   word-break: keep-all;
   overflow-wrap: anywhere;
@@ -920,6 +920,13 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
 
 .risk-annex-table tbody td:nth-child(6):has(.sheet-risk-text) {
   padding: 0;
+}
+
+.risk-annex-table tbody td:nth-child(6) .sheet-risk-text {
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 2px 7px;
 }
 
 .risk-action-cell {
@@ -3826,6 +3833,21 @@ dialog::backdrop {
     text-align: center !important;
     align-items: center !important;
     justify-content: center !important;
+  }
+
+  body.printing-near-miss-form .risk-annex-table tbody td:nth-child(6),
+  body.printing-near-miss-form .risk-annex-table tbody td:nth-child(6) .sheet-risk-text,
+  body.printing-near-miss-form .risk-annex-table tbody td:nth-child(6) .print-field-text {
+    text-align: left !important;
+    vertical-align: middle !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  body.printing-near-miss-form .risk-annex-table tbody td:nth-child(6) .sheet-risk-text,
+  body.printing-near-miss-form .risk-annex-table tbody td:nth-child(6) .print-field-text {
+    padding-left: 7px !important;
+    padding-right: 7px !important;
   }
 
   body.printing-near-miss-form .risk-annex-table tbody td:nth-child(7) .print-field-text,
