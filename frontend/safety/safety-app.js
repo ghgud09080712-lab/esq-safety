@@ -1204,11 +1204,17 @@ function buildExpertRiskPrompt(record) {
     eduAction: record.eduAction
   };
   return [
-    "너는 제조업 현장 산업안전보건 전문가다.",
+    "너는 제조업 현장 산업안전보건 전문가이며, 대책 수준을 엄격하게 평가하는 안전관리자다.",
     "아래 아차사고 발굴개선표 입력값을 읽고, 이 상황에만 맞는 위험성평가 초안을 작성한다.",
     "절대 범용 문구만 쓰지 말고, 입력값의 장소/설비/작업대상/원인/위험행동을 문장에 직접 반영한다.",
-    "대책은 실행 가능한 현장 조치로 작성한다. 예: 보호커버 설치, 방호덮개, 동선분리, 지정 보관 위치, 누출부 체결점검, 잠금표시, 난간/덮개, 점검주기, 작업허가 등.",
-    "교육만으로 끝내지 말고 가능하면 제거·대체·공학적 대책을 먼저 제시한다.",
+    "위험성 감소대책(action)은 반드시 해당 위험을 직접 낮추는 물리적·공학적·작업방법 개선이어야 한다.",
+    "좋은 action 예: 방치 자재를 지정 보관대로 이동, 통행로 구획선 표시, 돌출부 완충재 설치, 끼임부 방호덮개 설치, 배관 체결부 보수, 누출받이 설치, 개구부 덮개 설치, 작업동선 분리, 잠금표시 적용.",
+    "나쁜 action 예: 교육한다, 주의한다, 점검한다, 공유한다, 확인한다, 관리한다. 이런 말만 단독으로 쓰면 안 된다.",
+    "점검이 필요한 경우에도 반드시 후속 조치를 같이 쓴다. 예: 점검하고 불량부를 보수한다, 체결 상태를 확인하고 누출부를 교체한다.",
+    "교육은 eduAction에만 쓰고, riskRows.action에는 교육만 쓰지 않는다.",
+    "actionOptions도 전부 현장 조치 중심으로 작성한다. 교육/주의/공유만 있는 선택지는 금지한다.",
+    "감소대책은 '무엇을', '어디에', '어떻게 조치할지'가 보이게 작성한다.",
+    "가능하면 위험원 제거 → 접근 차단/방호 → 작업동선·보관위치 개선 → 관리기준 순서로 제시한다.",
     "관련 없는 보호구, 장갑, 교육 문구를 억지로 넣지 않는다.",
     "재해유형이 애매하면 사고개요와 위험요인을 읽고 가장 타당한 관점으로 판단한다.",
     "한국어로만 작성한다.",
@@ -1224,9 +1230,32 @@ function buildExpertRiskPrompt(record) {
     "}",
     "riskRows는 2~5개만 작성한다. 각각 서로 다른 위험요인으로 작성한다.",
     "estimate는 개선이 필요한 항목이면 보완으로 한다.",
-    "actionOptions는 해당 hazard에 바로 맞는 대안만 2~4개 작성한다.",
+    "actionOptions는 해당 hazard에 바로 맞는 현장 조치 대안만 2~4개 작성한다.",
     `입력값: ${JSON.stringify(payload, null, 2)}`
   ].join("\n");
+}
+
+function isWeakRiskReductionAction(action) {
+  const text = safeText(action).replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  const compact = text.replace(/\s+/g, "");
+  const controlWords = /(설치|제거|보수|교체|차단|분리|구획|지정|이동|고정|덮개|커버|난간|방호|보호재|완충재|잠금|체결|비치|보완|조정|표시|제한|확보|개선|재정리|마감|격리|받침|방유|흡착재|보관대)/;
+  const weakOnlyWords = /(교육|주의|공유|점검|확인|관리|전파|TBM|순찰)/g;
+  const hasControl = controlWords.test(compact);
+  if (hasControl) return false;
+  const weakMatches = compact.match(weakOnlyWords) || [];
+  if (weakMatches.length) return true;
+  return text.length < 18;
+}
+
+function getStrongRiskFallbackAction(record, index = 0) {
+  const profile = getExpertSafetyProfile(record);
+  const contextual = getContextualExpertItems(profile, record);
+  const candidates = uniqueTextItems([
+    ...(contextual.actions || []),
+    ...profile.actions.map((item) => materializeExpertText(item, record))
+  ]);
+  return candidates.find((item) => !isWeakRiskReductionAction(item)) || candidates[index] || "위험 발생 부위를 현장 확인 후 제거·차단·보호재 설치 등 물리적 개선을 실시한다.";
 }
 
 function normalizeExpertRiskRows(payload, record) {
@@ -1237,15 +1266,24 @@ function normalizeExpertRiskRows(payload, record) {
   const doneDate = safeText(record.completedDate || record.dueDate || record.date || "");
   const owner = safeText(record.owner || record.author || "-");
   return sourceRows
-    .map((row, index) => ({
-      hazard: compactSummary(row.hazard || row.description || fallbackRows[index]?.hazard || "", ""),
-      estimate: ["적정", "보완", "해당없음"].includes(safeText(row.estimate)) ? safeText(row.estimate) : "보완",
-      action: compactSummary(row.action || fallbackRows[index]?.action || "", ""),
-      actionOptions: uniqueTextItems(Array.isArray(row.actionOptions) ? row.actionOptions.map(safeText) : [row.action, fallbackRows[index]?.action].filter(Boolean)).slice(0, 4),
-      dueDate: safeText(row.dueDate || dueDate),
-      doneDate: safeText(row.doneDate || doneDate),
-      owner: safeText(row.owner || owner)
-    }))
+    .map((row, index) => {
+      const fallbackAction = fallbackRows[index]?.action || getStrongRiskFallbackAction(record, index);
+      const rawAction = compactSummary(row.action || fallbackAction, "");
+      const action = isWeakRiskReductionAction(rawAction) ? fallbackAction : rawAction;
+      const rawOptions = Array.isArray(row.actionOptions) ? row.actionOptions.map(safeText) : [];
+      const actionOptions = uniqueTextItems([action, ...rawOptions, fallbackAction, ...(fallbackRows[index]?.actionOptions || [])])
+        .filter((item) => !isWeakRiskReductionAction(item))
+        .slice(0, 4);
+      return {
+        hazard: compactSummary(row.hazard || row.description || fallbackRows[index]?.hazard || "", ""),
+        estimate: ["적정", "보완", "해당없음"].includes(safeText(row.estimate)) ? safeText(row.estimate) : "보완",
+        action,
+        actionOptions: actionOptions.length ? actionOptions : [action],
+        dueDate: safeText(row.dueDate || dueDate),
+        doneDate: safeText(row.doneDate || doneDate),
+        owner: safeText(row.owner || owner)
+      };
+    })
     .filter((row) => row.hazard && row.action)
     .slice(0, 5);
 }
