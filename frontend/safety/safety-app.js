@@ -3004,9 +3004,317 @@ function getExpertSafetyProfile(record, currentAction = "") {
   };
 }
 
+function cleanExpertPhrase(value, fallback = "") {
+  return safeText(value)
+    .replace(/\s+/g, " ")
+    .replace(/^[,.\s·:;/-]+|[,.\s·:;/-]+$/g, "")
+    .trim() || fallback;
+}
+
+function shortenExpertPhrase(value, max = 42) {
+  const text = cleanExpertPhrase(value);
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).replace(/\s+\S*$/, "")} 등`;
+}
+
+function getExpertSituation(record) {
+  const location = cleanExpertPhrase(record.location || record.process, "해당 작업구간");
+  const rawText = [
+    record.location,
+    record.process,
+    record.summary,
+    record.description,
+    record.cause,
+    record.action
+  ].map(safeText).join(" ");
+  const text = rawText.replace(/\s+/g, " ").trim();
+  const compact = text.replace(/\s+/g, "");
+  const sentence = cleanExpertPhrase(record.summary || record.description || record.cause || record.action, `${location} 위험요인`);
+
+  const targetPatterns = [
+    /([가-힣A-Za-z0-9()\-·\/\s]{2,45}?(?:펌프|커플링|핀|탱크|TANK|계단|발판|통로|배관|밸브|호스|플랜지|용기|기자재|자재|개구부|구조물|난간|사다리|전선|콘센트|분전반|롤러|벨트|체인|컨베이어|모서리|철판|공구|문|도어)[가-힣A-Za-z0-9()\-·\/\s]{0,18})/,
+    /([가-힣A-Za-z0-9()\-·\/\s]{2,45}?(?:방치|파손|누출|돌출|협착|미끄럼|걸림|유출|흘러|장애물)[가-힣A-Za-z0-9()\-·\/\s]{0,18})/
+  ];
+  const targetMatch = targetPatterns.map((pattern) => text.match(pattern)).find(Boolean);
+  const target = shortenExpertPhrase(targetMatch?.[1] || location, 36);
+
+  const causePatterns = [
+    /([^.!?\n]{2,55}?(?:때문에|인해|미흡|부족|방치|파손|낮아|없어|않아|노후|누출|돌출|협착|걸림|미끄럼|유출)[^.!?\n]{0,34})/,
+    /([^.!?\n]{2,55}?(?:위치|상태|장애물|정리정돈|보관|고정|체결|방호|보호구)[^.!?\n]{0,34})/
+  ];
+  const causeMatch = causePatterns.map((pattern) => text.match(pattern)).find(Boolean);
+  const cause = shortenExpertPhrase(causeMatch?.[1] || sentence, 58);
+
+  const bodyPart = compact.match(/(머리|손가락|손|팔|발|다리|허리|어깨|피부|안구|눈)/)?.[1] || "작업자";
+  const material = compact.match(/([가-힣A-Za-z0-9()\-·\/]{2,24}(?:원액|약품|유류|용제|가스|스팀|증기|분진))/)?.[1] || "";
+  const task = shortenExpertPhrase((text.match(/([가-힣A-Za-z0-9()\-·\/\s]{2,36}?(?:작업|이동|점검|정비|청소|탈착|운반|적재|보관|교체|조작))/)?.[1] || ""), 32);
+
+  return { location, target, cause, bodyPart, material, task, sentence, text };
+}
+
+function getContextualExpertItems(profile, record) {
+  const situation = getExpertSituation(record);
+  const location = situation.location;
+  const target = situation.target;
+  const cause = situation.cause;
+  const bodyPart = situation.bodyPart;
+  const material = situation.material;
+  const task = situation.task;
+
+  const items = {
+    hazards: [],
+    actions: [],
+    admin: [],
+    tech: [],
+    edu: []
+  };
+
+  if (profile.id === "slip") {
+    items.hazards = [
+      `${target} 정리정돈 또는 보관상태 미흡으로 작업자가 이동 중 걸려 넘어질 위험`,
+      `${location} 통행동선에 장애물이 남아 작업자 보행 중 충돌·전도 위험`
+    ];
+    items.actions = [
+      `${target}를 통행구간 밖 지정 위치로 이동 보관하고 보행 동선을 표시한다.`,
+      `${location} 통행로의 장애물을 제거하고 작업 전·후 정리정돈 점검을 실시한다.`
+    ];
+    items.admin = [
+      `${location} 통행로 확보 기준과 자재 임시보관 위치를 작업 전 점검항목에 반영한다.`,
+      `관리감독자가 ${target} 정리상태와 통행동선 확보 여부를 작업 전 확인한다.`
+    ];
+    items.tech = [
+      `${target} 주변 통행구간을 구획 표시하고 보관 위치를 분리한다.`,
+      `${location} 바닥 걸림·미끄럼 요인을 제거하고 필요한 경우 미끄럼 방지 조치를 적용한다.`
+    ];
+    items.edu = [
+      `${location} 이동 전 ${target} 주변 장애물 확인과 정리정돈 기준을 TBM으로 공유한다.`,
+      `작업 후 ${target}를 지정 위치에 보관하도록 관련 작업자에게 교육한다.`
+    ];
+  } else if (profile.id === "strike") {
+    items.hazards = [
+      `${cause} 작업자가 ${bodyPart} 부위를 부딪힐 위험`,
+      `${target} 주변 이동·작업 중 설비 간섭으로 충돌 사고가 발생할 위험`
+    ];
+    items.actions = [
+      `${target} 접촉 부위에 완충 보호재와 식별표시를 설치하고 통행 동선을 조정한다.`,
+      `${cause} 발생 구간을 현장 확인하여 돌출·간섭부를 제거하거나 보호 조치한다.`
+    ];
+    items.admin = [
+      `${target} 간섭부를 작업 전 점검항목에 반영하고 개선 전까지 관리감독자가 확인한다.`,
+      `${location} 유사 구조물에 대해 수평전개 점검을 실시한다.`
+    ];
+    items.tech = [
+      `${target} 접촉 예상 부위에 보호커버 또는 완충재를 설치한다.`,
+      `${location} 작업자 이동 동선을 조정해 ${target}와의 간섭을 줄인다.`
+    ];
+    items.edu = [
+      `${target} 주변 이동 시 ${bodyPart} 부딪힘 위험 위치를 작업 전 공유한다.`,
+      `개선 전까지 ${location} 이동·작업 시 시야확보와 위험표지 확인 사항을 교육한다.`
+    ];
+  } else if (profile.id === "chemical") {
+    const materialText = material || "화학물질";
+    items.hazards = [
+      `${target}에서 ${materialText} 누출·비산으로 작업자 피부 또는 안구에 접촉될 위험`,
+      `${cause} ${materialText} 유출 시 주변 작업자에게 노출될 위험`
+    ];
+    items.actions = [
+      `${target} 연결부와 체결 상태를 점검하고 누출 가능 부위를 보수한다.`,
+      `${materialText} 취급 위치에 비산 차단조치, 보호구, 누출 대응물품을 확보한다.`
+    ];
+    items.admin = [
+      `${target} 누출 점검 주기와 보호구 착용 확인을 작업 전 점검항목에 반영한다.`,
+      `${materialText} 취급 작업은 MSDS와 비상대응물품 확인 후 진행하도록 관리한다.`
+    ];
+    items.tech = [
+      `${target} 누출 가능 부위에 차단커버 또는 받침·방유 조치를 적용한다.`,
+      `${materialText} 접촉 가능 구간 가까이에 세안·세척 및 흡착재를 비치한다.`
+    ];
+    items.edu = [
+      `${materialText} 누출 시 초기 차단, 세안·세척, 보고 절차를 작업 전 공유한다.`,
+      `${target} 취급 시 보호구 착용 기준과 비산 주의사항을 교육한다.`
+    ];
+  } else if (profile.id === "thermal") {
+    items.hazards = [
+      `${target} 고온·저온부에 작업자가 접촉되어 화상 또는 동상 피해가 발생할 위험`,
+      `${cause} 이상온도 접촉 위험을 작업자가 인지하지 못할 위험`
+    ];
+    items.actions = [
+      `${target} 접촉 가능 부위에 단열재 또는 보호커버를 설치한다.`,
+      `${location} 이상온도 위험 위치에 식별표시를 부착하고 보호구 착용을 확인한다.`
+    ];
+    items.admin = [
+      `${target} 온도·차단·냉각 상태 확인을 작업 전 점검항목에 반영한다.`,
+      `관리감독자가 ${location} 이상온도 접촉 위험 표시와 보호구 착용 상태를 확인한다.`
+    ];
+    items.tech = [
+      `${target} 접촉면에 단열재, 보호커버 또는 접근 제한 조치를 적용한다.`,
+      `${location} 작업동선을 조정해 이상온도 부위와 작업자 접촉 가능성을 줄인다.`
+    ];
+    items.edu = [
+      `${target} 접촉 위험과 내열·방한 보호구 착용 기준을 교육한다.`,
+      `작업 전 ${location}의 고온·저온 위험 위치를 TBM으로 공유한다.`
+    ];
+  } else if (profile.id === "pinch") {
+    items.hazards = [
+      `${target} 작동 또는 ${task || "정비·청소 작업"} 중 손·팔 끼임 위험`,
+      `${cause} 작업자가 위험부에 접근하여 협착될 위험`
+    ];
+    items.actions = [
+      `${target} 끼임 위험부에 방호덮개 또는 가드를 설치한다.`,
+      `${task || "정비·청소"} 전 전원 차단 및 잠금표시 절차를 적용한다.`
+    ];
+    items.admin = [
+      `${target} 방호장치 설치 상태와 전원 차단 확인을 작업 전 점검항목에 반영한다.`,
+      `${task || "정비·청소"} 작업은 관리감독자 확인 후 진행하도록 기준을 정한다.`
+    ];
+    items.tech = [
+      `${target} 접근 가능 구간에 가드와 비상정지 접근성을 확보한다.`,
+      `손 접근이 필요한 작업은 전용 공구 또는 보조장치를 사용하도록 개선한다.`
+    ];
+    items.edu = [
+      `${target} 주변 끼임 위험부 접근 금지와 잠금표시 절차를 TBM으로 공유한다.`,
+      `${task || "설비 작업"} 중 손을 넣지 않도록 전용 공구 사용 기준을 교육한다.`
+    ];
+  } else if (profile.id === "cut") {
+    items.hazards = [
+      `${target}의 날카로운 부위에 작업자 손이 베이거나 찔릴 위험`,
+      `${cause} 예리한 부위 접촉으로 절상 사고가 발생할 위험`
+    ];
+    items.actions = [
+      `${target} 날카로운 부위에 보호캡 또는 마감 처리를 실시한다.`,
+      `${task || "취급 작업"} 시 절단 방지 장갑과 안전한 공구 사용 기준을 적용한다.`
+    ];
+    items.admin = [
+      `${target} 예리한 부위 점검과 보호구 착용 확인을 작업 전 점검항목에 반영한다.`,
+      `파손·돌출 부위 발견 시 사용중지와 보수 요청 기준을 정한다.`
+    ];
+    items.tech = [
+      `${target} 모서리와 돌출부를 제거하거나 보호재로 마감한다.`,
+      `절단·정리 작업에는 적합한 고정장치와 전용 공구를 사용한다.`
+    ];
+    items.edu = [
+      `${target} 취급 시 베임·찔림 위험 위치와 보호구 착용 기준을 교육한다.`,
+      `예리한 자재 보관 및 이동 시 손 위치와 잡는 방법을 TBM으로 공유한다.`
+    ];
+  } else if (profile.id === "electric") {
+    items.hazards = [
+      `${target} 절연·접지 상태 불량으로 작업자가 감전될 위험`,
+      `${cause} 누전 또는 전기화재가 발생할 위험`
+    ];
+    items.actions = [
+      `${target} 절연·접지 상태와 누전차단기 작동 여부를 점검한다.`,
+      `손상된 전선·콘센트를 교체하고 ${location} 습윤 구간 전기 사용을 제한한다.`
+    ];
+    items.admin = [
+      `${target} 전기설비 점검 주기와 차단·검전 확인 절차를 관리기준에 반영한다.`,
+      `전기작업은 관리감독자 확인 후 차단·검전 완료 상태에서 진행하도록 한다.`
+    ];
+    items.tech = [
+      `${target} 손상부를 교체하고 절연·접지 상태를 보완한다.`,
+      `${location} 습윤 구간에는 방수형 전기기기 또는 차단 조치를 적용한다.`
+    ];
+    items.edu = [
+      `${target} 사용 전 손상 전선 확인과 감전 위험 신고 기준을 교육한다.`,
+      `전기작업 전 차단·검전 절차와 젖은 손 사용금지 사항을 TBM으로 공유한다.`
+    ];
+  } else if (profile.id === "fall") {
+    items.hazards = [
+      `${target} 이용 또는 ${task || "고소작업"} 중 작업자가 떨어질 위험`,
+      `${cause} 추락방지 조치가 부족해 작업자 추락 위험`
+    ];
+    items.actions = [
+      `${target} 고정 상태를 점검하고 난간·덮개·미끄럼 방지 조치를 보완한다.`,
+      `${task || "고소작업"} 전 추락방지 보호구 착용과 작업허가 확인을 실시한다.`
+    ];
+    items.admin = [
+      `${target} 사용 전 점검항목과 추락방지 보호구 확인 절차를 운영한다.`,
+      `${location} 추락 위험구간을 관리감독자가 작업 전 확인한다.`
+    ];
+    items.tech = [
+      `${target}에 안전난간, 덮개 또는 미끄럼 방지 조치를 설치한다.`,
+      `${location} 추락 위험구간에 출입제한 표시와 안전대 걸이설비를 확보한다.`
+    ];
+    items.edu = [
+      `${target} 사용 전 점검사항과 추락위험 위치를 작업자에게 교육한다.`,
+      `${task || "고소작업"} 시 보호구 착용과 접근금지 구역을 TBM으로 공유한다.`
+    ];
+  } else if (profile.id === "crush") {
+    items.hazards = [
+      `${target} 전도 또는 낙하로 작업자가 깔릴 위험`,
+      `${cause} 하역·운반 중 작업자가 장비 또는 적재물에 노출될 위험`
+    ];
+    items.actions = [
+      `${target} 적재 높이와 고정 상태를 점검하고 불안정한 적치를 재정리한다.`,
+      `${location} 하역·운반 작업 반경을 구획하고 작업자 접근을 제한한다.`
+    ];
+    items.admin = [
+      `${target} 적재 기준과 하역 작업 반경 출입통제 기준을 정해 관리한다.`,
+      `중량물 운반 전 장비, 신호수, 작업동선 확인 절차를 운영한다.`
+    ];
+    items.tech = [
+      `${target} 고정장치 또는 받침대를 사용해 전도를 방지한다.`,
+      `${location} 장비 이동 동선과 보행자 동선을 분리한다.`
+    ];
+    items.edu = [
+      `${target} 전도 위험과 안전한 적치 기준을 작업 전 공유한다.`,
+      `하역·운반 작업 반경 접근금지와 신호수 지시 준수사항을 교육한다.`
+    ];
+  } else if (profile.id === "manual") {
+    items.hazards = [
+      `${target} 취급 중 무리한 자세 또는 중량물 부담으로 근골격계 손상 위험`,
+      `${cause} 반복·운반 작업으로 허리와 어깨 부담이 누적될 위험`
+    ];
+    items.actions = [
+      `${target} 운반 시 보조도구를 사용하고 2인 작업 기준을 적용한다.`,
+      `${location} 보관 높이와 작업 위치를 조정해 허리 굽힘·비틀림 자세를 줄인다.`
+    ];
+    items.admin = [
+      `${target} 중량물 취급 기준과 2인 작업 기준을 작업표준에 반영한다.`,
+      `반복·무리작업에 대한 작업자 교대와 휴식 기준을 운영한다.`
+    ];
+    items.tech = [
+      `${target} 보관 높이를 허리 높이에 맞추고 운반 보조도구를 비치한다.`,
+      `${location} 운반동선을 정리해 들기·비틀기 동작을 줄인다.`
+    ];
+    items.edu = [
+      `${target} 취급 시 올바른 들기 자세와 2인 작업 기준을 교육한다.`,
+      `무리한 자세 발생 시 작업중지와 보조도구 사용 기준을 공유한다.`
+    ];
+  } else {
+    items.hazards = [
+      `${cause} 작업자가 ${location}에서 사고 위험에 노출될 가능성`,
+      `${target} 관련 위험요인이 제거되지 않아 유사 사고가 반복될 위험`
+    ];
+    items.actions = [
+      `${target}를 현장 확인 후 제거·차단·표시 조치한다.`,
+      `${location} 유사 구간을 점검하고 개선사항을 작업 전 공유한다.`
+    ];
+    items.admin = [
+      `${target} 위험요인을 작업 전 점검항목에 반영하고 관리감독자가 확인한다.`,
+      `${location} 유사 장소에 수평전개 점검을 실시한다.`
+    ];
+    items.tech = [
+      `${target} 위험 발생 부위에 제거·차단·보호재 설치 등 물리적 개선을 실시한다.`,
+      `${location} 작업 동선과 설비 간섭부를 현장 확인 후 개선한다.`
+    ];
+    items.edu = [
+      `${target} 관련 위험요인과 개선사항을 작업 전 TBM으로 공유한다.`,
+      `${location} 개선 전후 사진을 활용해 동일 위험 재발방지 교육을 실시한다.`
+    ];
+  }
+
+  return items;
+}
+
 function materializeExpertText(template, record) {
-  const location = safeText(record.location || record.process || "해당 작업구간");
-  return safeText(template).replaceAll("{location}", location);
+  const situation = getExpertSituation(record);
+  return safeText(template)
+    .replaceAll("{location}", situation.location)
+    .replaceAll("{target}", situation.target)
+    .replaceAll("{cause}", situation.cause)
+    .replaceAll("{bodyPart}", situation.bodyPart)
+    .replaceAll("{material}", situation.material || "화학물질")
+    .replaceAll("{task}", situation.task || "해당 작업");
 }
 
 function getRelevantActionOptions(text, action, fallbackOptions) {
@@ -3032,8 +3340,9 @@ function buildRiskDrafts(record) {
   const dueDate = safeText(record.dueDate || record.date || "");
   const doneDate = safeText(record.completedDate || record.dueDate || record.date || "");
   const estimate = score >= 10 ? "보완" : "적정";
-  const hazards = profile.hazards.map((item) => materializeExpertText(item, record));
-  const actions = profile.actions.map((item) => materializeExpertText(item, record));
+  const contextual = getContextualExpertItems(profile, record);
+  const hazards = uniqueTextItems([...contextual.hazards, ...profile.hazards.map((item) => materializeExpertText(item, record))]);
+  const actions = uniqueTextItems([...contextual.actions, ...profile.actions.map((item) => materializeExpertText(item, record))]);
   const draftLimit = profile.matchScore >= 99 ? 3 : profile.matchScore >= 3 ? 3 : 2;
   return uniqDrafts(hazards.map((hazard, index) => ({
     hazard,
@@ -3048,8 +3357,10 @@ function buildRiskDrafts(record) {
 
 function getSupervisorActionOptions(kind, record, currentAction) {
   const profile = getExpertSafetyProfile(record);
+  const contextual = getContextualExpertItems(profile, record);
   const source = kind === "techAction" ? profile.tech : kind === "eduAction" ? profile.edu : profile.admin;
-  const options = source.map((item) => materializeExpertText(item, record));
+  const contextualSource = kind === "techAction" ? contextual.tech : kind === "eduAction" ? contextual.edu : contextual.admin;
+  const options = [...contextualSource, ...source.map((item) => materializeExpertText(item, record))];
   return uniqueTextItems(options).slice(0, 4);
 }
 
