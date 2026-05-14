@@ -2598,6 +2598,461 @@ function getSupervisorActionOptions(kind, record, currentAction) {
   );
 }
 
+function getExpertRecommendationContext(record, currentAction = "", includeActionText = false) {
+  const fields = [
+    record.type,
+    record.location,
+    record.process,
+    record.summary,
+    record.description,
+    record.cause
+  ];
+  if (includeActionText) fields.push(record.action, currentAction);
+  return fields.map(safeText).join(" ");
+}
+
+function includesSafetyKeyword(text, keywords) {
+  const source = safeText(text);
+  return keywords.some((keyword) => source.includes(keyword));
+}
+
+function getExpertSafetyProfile(record, currentAction = "") {
+  const type = safeText(record.type);
+  const text = getExpertRecommendationContext(record, currentAction);
+  const compact = text.replace(/\s+/g, "");
+  const profiles = [
+    {
+      id: "chemical",
+      typeKeywords: ["화학물질 누출", "화학물질 접촉"],
+      keywords: ["화학", "약품", "원액", "누출", "비산", "MSDS", "세안", "세척", "배관", "밸브", "호스", "플랜지"],
+      hazards: [
+        "{location}에서 화학물질 누출 또는 비산으로 작업자 피부·안구에 접촉될 위험",
+        "{location} 배관·밸브·호스 연결부 관리 미흡으로 화학물질이 누출될 위험",
+        "화학물질 취급 중 보호구 또는 비상세척 체계 미흡으로 피해가 확대될 위험"
+      ],
+      actions: [
+        "배관·밸브·호스 연결부의 누출 여부와 체결 상태를 점검하고 노후 부품을 교체한다.",
+        "비산 가능 부위에 차단커버를 설치하고 화학물질용 보호구 착용 상태를 확인한다.",
+        "세안·세척설비와 누출 대응물품 비치 상태를 확인하고 MSDS 주요 위험성을 교육한다."
+      ],
+      admin: [
+        "화학물질 취급 전 보호구, MSDS, 비상대응물품 확인 절차를 작업 전 점검항목에 반영한다.",
+        "배관·밸브 연결부 누출 점검 주기를 지정하고 관리감독자가 이행 여부를 확인한다.",
+        "누출 또는 접촉 우려 작업은 관리감독자 확인 후 진행하도록 작업관리 기준을 정한다."
+      ],
+      tech: [
+        "누출 가능 연결부를 보수하고 체결 상태를 보완한다.",
+        "비산 또는 접촉 가능 부위에 차단커버와 받침·방유 조치를 적용한다.",
+        "세안·세척설비와 누출 대응물품을 작업장 가까운 위치에 확보한다."
+      ],
+      edu: [
+        "MSDS 주요 위험성과 보호구 착용 기준을 작업 전 교육한다.",
+        "화학물질 누출 시 초기 대응, 세안·세척, 보고 절차를 TBM으로 공유한다.",
+        "비산·접촉 위험 작업 전 금지행동과 대피 동선을 교육한다."
+      ]
+    },
+    {
+      id: "thermal",
+      typeKeywords: ["이상온도 접촉"],
+      keywords: ["화상", "고온", "뜨거", "열원", "스팀", "증기", "보온", "단열", "냉동", "저온", "내열"],
+      hazards: [
+        "{location} 고온·저온부에 작업자 신체가 접촉되어 화상 또는 동상 피해가 발생할 위험",
+        "고온 배관·설비 표면의 식별표시 또는 단열 조치 미흡으로 접촉 사고가 발생할 위험",
+        "열원 주변 작업 중 보호구 부적합 또는 착용 미흡으로 이상온도 접촉 피해가 발생할 위험"
+      ],
+      actions: [
+        "고온·저온 접촉부에 단열재 또는 보호커버를 설치한다.",
+        "접촉 위험 위치에 식별표시와 접근 제한 표시를 부착한다.",
+        "내열·방한 보호구 지급 및 착용 상태를 작업 전 확인한다."
+      ],
+      admin: [
+        "이상온도 접촉 작업 전 보호구 적합성 확인 절차를 운영한다.",
+        "고온·저온부 식별표시와 접근관리 상태를 관리감독자가 주기적으로 확인한다.",
+        "접촉 위험 작업은 작업 전 온도, 차단, 냉각 상태 확인 후 진행하도록 관리한다."
+      ],
+      tech: [
+        "고온·저온 접촉부에 단열재와 보호커버를 설치한다.",
+        "접촉 가능한 표면에 방호덮개 또는 접근 제한 조치를 적용한다.",
+        "위험 위치에 식별표시를 부착하고 작업 동선을 분리한다."
+      ],
+      edu: [
+        "고온·저온 접촉 위험과 보호구 착용 기준을 교육한다.",
+        "작업 전 열원 위치와 접근 금지 구역을 TBM으로 공유한다.",
+        "화상·동상 발생 시 응급조치와 보고 절차를 교육한다."
+      ]
+    },
+    {
+      id: "pinch",
+      typeKeywords: ["끼임"],
+      keywords: ["끼임", "협착", "롤러", "회전", "벨트", "체인", "구동부", "프레스", "실린더", "컨베이어"],
+      hazards: [
+        "{location}의 회전체 또는 구동부에 손·팔이 접근하여 끼임·협착될 위험",
+        "정비·청소 중 전원 차단 및 잠금표시 미흡으로 설비가 갑자기 작동할 위험",
+        "방호덮개 또는 가드 미설치로 작업자가 위험부에 직접 접촉할 위험"
+      ],
+      actions: [
+        "끼임 위험부에 방호덮개 또는 가드를 설치한다.",
+        "정비·청소 전 전원 차단 및 잠금표시 절차를 적용한다.",
+        "위험부 접근 금지 표시와 전용 공구 사용 기준을 운영한다."
+      ],
+      admin: [
+        "정비·청소 작업 전 전원 차단 및 잠금표시 확인 절차를 관리한다.",
+        "끼임 위험부 방호장치 임의 해체 금지 기준을 작업표준에 반영한다.",
+        "관리감독자가 작업 전 방호덮개 설치 상태와 비상정지 접근성을 확인한다."
+      ],
+      tech: [
+        "끼임 위험부에 방호덮개 또는 가드를 설치한다.",
+        "회전체 접근 가능 구간을 차단하고 비상정지 접근성을 확보한다.",
+        "작업자가 손을 넣지 않도록 전용 공구와 작업 보조장치를 사용한다."
+      ],
+      edu: [
+        "가동부 주변 작업 전 전원 차단 및 접근금지 사항을 교육한다.",
+        "끼임 위험부 접근 금지와 전용 공구 사용 기준을 TBM으로 공유한다.",
+        "정비·청소 작업 시 잠금표시 절차와 확인사항을 교육한다."
+      ]
+    },
+    {
+      id: "slip",
+      typeKeywords: ["넘어짐"],
+      keywords: ["넘어짐", "미끄", "걸림", "통로", "계단", "발판", "바닥", "방치", "정리", "보행", "이동", "장애물"],
+      hazards: [
+        "{location} 통행구간의 장애물 또는 정리정돈 미흡으로 작업자가 걸려 넘어질 위험",
+        "{location} 바닥·계단·발판 상태 불량으로 이동 중 미끄러지거나 균형을 잃을 위험",
+        "자재 임시 적치 또는 작업동선 미확보로 보행 중 충돌·전도 사고가 발생할 위험"
+      ],
+      actions: [
+        "통행구간 장애물을 제거하고 자재 보관 위치를 지정한다.",
+        "바닥·계단·발판 손상부를 보수하고 미끄럼 방지 조치를 적용한다.",
+        "작업 동선을 구획 표시하고 정리정돈 점검 주기를 운영한다."
+      ],
+      admin: [
+        "통행로 확보와 정리정돈 기준을 정하고 관리감독자가 작업 전 확인한다.",
+        "자재 임시보관 위치를 지정해 통로 침범을 방지한다.",
+        "동일 위험구간을 점검표에 반영하고 주기적으로 확인한다."
+      ],
+      tech: [
+        "통행구간 장애물을 제거하고 작업 동선을 구획 표시한다.",
+        "미끄럼 발생 위치에 미끄럼 방지 조치를 적용한다.",
+        "계단·발판 손상부를 보수하고 고정 상태를 확인한다."
+      ],
+      edu: [
+        "작업 전 통행로 장애물과 미끄럼·걸림 위험요인을 공유한다.",
+        "자재 정리정돈 기준과 보행 동선 확보 사항을 교육한다.",
+        "계단·발판 이용 시 전방 주시와 손잡이 사용 사항을 전파한다."
+      ]
+    },
+    {
+      id: "strike",
+      typeKeywords: ["부딪힘", "맞음"],
+      keywords: ["부딪", "충돌", "머리", "돌출", "간섭", "개구부", "구조물", "낙하", "비래", "맞음", "적재"],
+      hazards: [
+        "{location}의 돌출부 또는 낮은 구조물에 작업자 신체가 부딪힐 위험",
+        "설비·배관·탱크 주변 작업동선과 구조물 간섭으로 충돌 사고가 발생할 위험",
+        "자재 적재 또는 낙하·비래 위험 관리 미흡으로 작업자가 맞을 위험"
+      ],
+      actions: [
+        "간섭 부위에 완충 보호재를 설치하고 위험 위치에 식별표시를 부착한다.",
+        "작업자 통행 동선을 조정하고 돌출부 또는 낮은 구조물을 개선한다.",
+        "자재 적재 상태와 낙하 방지 조치를 점검한다."
+      ],
+      admin: [
+        "설비 간섭부와 충돌 위험 위치를 작업 전 점검항목에 반영한다.",
+        "동일 구조물 주변에 수평전개 점검을 실시하고 개선 여부를 확인한다.",
+        "자재 적재 기준과 통행동선 관리 기준을 정해 관리한다."
+      ],
+      tech: [
+        "간섭 부위에 완충 보호재를 설치한다.",
+        "돌출부 또는 낮은 구조물을 개선하고 위험 위치에 식별표시를 부착한다.",
+        "작업자 통행 동선을 조정하고 위험부를 분리한다."
+      ],
+      edu: [
+        "작업 전 설비 간섭부와 머리 부딪힘 위험 위치를 공유한다.",
+        "통행 시 시야 확보와 위험표지 확인 사항을 TBM으로 교육한다.",
+        "개선 전후 사진을 활용해 동일 위험구간 재발방지 교육을 실시한다."
+      ]
+    },
+    {
+      id: "cut",
+      typeKeywords: ["베임", "찔림"],
+      keywords: ["베임", "찔림", "절단", "칼", "커터", "날카", "철판", "모서리", "돌출핀", "파손"],
+      hazards: [
+        "{location}의 날카로운 모서리 또는 절단면에 손이 베이거나 찔릴 위험",
+        "공구·자재 보관상태 미흡으로 작업 중 예리한 부위에 접촉할 위험",
+        "절단·정리 작업 중 보호구 미착용 또는 부적합 공구 사용으로 손상 위험"
+      ],
+      actions: [
+        "날카로운 모서리에 보호캡 또는 보호재를 설치한다.",
+        "절단 방지 장갑을 착용하고 예리한 자재 보관 기준을 정한다.",
+        "파손·돌출 부위를 제거하고 안전한 공구 사용 기준을 교육한다."
+      ],
+      admin: [
+        "예리한 자재와 절단 공구 보관 기준을 정하고 관리상태를 점검한다.",
+        "절단·정리 작업 전 보호구 착용 여부를 관리감독자가 확인한다.",
+        "베임·찔림 위험부를 점검표에 반영해 주기적으로 확인한다."
+      ],
+      tech: [
+        "날카로운 모서리에 보호캡 또는 보호재를 설치한다.",
+        "파손·돌출 부위를 제거하거나 마감 처리한다.",
+        "절단 작업에는 적합한 공구와 고정 장치를 사용한다."
+      ],
+      edu: [
+        "베임·찔림 위험부 확인과 절단 방지 장갑 착용 기준을 교육한다.",
+        "예리한 자재 취급 및 보관 방법을 TBM으로 공유한다.",
+        "절단 공구 사용 전 점검사항과 금지행동을 교육한다."
+      ]
+    },
+    {
+      id: "electric",
+      typeKeywords: ["누전"],
+      keywords: ["누전", "감전", "전기", "전선", "콘센트", "차단기", "분전반", "접지", "절연"],
+      hazards: [
+        "{location} 전기설비 절연 또는 접지 상태 불량으로 감전 위험",
+        "전선·콘센트·분전반 관리 미흡으로 누전 또는 전기화재가 발생할 위험",
+        "습윤 환경에서 전기기기 사용 중 감전 사고가 발생할 위험"
+      ],
+      actions: [
+        "전기설비 절연·접지 상태와 누전차단기 작동 여부를 점검한다.",
+        "손상 전선과 콘센트를 교체하고 습윤 구간 사용을 제한한다.",
+        "전기작업 전 차단·검전 절차와 접근금지 표시를 적용한다."
+      ],
+      admin: [
+        "전기설비 정기점검과 누전차단기 시험 주기를 지정해 관리한다.",
+        "전기작업 전 차단·검전 확인 절차를 작업표준에 반영한다.",
+        "습윤구간 전기기기 사용 제한 기준을 관리감독자가 확인한다."
+      ],
+      tech: [
+        "손상 전선과 콘센트를 교체하고 절연상태를 보완한다.",
+        "누전차단기 작동 상태와 접지 상태를 점검한다.",
+        "습윤 구간에는 방수형 전기기기 또는 차단 조치를 적용한다."
+      ],
+      edu: [
+        "전기작업 전 차단·검전 절차와 감전 위험을 교육한다.",
+        "손상 전선 발견 시 사용중지 및 보고 기준을 공유한다.",
+        "습윤 환경 전기기기 사용 금지사항을 TBM으로 전파한다."
+      ]
+    },
+    {
+      id: "fire",
+      typeKeywords: ["화재 폭발"],
+      keywords: ["화재", "폭발", "점화", "인화", "가연", "용접", "스파크", "정전기", "환기"],
+      hazards: [
+        "{location}의 점화원 관리 미흡으로 화재 또는 폭발이 발생할 위험",
+        "가연물·인화성 물질 주변 작업 중 스파크 또는 정전기로 화재가 발생할 위험",
+        "환기 및 소화설비 관리 미흡으로 초기 대응이 지연될 위험"
+      ],
+      actions: [
+        "점화원을 제거하고 가연물·인화성 물질을 격리 보관한다.",
+        "용접·화기 작업 전 작업허가와 소화기 비치 상태를 확인한다.",
+        "환기 상태와 정전기 방지 조치를 점검한다."
+      ],
+      admin: [
+        "화기작업 허가와 작업 전 가연물 제거 확인 절차를 운영한다.",
+        "인화성 물질 보관기준과 점화원 관리 상태를 주기적으로 점검한다.",
+        "비상대응 및 소화설비 점검 결과를 관리감독자가 확인한다."
+      ],
+      tech: [
+        "가연물과 점화원을 분리하고 방화포 또는 차단막을 설치한다.",
+        "환기설비와 정전기 방지 조치를 점검한다.",
+        "소화기와 비상대응물품을 작업장 가까운 위치에 배치한다."
+      ],
+      edu: [
+        "화기작업 전 가연물 제거와 소화기 위치를 교육한다.",
+        "화재·폭발 위험물 취급 기준과 비상대응 절차를 TBM으로 공유한다.",
+        "정전기·스파크 발생 위험과 금지행동을 교육한다."
+      ]
+    },
+    {
+      id: "fall",
+      typeKeywords: ["떨어짐"],
+      keywords: ["떨어짐", "추락", "고소", "사다리", "작업대", "난간", "개구부", "발판", "승강", "상부"],
+      hazards: [
+        "{location}에서 고소작업 또는 승강 중 작업자가 떨어질 위험",
+        "작업발판·사다리·난간 상태 미흡으로 추락 사고가 발생할 위험",
+        "개구부 또는 단차 구간의 방호조치 미흡으로 작업자가 떨어질 위험"
+      ],
+      actions: [
+        "작업발판, 사다리, 난간의 고정 상태를 점검하고 불량부를 보수한다.",
+        "개구부와 단차 구간에 덮개, 난간, 출입제한 표시를 설치한다.",
+        "고소작업 전 추락방지 보호구 착용과 작업허가 확인을 실시한다."
+      ],
+      admin: [
+        "고소작업 전 작업발판, 사다리, 난간 상태를 관리감독자가 확인한다.",
+        "추락 위험 작업은 작업허가와 보호구 착용 확인 후 진행하도록 관리한다.",
+        "개구부와 단차 구간을 점검표에 반영해 정기적으로 확인한다."
+      ],
+      tech: [
+        "개구부와 단차 구간에 덮개 또는 안전난간을 설치한다.",
+        "작업발판과 사다리 고정 상태를 보완하고 미끄럼 방지 조치를 적용한다.",
+        "추락 위험구간에 출입제한 표시와 안전대 걸이설비를 확보한다."
+      ],
+      edu: [
+        "고소작업 전 추락 위험구간과 보호구 착용 기준을 교육한다.",
+        "사다리·작업발판 사용 전 점검사항과 금지행동을 TBM으로 공유한다.",
+        "개구부와 단차 구간 이동 시 접근금지 및 우회 동선을 전파한다."
+      ]
+    },
+    {
+      id: "crush",
+      typeKeywords: ["깔림"],
+      keywords: ["깔림", "전도", "적재물", "중량물", "지게차", "크레인", "하역", "적치", "붕괴", "고정"],
+      hazards: [
+        "{location}에서 적재물 또는 중량물이 전도되어 작업자가 깔릴 위험",
+        "자재 적치 상태와 고정 조치 미흡으로 하역·운반 중 깔림 사고가 발생할 위험",
+        "장비 이동 또는 하역 작업 반경 내 작업자 출입으로 충돌·깔림 위험"
+      ],
+      actions: [
+        "적재물 높이와 고정 상태를 점검하고 불안정한 적치를 재정리한다.",
+        "하역·운반 작업 반경을 구획하고 작업자 접근을 제한한다.",
+        "중량물 운반 시 신호수 배치와 장비 이동 동선 분리를 실시한다."
+      ],
+      admin: [
+        "자재 적재 기준과 하역 작업 반경 출입통제 기준을 정해 관리한다.",
+        "중량물 운반 전 장비, 신호수, 작업동선 확인 절차를 운영한다.",
+        "관리감독자가 적재물 고정 상태와 작업자 위치를 작업 전 확인한다."
+      ],
+      tech: [
+        "적재물 고정장치 또는 받침대를 사용해 전도를 방지한다.",
+        "하역구간에 바리케이드와 출입제한 표시를 설치한다.",
+        "장비 이동 동선과 보행자 동선을 분리한다."
+      ],
+      edu: [
+        "하역·운반 작업 반경 접근금지와 신호수 지시 준수사항을 교육한다.",
+        "적재물 전도 위험과 안전한 적치 기준을 TBM으로 공유한다.",
+        "장비 이동 중 사각지대와 작업자 위치 확인 방법을 교육한다."
+      ]
+    },
+    {
+      id: "manual",
+      typeKeywords: ["불균형 및 무리한"],
+      keywords: ["중량", "무리", "허리", "운반", "들기", "밀기", "당기기", "반복", "자세", "kg"],
+      hazards: [
+        "{location}에서 중량물 취급 또는 무리한 자세로 근골격계 부담이 발생할 위험",
+        "운반 보조도구 또는 2인 작업 기준 미적용으로 허리·어깨 부상 위험",
+        "반복작업 및 작업높이 부적정으로 작업자 피로와 불균형 위험"
+      ],
+      actions: [
+        "중량물 운반 보조도구를 사용하고 2인 작업 기준을 적용한다.",
+        "작업높이와 보관 위치를 조정해 무리한 자세를 줄인다.",
+        "반복작업 휴식 기준과 작업자 교대 기준을 운영한다."
+      ],
+      admin: [
+        "중량물 취급 기준과 2인 작업 기준을 작업표준에 반영한다.",
+        "반복·무리작업에 대한 작업자 교대와 휴식 기준을 운영한다.",
+        "관리감독자가 작업 전 중량물 보관위치와 운반방법을 확인한다."
+      ],
+      tech: [
+        "운반 보조도구를 사용하고 보관 높이를 작업자 허리 높이에 맞춘다.",
+        "작업대를 조정해 허리 굽힘과 비틀림 자세를 줄인다.",
+        "중량물 적재 상태와 운반동선을 개선한다."
+      ],
+      edu: [
+        "중량물 올바른 취급 자세와 2인 작업 기준을 교육한다.",
+        "무리한 자세 발생 시 작업중지 및 보조도구 사용 기준을 공유한다.",
+        "반복작업 피로 누적과 스트레칭 방법을 TBM으로 전파한다."
+      ]
+    }
+  ];
+
+  const exactTypeProfile = profiles.find((profile) => (
+    profile.typeKeywords.some((keyword) => type === keyword || type.includes(keyword))
+  ));
+  if (exactTypeProfile) return { ...exactTypeProfile, matchScore: 99 };
+
+  let best = null;
+  let bestScore = 0;
+  for (const profile of profiles) {
+    let score = 0;
+    for (const keyword of profile.keywords) {
+      if (compact.includes(keyword.replace(/\s+/g, ""))) score += 1;
+    }
+    if (score > bestScore) {
+      best = profile;
+      bestScore = score;
+    }
+  }
+
+  if (best && bestScore >= 2) return { ...best, matchScore: bestScore };
+
+  return {
+    id: "general",
+    matchScore: 0,
+    hazards: [
+      "{location}에서 확인된 위험요인이 제거되지 않아 유사 사고가 반복될 위험",
+      "개선조치 후에도 작업자에게 위험정보가 충분히 공유되지 않아 동일 위험에 노출될 위험",
+      "동일·유사 장소에 같은 위험요인이 남아 있어 재발 가능성"
+    ],
+    actions: [
+      "위험 발생 위치를 현장 확인 후 제거·차단·표시 조치를 실시한다.",
+      "개선사항을 작업표준과 점검항목에 반영하고 관리감독자가 이행 여부를 확인한다.",
+      "작업 전 TBM으로 위험요인과 개선사항을 공유하고 유사 장소 수평전개 점검을 실시한다."
+    ],
+    admin: [
+      "위험요인을 작업 전 점검항목에 반영하고 관리감독자가 이행 여부를 확인한다.",
+      "동일·유사 장소에 수평전개 점검을 실시한다.",
+      "개선사항을 작업표준 또는 관리기준에 반영한다."
+    ],
+    tech: [
+      "위험 발생 부위에 제거·차단·보호재 설치 등 물리적 개선을 실시한다.",
+      "작업 동선과 설비 간섭부를 현장 확인 후 개선한다.",
+      "위험 위치에 식별표시와 접근 제한 조치를 적용한다."
+    ],
+    edu: [
+      "작업 전 위험요인과 개선사항을 TBM으로 공유한다.",
+      "개선 전후 사진을 활용해 동일 위험 재발방지 교육을 실시한다.",
+      "작업표준과 주의사항을 관련 작업자에게 재교육한다."
+    ]
+  };
+}
+
+function materializeExpertText(template, record) {
+  const location = safeText(record.location || record.process || "해당 작업구간");
+  return safeText(template).replaceAll("{location}", location);
+}
+
+function getRelevantActionOptions(text, action, fallbackOptions) {
+  const profile = getExpertSafetyProfile({
+    type: text,
+    location: "",
+    process: "",
+    summary: text,
+    description: text,
+    cause: text,
+    action
+  }, action);
+  const options = profile.actions.map((item) => materializeExpertText(item, { location: "", process: "" }));
+  const expertOptions = profile.matchScore ? options : [];
+  return uniqueTextItems([...expertOptions, ...(fallbackOptions || [])]).slice(0, 4);
+}
+
+function buildRiskDrafts(record) {
+  const assessed = assessRisk(record);
+  const score = assessed.likelihood * assessed.severity;
+  const profile = getExpertSafetyProfile(record);
+  const owner = safeText(record.owner || record.author || "-");
+  const dueDate = safeText(record.dueDate || record.date || "");
+  const doneDate = safeText(record.completedDate || record.dueDate || record.date || "");
+  const estimate = score >= 10 ? "보완" : "적정";
+  const hazards = profile.hazards.map((item) => materializeExpertText(item, record));
+  const actions = profile.actions.map((item) => materializeExpertText(item, record));
+  const draftLimit = profile.matchScore >= 99 ? 3 : profile.matchScore >= 3 ? 3 : 2;
+  return uniqDrafts(hazards.map((hazard, index) => ({
+    hazard,
+    estimate,
+    action: actions[index] || actions[0] || "현장 확인 후 위험요인을 제거하고 개선사항을 공유한다.",
+    actionOptions: uniqueTextItems(actions).slice(0, 4),
+    dueDate,
+    doneDate,
+    owner
+  }))).slice(0, draftLimit);
+}
+
+function getSupervisorActionOptions(kind, record, currentAction) {
+  const profile = getExpertSafetyProfile(record);
+  const source = kind === "techAction" ? profile.tech : kind === "eduAction" ? profile.edu : profile.admin;
+  const options = source.map((item) => materializeExpertText(item, record));
+  return uniqueTextItems(options).slice(0, 4);
+}
+
 function getRiskGradeFromScore(score) {
   if (score >= 17) return "매우 높음";
   if (score >= 10) return "높음";
