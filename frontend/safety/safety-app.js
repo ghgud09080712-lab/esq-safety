@@ -814,7 +814,8 @@ function renderRiskActionPopup(index, draft) {
   if (nearMissFormMode !== "assessment" || activeRiskActionPickerIndex !== index) return "";
   const savedDraft = Array.isArray(nearMissFormDraft.riskRows) ? nearMissFormDraft.riskRows[index] || {} : {};
   const hazard = savedDraft.hazard || draft.hazard || `유해위험요인 ${index + 1}`;
-  const selected = splitActionItems(savedDraft.action || draft.action || "");
+  const selectedAction = Object.prototype.hasOwnProperty.call(savedDraft, "action") ? savedDraft.action : draft.action;
+  const selected = splitActionItems(selectedAction || "");
   const options = uniqueTextItems(Array.isArray(savedDraft.actionOptions) && savedDraft.actionOptions.length ? savedDraft.actionOptions : (draft.actionOptions || []));
   const manualValue = selected.join("\n");
   const buttons = options.map((option) => {
@@ -3421,7 +3422,7 @@ function renderNearMissForm() {
     const savedDraft = Array.isArray(nearMissFormDraft.riskRows) ? nearMissFormDraft.riskRows[index] || {} : {};
     const hazard = savedDraft.hazard || draft.hazard;
     const estimate = savedDraft.estimate || draft.estimate || "보완";
-    const action = savedDraft.action || draft.action;
+    const action = Object.prototype.hasOwnProperty.call(savedDraft, "action") ? savedDraft.action : draft.action;
     const actionOptions = Array.isArray(savedDraft.actionOptions) && savedDraft.actionOptions.length ? savedDraft.actionOptions : (draft.actionOptions || []);
     const dueDate = savedDraft.dueDate || draft.dueDate || record.dueDate || record.date || "";
     const doneDate = savedDraft.doneDate || draft.doneDate || record.completedDate || record.date || "";
@@ -5225,7 +5226,10 @@ function bindUiHandlers() {
         const field = supervisorOption.dataset.supervisorActionOption || "";
         const value = supervisorOption.dataset.supervisorActionValue || "";
         if (!field || !value) return;
-        setNearMissDraftValue(field, value);
+        const currentField = $(`[data-near-miss-draft="${field}"]`);
+        const current = safeText(nearMissFormDraft?.[field] || currentField?.value || currentField?.textContent || "").replace(/\s+/g, "");
+        const nextValue = current === value.replace(/\s+/g, "") ? "" : value;
+        setNearMissDraftValue(field, nextValue);
         activeSupervisorActionPickerKey = "";
         saveNearMissFormDraft();
         renderNearMissForm();
@@ -5262,7 +5266,9 @@ function bindUiHandlers() {
         if (!Number.isFinite(index) || !option) return;
         nearMissFormDraft.riskRows = Array.isArray(nearMissFormDraft.riskRows) ? nearMissFormDraft.riskRows : [];
         const row = nearMissFormDraft.riskRows[index] || {};
-        const current = splitActionItems(row.action || "");
+        const currentField = $(`[data-near-miss-draft="riskRows.${index}.action"]`);
+        const displayedAction = currentField?.value ?? currentField?.textContent ?? "";
+        const current = splitActionItems(row.action || displayedAction || "");
         const optionKey = option.replace(/\s+/g, "");
         const exists = current.some((item) => item.replace(/\s+/g, "") === optionKey);
         const next = exists ? current.filter((item) => item.replace(/\s+/g, "") !== optionKey) : [...current, option];
