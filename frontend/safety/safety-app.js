@@ -1213,12 +1213,15 @@ function buildExpertRiskPrompt(record) {
     "아래 아차사고 발굴개선표 입력값을 읽고, 이 상황에만 맞는 위험성평가 초안을 작성한다.",
     "절대 범용 문구만 쓰지 말고, 입력값의 장소/설비/작업대상/원인/위험행동을 문장에 직접 반영한다.",
     "위험성 감소대책(action)은 반드시 해당 위험을 직접 낮추는 물리적·공학적·작업방법 개선이어야 한다.",
+    "action에는 입력값에 있는 실제 장소명, 설비명, 작업대상, 위험원 중 최소 1개 이상을 그대로 포함한다.",
+    "action이 '해당 구간', '작업 장소', '위험 부위', '설비 주변'처럼 대상을 흐리게 쓰면 실패다.",
     "좋은 action 예: 방치 자재를 지정 보관대로 이동, 통행로 구획선 표시, 돌출부 완충재 설치, 끼임부 방호덮개 설치, 배관 체결부 보수, 누출받이 설치, 개구부 덮개 설치, 작업동선 분리, 잠금표시 적용.",
     "나쁜 action 예: 교육한다, 주의한다, 점검한다, 공유한다, 확인한다, 관리한다. 이런 말만 단독으로 쓰면 안 된다.",
     "점검이 필요한 경우에도 반드시 후속 조치를 같이 쓴다. 예: 점검하고 불량부를 보수한다, 체결 상태를 확인하고 누출부를 교체한다.",
     "교육은 eduAction에만 쓰고, riskRows.action에는 교육만 쓰지 않는다.",
     "actionOptions도 전부 현장 조치 중심으로 작성한다. 교육/주의/공유만 있는 선택지는 금지한다.",
     "감소대책은 '무엇을', '어디에', '어떻게 조치할지'가 보이게 작성한다.",
+    "각 action은 한 문장으로 작성하되, 조치 대상과 조치 방법이 동시에 보여야 한다.",
     "가능하면 위험원 제거 → 접근 차단/방호 → 작업동선·보관위치 개선 → 관리기준 순서로 제시한다.",
     "관련 없는 보호구, 장갑, 교육 문구를 억지로 넣지 않는다.",
     "재해유형이 애매하면 사고개요와 위험요인을 읽고 가장 타당한 관점으로 판단한다.",
@@ -1240,6 +1243,43 @@ function buildExpertRiskPrompt(record) {
   ].join("\n");
 }
 
+function getRecordSpecificTerms(record) {
+  const text = [
+    record.location,
+    record.process,
+    record.summary,
+    record.description,
+    record.cause,
+    record.action
+  ].map(safeText).join(" ");
+  const terms = new Set();
+  const phraseMatches = text.match(/[가-힣A-Za-z0-9()\-·\/]{2,}(?:\s*[가-힣A-Za-z0-9()\-·\/]{1,}){0,4}/g) || [];
+  phraseMatches.forEach((phrase) => {
+    const clean = cleanExpertPhrase(phrase);
+    if (clean.length >= 3 && !/(작업자|위험|사고|발생|개선|대책|조치|관련|가능|미흡|확인|교육|점검|관리|주의|공유|실시|작업|이동|사용|상태)$/.test(clean)) {
+      terms.add(clean);
+    }
+  });
+  const situation = getExpertSituation(record);
+  [situation.location, situation.target, situation.cause, situation.material, situation.task]
+    .map((item) => cleanExpertPhrase(item))
+    .filter((item) => item.length >= 3)
+    .forEach((item) => terms.add(item));
+  return Array.from(terms)
+    .flatMap((term) => [term, ...term.split(/\s+/).filter((part) => part.length >= 3)])
+    .map((term) => term.replace(/[^\w가-힣()\-·\/]/g, ""))
+    .filter((term) => term.length >= 3)
+    .slice(0, 30);
+}
+
+function hasRecordSpecificTerm(action, record) {
+  const compactAction = safeText(action).replace(/\s+/g, "");
+  return getRecordSpecificTerms(record).some((term) => {
+    const compactTerm = term.replace(/\s+/g, "");
+    return compactTerm.length >= 3 && compactAction.includes(compactTerm);
+  });
+}
+
 function isWeakRiskReductionAction(action) {
   const text = safeText(action).replace(/\s+/g, " ").trim();
   if (!text) return true;
@@ -1253,6 +1293,13 @@ function isWeakRiskReductionAction(action) {
   return text.length < 18;
 }
 
+function isPoorRiskReductionAction(action, record) {
+  const text = safeText(action).replace(/\s+/g, " ").trim();
+  if (isWeakRiskReductionAction(text)) return true;
+  if (/(해당\s*(구간|장소|설비|부위)|위험\s*(부위|요인)|작업\s*(장소|구간)|관련\s*(작업|설비))/.test(text) && !hasRecordSpecificTerm(text, record)) return true;
+  return !hasRecordSpecificTerm(text, record);
+}
+
 function getStrongRiskFallbackAction(record, index = 0) {
   const profile = getExpertSafetyProfile(record);
   const contextual = getContextualExpertItems(profile, record);
@@ -1260,7 +1307,10 @@ function getStrongRiskFallbackAction(record, index = 0) {
     ...(contextual.actions || []),
     ...profile.actions.map((item) => materializeExpertText(item, record))
   ]);
-  return candidates.find((item) => !isWeakRiskReductionAction(item)) || candidates[index] || "위험 발생 부위를 현장 확인 후 제거·차단·보호재 설치 등 물리적 개선을 실시한다.";
+  return candidates.find((item) => !isPoorRiskReductionAction(item, record))
+    || candidates.find((item) => !isWeakRiskReductionAction(item))
+    || candidates[index]
+    || `${getExpertSituation(record).target}를 현장 확인 후 제거·차단·보호재 설치 등 물리적 개선을 실시한다.`;
 }
 
 function normalizeExpertRiskRows(payload, record) {
@@ -1274,10 +1324,10 @@ function normalizeExpertRiskRows(payload, record) {
     .map((row, index) => {
       const fallbackAction = fallbackRows[index]?.action || getStrongRiskFallbackAction(record, index);
       const rawAction = compactSummary(row.action || fallbackAction, "");
-      const action = isWeakRiskReductionAction(rawAction) ? fallbackAction : rawAction;
+      const action = isPoorRiskReductionAction(rawAction, record) ? fallbackAction : rawAction;
       const rawOptions = Array.isArray(row.actionOptions) ? row.actionOptions.map(safeText) : [];
       const actionOptions = uniqueTextItems([action, ...rawOptions, fallbackAction, ...(fallbackRows[index]?.actionOptions || [])])
-        .filter((item) => !isWeakRiskReductionAction(item))
+        .filter((item) => !isPoorRiskReductionAction(item, record))
         .slice(0, 4);
       return {
         hazard: compactSummary(row.hazard || row.description || fallbackRows[index]?.hazard || "", ""),
