@@ -785,7 +785,12 @@ function uniqueTextItems(items) {
 
 function riskActionField(index, value, options = []) {
   const selected = splitActionItems(value);
-  return riskDraftField(index, "action", selected.join("\n"), { multiline: true, rows: 2, placeholder: "선택한 감소대책" });
+  return `
+    <div class="risk-action-editor">
+      ${riskDraftField(index, "action", selected.join("\n"), { multiline: true, rows: 2, placeholder: "선택한 감소대책" })}
+      <button class="risk-action-suggest" type="button" data-risk-action-open="${index}">추천</button>
+    </div>
+  `;
 }
 
 function supervisorActionField(field, value, label, options = []) {
@@ -959,7 +964,7 @@ function buildNearMissPrintHtml() {
     replacement.style.padding = "2px 4px";
     control.replaceWith(replacement);
   });
-  clone.querySelectorAll(".photo-actions, .photo-drag-hint, .photo-fit-toggle, .photo-layer-handle, .risk-action-popup, .supervisor-action-suggest").forEach((item) => item.remove());
+  clone.querySelectorAll(".photo-actions, .photo-drag-hint, .photo-fit-toggle, .photo-layer-handle, .risk-action-popup, .risk-action-suggest, .supervisor-action-suggest").forEach((item) => item.remove());
   clone.querySelectorAll(".risk-date-picker").forEach((picker) => {
     const text = picker.querySelector(".risk-date-value")?.textContent || "";
     const replacement = document.createElement("div");
@@ -5437,9 +5442,9 @@ function bindUiHandlers() {
         return;
       }
 
-      const actionCell = event.target.closest("[data-risk-action-cell]");
-      if (actionCell) {
-        const index = Number(actionCell.dataset.riskActionCell);
+      const actionOpen = event.target.closest("[data-risk-action-open]");
+      if (actionOpen) {
+        const index = Number(actionOpen.dataset.riskActionOpen);
         if (!Number.isFinite(index)) return;
         activeSupervisorActionPickerKey = "";
         activeRiskActionPickerIndex = activeRiskActionPickerIndex === index ? null : index;
