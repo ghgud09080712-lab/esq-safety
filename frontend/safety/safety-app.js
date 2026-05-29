@@ -2109,7 +2109,7 @@ async function loadRecordsFromServer() {
 async function saveRecordsToServer() {
   if (IS_DEPARTMENT_MODE) {
     setAiStatus("부서용은 관리 데이터 저장이 제한됩니다.", "error");
-    return;
+    return false;
   }
   try {
     const response = await fetch("/api/safety-data", {
@@ -2117,21 +2117,32 @@ async function saveRecordsToServer() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ records })
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.message || `HTTP ${response.status}`);
+    if (Number(payload.records) !== records.length) {
+      throw new Error(`저장 건수 불일치: 서버 ${payload.records ?? "?"}건 / 화면 ${records.length}건`);
+    }
     setAiStatus("\uC800\uC7A5 \uC644\uB8CC", "success");
+    return true;
   } catch (error) {
     console.warn("safety server save failed:", error);
     setAiStatus("\uC11C\uBC84 \uC800\uC7A5 \uC2E4\uD328: \uBE0C\uB77C\uC6B0\uC800 \uC800\uC7A5\uB9CC \uC644\uB8CC", "error");
+    return false;
   }
 }
 
 function saveRecords(options = {}) {
   if (IS_DEPARTMENT_MODE) {
     setAiStatus("부서용은 관리 데이터 수정이 제한됩니다.", "error");
-    return Promise.resolve();
+    return Promise.resolve(false);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  if (options.skipServer) return Promise.resolve();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (error) {
+    console.warn("local safety save failed:", error);
+    setAiStatus("브라우저 저장 실패: 서버 저장을 시도합니다.", "warning");
+  }
+  if (options.skipServer) return Promise.resolve(true);
   return saveRecordsToServer();
 }
 
@@ -5242,9 +5253,14 @@ async function processSafetyPdf(file) {
     const imported = mapImportedSafetyRecords(parseGeminiJsonArray(rawText), { reportMonth: getCurrentReportMonth() });
     if (!imported.length) throw new Error("No importable items found.");
     records = [...imported, ...records];
-    await saveRecords();
+    const saved = await saveRecords();
     renderAll();
     switchView(imported.some((row) => row.kind === "incident") ? "incident" : "nearMiss");
+    if (!saved && !window.desktopApp?.isElectron) {
+      showAppToast("서버 저장 실패", "PDF 분석 결과가 화면에는 있지만 새로고침하면 사라질 수 있습니다.", "error");
+      setAiStatus(`PDF 분석은 완료됐지만 서버 저장 실패: ${imported.length}건`, "error");
+      return;
+    }
     setAiStatus(`PDF \uBD84\uC11D \uC644\uB8CC: ${imported.length}\uAC74 \uB4F1\uB85D`, "success");
   } catch (error) {
     console.error("PDF parse failed:", error);
