@@ -1966,11 +1966,8 @@ function resolveRecordKind(record) {
 
 function normalizeRecord(record) {
   const owner = sanitizeImportedAuthor(record.owner);
-  let author = sanitizeImportedAuthor(record.author);
+  const author = sanitizeImportedAuthor(record.author);
   const kind = resolveRecordKind(record);
-  if (kind === "nearMiss" && owner && normalizePersonName(author) === normalizePersonName(owner)) {
-    author = "";
-  }
   const normalized = {
     id: safeText(record.id).trim(),
     kind,
@@ -5093,12 +5090,6 @@ function normalizePersonName(value) {
 
 function pickImportedDiscoverer(item) {
   const author = sanitizeImportedAuthor(item?.author);
-  const owner = sanitizeImportedAuthor(item?.owner);
-  const writer = sanitizeImportedAuthor(item?.writer || item?.작성자 || item?.drafter);
-  if (!author) return "";
-  const authorKey = normalizePersonName(author);
-  if (writer && authorKey && authorKey === normalizePersonName(writer)) return "";
-  if (owner && authorKey && authorKey === normalizePersonName(owner) && safeText(item?.kind) !== "incident") return "";
   return author;
 }
 
