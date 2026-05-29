@@ -2369,23 +2369,25 @@ textarea {
 
 .report-grid {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-  min-height: calc(100vh - 118px);
+  align-items: start;
+  min-height: 0;
 }
 
 .report-grid .panel {
   display: grid;
   grid-template-rows: auto auto;
   align-content: start;
+  min-height: 0;
 }
 
 .report-grid .bar-list {
   align-content: start;
-  gap: 8px;
+  gap: 14px;
 }
 
 .report-grid .bar-row {
-  min-height: 30px;
+  min-height: 34px;
+  height: 34px;
 }
 
 .dashboard-chart-wrap {
