@@ -1716,7 +1716,18 @@ function getRecordYear(record) {
   return match ? match[0] : "";
 }
 
+function normalizeRecordMonth(value) {
+  const month = Number(safeText(value).match(/\d{1,2}/)?.[0] || 0);
+  return month >= 1 && month <= 12 ? `${month}월` : "";
+}
+
+function getCurrentReportMonth() {
+  return `${new Date().getMonth() + 1}월`;
+}
+
 function getRecordMonth(record) {
+  const savedMonth = normalizeRecordMonth(record.reportMonth);
+  if (savedMonth) return savedMonth;
   const match = safeText(record.date).match(/(?:19|20)\d{2}[-./\uB144\s]*(\d{1,2})/);
   if (!match) return "";
   const month = Number(match[1]);
@@ -1875,6 +1886,7 @@ function normalizeRecord(record) {
     description: safeText(record.description).trim(),
     action: safeText(record.action).trim(),
     completedDate: safeText(record.completedDate).trim(),
+    reportMonth: normalizeRecordMonth(record.reportMonth),
     updatedAt: record.updatedAt || new Date().toISOString()
   };
   if (!normalized.id) normalized.id = nextId(normalized.kind);
@@ -4365,6 +4377,11 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
     };
     const yearOf = (row) => (String(row.date || "").match(/(19|20)\\d{2}/) || [""])[0];
     const monthOf = (row) => {
+      const savedMonth = String(row.reportMonth || "").match(/\\d{1,2}/);
+      if (savedMonth) {
+        const month = Number(savedMonth[0]);
+        if (month >= 1 && month <= 12) return month + "월";
+      }
       const match = String(row.date || "").match(/(?:19|20)\\d{2}[-./년\\s]*(\\d{1,2})/);
       const month = Number(match && match[1]);
       return month >= 1 && month <= 12 ? month + "월" : "";
@@ -5047,7 +5064,8 @@ function generateAutoCountermeasure(recordLike) {
 
   return location ? `${location} 구간에 대해 ${action}` : action;
 }
-function mapImportedSafetyRecords(items) {
+function mapImportedSafetyRecords(items, options = {}) {
+  const reportMonth = normalizeRecordMonth(options.reportMonth);
   return ensureUniqueRecordIds(items.map((item) => normalizeRecord({
     id: nextId(item.kind === "incident" ? "incident" : "nearMiss"),
     kind: item.kind === "incident" ? "incident" : "nearMiss",
@@ -5074,7 +5092,8 @@ function mapImportedSafetyRecords(items) {
       description: sanitizeImportedDescription(item.description, item.cause),
       location: sanitizeImportedLocation(item.location),
       cause: item.cause
-    })
+    }),
+    reportMonth
   })).filter((item) => item.description || item.action));
 }
 
@@ -5089,7 +5108,7 @@ async function processSafetyPdf(file) {
     const prompt = buildSafetyPdfPrompt();
     const analysis = await requestGeminiPdfAnalysis(base64, prompt);
     const rawText = analysis.text || "";
-    const imported = mapImportedSafetyRecords(parseGeminiJsonArray(rawText));
+    const imported = mapImportedSafetyRecords(parseGeminiJsonArray(rawText), { reportMonth: getCurrentReportMonth() });
     if (!imported.length) throw new Error("No importable items found.");
     records = [...imported, ...records];
     await saveRecords();
