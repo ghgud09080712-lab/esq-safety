@@ -1826,12 +1826,14 @@ function getCurrentReportMonth() {
 }
 
 function getRecordMonth(record) {
-  const savedMonth = normalizeRecordMonth(record.reportMonth);
-  if (savedMonth) return savedMonth;
   const match = safeText(record.date).match(/(?:19|20)\d{2}[-./\uB144\s]*(\d{1,2})/);
   if (!match) return "";
   const month = Number(match[1]);
   return month >= 1 && month <= 12 ? `${month}\uC6D4` : "";
+}
+
+function getRecordReportMonth(record) {
+  return normalizeRecordMonth(record.reportMonth) || getRecordMonth(record);
 }
 
 function ensureUniqueRecordIds(items) {
@@ -2515,7 +2517,7 @@ function getReportRows(companyFilter, yearFilter, monthFilter) {
   return records.filter((row) => {
     const matchesCompany = companyFilter === "all" || companyKey(row) === companyFilter;
     const matchesYear = yearFilter === "all" || getRecordYear(row) === yearFilter;
-    const matchesMonth = monthFilter === "all" || getRecordMonth(row) === monthFilter;
+    const matchesMonth = monthFilter === "all" || getRecordReportMonth(row) === monthFilter;
     return matchesCompany && matchesYear && matchesMonth;
   });
 }
@@ -4136,9 +4138,10 @@ function openDialog(record = null) {
     date: today(),
     likelihood: 3,
     severity: 3,
-    lostDays: 0,
+    reportMonth: getCurrentReportMonth(),
     status: K.received
   };
+  values.reportMonth = getRecordReportMonth(values) || getCurrentReportMonth();
   Object.entries(values).forEach(([key, value]) => {
     if (form.elements[key]) form.elements[key].value = value ?? "";
   });
@@ -4165,7 +4168,7 @@ function formToRecord() {
     ...(existing || {}),
     ...data,
     id: editingId || nextId(data.kind),
-    lostDays: Number(data.lostDays || 0),
+    reportMonth: normalizeRecordMonth(data.reportMonth) || getCurrentReportMonth(),
     likelihood: Number(data.likelihood || 3),
     severity: Number(data.severity || 3),
     updatedAt: new Date().toISOString()
@@ -4249,7 +4252,7 @@ async function bulkDeleteVisibleRecords() {
 }
 
 function toCsv(rows) {
-  const headers = ["id", "kind", "company", "date", "department", "author", "location", "process", "type", "cause", "victim", "claimType", "lostDays", "riskLevel", "riskScore", "status", "dueDate", "owner", "description", "action"];
+  const headers = ["id", "kind", "company", "date", "reportMonth", "department", "author", "location", "process", "type", "cause", "victim", "claimType", "riskLevel", "riskScore", "status", "dueDate", "owner", "description", "action"];
   const lines = [headers.join(",")];
   rows.forEach((row) => {
     const enriched = { ...row, riskLevel: getRiskLevel(row), riskScore: getRiskScore(row) };
@@ -4477,14 +4480,17 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
     };
     const yearOf = (row) => (String(row.date || "").match(/(19|20)\\d{2}/) || [""])[0];
     const monthOf = (row) => {
+      const match = String(row.date || "").match(/(?:19|20)\\d{2}[-./년\\s]*(\\d{1,2})/);
+      const month = Number(match && match[1]);
+      return month >= 1 && month <= 12 ? month + "월" : "";
+    };
+    const reportMonthOf = (row) => {
       const savedMonth = String(row.reportMonth || "").match(/\\d{1,2}/);
       if (savedMonth) {
         const month = Number(savedMonth[0]);
         if (month >= 1 && month <= 12) return month + "월";
       }
-      const match = String(row.date || "").match(/(?:19|20)\\d{2}[-./년\\s]*(\\d{1,2})/);
-      const month = Number(match && match[1]);
-      return month >= 1 && month <= 12 ? month + "월" : "";
+      return monthOf(row);
     };
     const dateParts = (row) => {
       const match = String(row.date || "").match(/(19|20)\\d{2}[-./년\\s]*(\\d{1,2})?[-./월\\s]*(\\d{1,2})?/);
@@ -4528,13 +4534,13 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
     };
     const fillStatsFilters = () => {
       const years = [...new Set(rows.map(yearOf).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-      const months = [...new Set(rows.map(monthOf).filter(Boolean))].sort((a, b) => Number(a.replace(/\\D/g, "")) - Number(b.replace(/\\D/g, "")));
+      const months = [...new Set(rows.map(reportMonthOf).filter(Boolean))].sort((a, b) => Number(a.replace(/\\D/g, "")) - Number(b.replace(/\\D/g, "")));
       document.getElementById("statsYearFilter").insertAdjacentHTML("beforeend", years.map((year) => '<option>' + esc(year) + '</option>').join(""));
       document.getElementById("statsMonthFilter").insertAdjacentHTML("beforeend", months.map((month) => '<option>' + esc(month) + '</option>').join(""));
     };
     const getStatsRows = (items) => items.filter((row) => {
       if (statsYear !== "all" && yearOf(row) !== statsYear) return false;
-      if (statsMonth !== "all" && monthOf(row) !== statsMonth) return false;
+      if (statsMonth !== "all" && reportMonthOf(row) !== statsMonth) return false;
       return true;
     });
     const render = () => {
@@ -4810,6 +4816,7 @@ function mapExcelRowToImported(sheetName, row, col, sheetKind) {
     victim: readCell(row, col.victim),
     claimType: readCell(row, col.claimType),
     lostDays: Number(readCell(row, col.lostDays) || 0),
+    reportMonth: normalizeRecordMonth(readCell(row, col.reportMonth)) || getCurrentReportMonth(),
     likelihood: Number(readCell(row, col.likelihood) || 3),
     severity: Number(readCell(row, col.severity) || 3),
     status: readCell(row, col.status) || (readCell(row, col.completedDate) ? K.done : K.received),
@@ -4854,6 +4861,7 @@ function parseSafetyWorkbook(workbook) {
       victim: findColumn(headers, ["\uC0AC\uACE0\uC790", "\uC7AC\uD574\uC790", "\uD53C\uD574\uC790"]),
       claimType: findColumn(headers, ["\uC0B0\uC7AC", "\uBE44\uACE0", "\uCC98\uB9AC\uAD6C\uBD84"]),
       lostDays: findColumn(headers, ["\uD734\uC5C5", "\uD734\uC5C5\uC77C\uC218", "\uD734\uC5C5\uC608\uC0C1\uC77C\uC218"]),
+      reportMonth: findColumn(headers, ["\uC81C\uCD9C\uC6D4", "\uC9D1\uACC4\uC6D4", "\uBCF4\uACE0\uC6D4"]),
       likelihood: findColumn(headers, ["\uAC00\uB2A5\uC131", "\uBC1C\uC0DD\uAC00\uB2A5\uC131"]),
       severity: findColumn(headers, ["\uC911\uB300\uC131", "\uAC15\uB3C4"]),
       status: findColumn(headers, ["\uC0C1\uD0DC", "\uC9C4\uD589\uC0C1\uD0DC"]),
