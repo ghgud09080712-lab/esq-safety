@@ -1965,13 +1965,19 @@ function resolveRecordKind(record) {
 }
 
 function normalizeRecord(record) {
+  const owner = sanitizeImportedAuthor(record.owner);
+  let author = sanitizeImportedAuthor(record.author);
+  const kind = resolveRecordKind(record);
+  if (kind === "nearMiss" && owner && normalizePersonName(author) === normalizePersonName(owner)) {
+    author = "";
+  }
   const normalized = {
     id: safeText(record.id).trim(),
-    kind: resolveRecordKind(record),
+    kind,
     company: getCompany(record),
     date: cleanDate(record.date || today()),
     department: cleanDepartment(record.department),
-    author: sanitizeImportedAuthor(record.author),
+    author,
     location: safeText(record.location).trim(),
     process: safeText(record.process).trim(),
     type: resolveAccidentType(record),
@@ -1983,7 +1989,7 @@ function normalizeRecord(record) {
     severity: clampRiskValue(record.severity || 3),
     status: normalizeStatus(record.status),
     dueDate: safeText(record.dueDate).trim(),
-    owner: safeText(record.owner).trim(),
+    owner,
     summary: safeText(record.summary).trim(),
     description: safeText(record.description).trim(),
     action: safeText(record.action).trim(),
@@ -4946,7 +4952,9 @@ function buildSafetyPdfPrompt() {
     "Extract only near-miss or incident investigation records from this PDF.",
     "Return JSON array only. Do not wrap in markdown.",
     "All string values must be returned in Korean.",
-    "author means 발굴자 only. Use only the value explicitly labeled 발굴자.",
+    "author means 발굴자 only. Use only the value printed in the 발굴자 cell/field.",
+    "작성자 is not 발굴자. If the PDF has 작성자 and 발굴자 separately, author must be 발굴자, never 작성자.",
+    "owner means 작성자, 담당자, or 조치 담당자 when those fields exist.",
     "Never use 작성자, 검토, 승인, 담당자, 조사자, 교육참석자, or signature names as author.",
     "If 발굴자 is missing or unreadable, return an empty string for author.",
     "author must contain only the person's name and exclude all job titles.",
@@ -5068,6 +5076,21 @@ function sanitizeImportedAuthor(value) {
   return cleaned;
 }
 
+function normalizePersonName(value) {
+  return sanitizeImportedAuthor(value).replace(/\s/g, "");
+}
+
+function pickImportedDiscoverer(item) {
+  const author = sanitizeImportedAuthor(item?.author);
+  const owner = sanitizeImportedAuthor(item?.owner);
+  const writer = sanitizeImportedAuthor(item?.writer || item?.작성자 || item?.drafter);
+  if (!author) return "";
+  const authorKey = normalizePersonName(author);
+  if (writer && authorKey && authorKey === normalizePersonName(writer)) return "";
+  if (owner && authorKey && authorKey === normalizePersonName(owner) && safeText(item?.kind) !== "incident") return "";
+  return author;
+}
+
 function stripFieldLabel(value, labels) {
   let text = safeText(value).trim();
   labels.forEach((label) => {
@@ -5180,7 +5203,7 @@ function mapImportedSafetyRecords(items, options = {}) {
     company: safeText(item.company).toUpperCase() === "SEM" ? K.sem : K.oyoung,
     date: cleanDate(item.date || today()),
     department: cleanDepartment(item.department),
-    author: sanitizeImportedAuthor(item.author),
+    author: pickImportedDiscoverer(item),
     location: sanitizeImportedLocation(item.location),
     process: "",
     type: item.type || "",
@@ -5192,7 +5215,7 @@ function mapImportedSafetyRecords(items, options = {}) {
     severity: Number(item.severity || 3),
     status: normalizeStatus(item.status),
     dueDate: item.dueDate ? cleanDate(item.dueDate) : "",
-    owner: item.owner || "",
+    owner: sanitizeImportedAuthor(item.owner || item.writer || item.작성자) || "",
     summary: item.summary || item.description || "",
     description: sanitizeImportedDescription(item.description, item.cause),
     action: item.action || generateAutoCountermeasure({
