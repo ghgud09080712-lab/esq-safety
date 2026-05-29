@@ -473,6 +473,105 @@ function getSubmissionDisplayData(item) {
   };
 }
 
+function getSubmissionMonthKey(item) {
+  const submittedAt = String(item?.submittedAt || "");
+  const match = submittedAt.match(/^(\d{4})-(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}`;
+  const date = new Date(submittedAt);
+  if (!Number.isNaN(date.getTime())) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+  return "";
+}
+
+function formatSubmissionMonthLabel(monthKey) {
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) return "-";
+  return `${match[1].slice(2)}.${Number(match[2])}월`;
+}
+
+function getSubmissionMonthlyStats(items, limit = 6) {
+  const monthKeys = Array.from(new Set(items.map(getSubmissionMonthKey).filter(Boolean)))
+    .sort()
+    .slice(-limit);
+  const rows = new Map();
+
+  items.forEach((item) => {
+    const monthKey = getSubmissionMonthKey(item);
+    if (!monthKeys.includes(monthKey)) return;
+    const data = getSubmissionDisplayData(item);
+    const department = data.department && data.department !== "-" ? data.department : "미지정";
+    if (!rows.has(department)) {
+      rows.set(department, {
+        department,
+        total: 0,
+        months: Object.fromEntries(monthKeys.map((key) => [key, 0]))
+      });
+    }
+    const row = rows.get(department);
+    row.months[monthKey] += 1;
+    row.total += 1;
+  });
+
+  return {
+    monthKeys,
+    rows: Array.from(rows.values()).sort((a, b) => b.total - a.total || a.department.localeCompare(b.department, "ko"))
+  };
+}
+
+function renderDashboardSubmissionMonthlyStats() {
+  const head = $("#dashboardSubmissionMonthlyHead");
+  const body = $("#dashboardSubmissionMonthlyBody");
+  const range = $("#dashboardSubmissionMonthlyRange");
+  if (!head || !body) return;
+
+  const stats = getSubmissionMonthlyStats(formSubmissions);
+  if (!stats.monthKeys.length) {
+    head.innerHTML = "";
+    body.innerHTML = `<tr><td class="empty-table-cell">월별 제출 데이터가 없습니다.</td></tr>`;
+    if (range) range.textContent = "제출 데이터 없음";
+    return;
+  }
+
+  if (range) {
+    const first = formatSubmissionMonthLabel(stats.monthKeys[0]);
+    const last = formatSubmissionMonthLabel(stats.monthKeys[stats.monthKeys.length - 1]);
+    range.textContent = first === last ? first : `${first} - ${last}`;
+  }
+
+  head.innerHTML = `
+    <tr>
+      <th>부서</th>
+      ${stats.monthKeys.map((key) => `<th>${escapeHtml(formatSubmissionMonthLabel(key))}</th>`).join("")}
+      <th>합계</th>
+    </tr>
+  `;
+
+  const monthTotals = Object.fromEntries(stats.monthKeys.map((key) => [key, 0]));
+  let grandTotal = 0;
+  stats.rows.forEach((row) => {
+    stats.monthKeys.forEach((key) => {
+      monthTotals[key] += row.months[key] || 0;
+    });
+    grandTotal += row.total;
+  });
+
+  body.innerHTML = [
+    ...stats.rows.map((row) => `
+      <tr>
+        <th>${escapeHtml(row.department)}</th>
+        ${stats.monthKeys.map((key) => `<td>${row.months[key] || ""}</td>`).join("")}
+        <td class="total">${row.total}</td>
+      </tr>
+    `),
+    `<tr class="summary">
+      <th>합계</th>
+      ${stats.monthKeys.map((key) => `<td>${monthTotals[key] || ""}</td>`).join("")}
+      <td class="total">${grandTotal}</td>
+    </tr>`
+  ].join("");
+}
+
 function renderDashboardSubmissions() {
   if (IS_DEPARTMENT_MODE) return;
   const total = formSubmissions.length;
@@ -492,6 +591,7 @@ function renderDashboardSubmissions() {
   if (pendingEl) pendingEl.textContent = pending;
   if (reviewedEl) reviewedEl.textContent = reviewed;
   if (alertPanel) alertPanel.classList.toggle("has-pending", pending > 0);
+  renderDashboardSubmissionMonthlyStats();
   if (!recent) return;
 
   const sorted = formSubmissions
