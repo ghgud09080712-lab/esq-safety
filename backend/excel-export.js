@@ -33,7 +33,30 @@ function clone(value) {
 
 function normalizeDept(value) {
   if (!value) return "";
-  const text = String(value).trim();
+  const text = String(value).replace(/^[a-zA-Z](?:\.|\s+)/, "").trim();
+  const compact = text.replace(/[.\s]/g, "").toLowerCase();
+  const compactNoSlash = compact.replace(/\//g, "");
+  const departmentMap = {
+    "생산1부": "a.생산1부",
+    "생산2부": "b.생산2부",
+    "sem": "c.SEM",
+    "에스이엠": "c.SEM",
+    "연구개발팀": "d.연구개발팀",
+    "품질관리부": "e.품질관리부",
+    "분산qc": "e.품질관리부",
+    "t/s": "f.T/S팀",
+    "t/s팀": "f.T/S팀",
+    "t/s부": "f.T/S팀",
+    "ts": "f.T/S팀",
+    "ts팀": "f.T/S팀",
+    "ts부": "f.T/S팀",
+    "물류관리팀": "g.물류관리팀",
+    "공무팀": "h.공무팀",
+    "공무과": "h.공무팀",
+    "환경관리과": "i.환경관리과",
+    "총무과": "j.총무과"
+  };
+  if (departmentMap[compact] || departmentMap[compactNoSlash]) return departmentMap[compact] || departmentMap[compactNoSlash];
   for (const [from, to] of Object.entries(DEPT_MAP)) {
     if (text === from || text.toLowerCase() === from.toLowerCase()) return to;
   }

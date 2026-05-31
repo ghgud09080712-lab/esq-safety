@@ -2,11 +2,16 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const XLSX = require("xlsx");
 
 const app = express();
+const execFileAsync = promisify(execFile);
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
 const rootDir = path.resolve(__dirname, "..");
+const { buildReadonlyHtml } = require(path.join(rootDir, "tools", "export-legal-registry-readonly.js"));
 const dataDir = path.resolve(process.env.DATA_DIR || path.join(__dirname, "data"));
 const seedDir = path.join(__dirname, "seeds");
 const aGradeLinksPath = path.join(dataDir, "a-grade-links.json");
@@ -22,7 +27,48 @@ const safetyFormSubmissionsPath = path.join(dataDir, "safety-form-submissions.js
 const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
+const legalRegistryHtmlPath = path.join(rootDir, "frontend", "legal-registry", "index.html");
 const firebaseConfigPath = path.join(rootDir, "firebase-config.js");
+const legalRegistryDataPath = path.join(dataDir, "legal-registry.json");
+const legalRegistryDataSeedPath = path.join(seedDir, "legal-registry.seed.json");
+const publicOyoungDir = path.join(rootDir, "public-oyoung");
+const publicLegalRegistryFileName = "legal-registry.html";
+const firebaseProjectId = "esq-aiproject";
+const firebaseDeployEnabled = process.env.FIREBASE_DEPLOY_ENABLED !== "false" && process.env.NODE_ENV !== "production";
+const defaultLegalRegistrySourcePath = process.env.LEGAL_REGISTER_PATH || "C:\\Users\\zxcas\\Desktop\\김호형\\새 폴더\\법규등록부(2026.02.25).xlsx";
+const defaultLawOpenApiOc = process.env.LAW_OPEN_API_OC || "esq";
+const legalRegistryCompanyProfile = {
+  companyName: "(주)오영",
+  englishName: "OHYOUNG",
+  founded: "1981",
+  industry: "섬유용 합성염료 전문 제조업",
+  answerStandard: "(주)오영 섬유용 합성염료 제조공정 기준",
+  businessSummary: [
+    "1981년 설립된 섬유용 합성염료 전문 제조 회사",
+    "색을 창조하는 것을 업으로 하며 염료 품질은 원료 구매 단계부터 관리",
+    "반응성염료 분야 중심의 기술 개발 이력이 강함",
+    "글로벌 염색 시장과 섬유 고객사를 대상으로 제품을 공급"
+  ],
+  productFamilies: [
+    "반응성염료",
+    "분산염료",
+    "산성염료",
+    "카치온염료",
+    "디지털 텍스타일프린트 잉크(DTP)",
+    "형광증백제",
+    "텍스타일 케미컬"
+  ],
+  likelyWorkplaces: ["원료 창고", "계량실", "혼합실", "반응실", "여과/정제 구역", "건조실", "분쇄/분급 구역", "포장실", "제품 창고", "연구소", "폐수처리장", "대기방지시설", "위험물/화학물질 보관장"],
+  typicalProcesses: ["원료 구매/입고", "원료 보관", "분쇄/계량", "혼합", "반응", "여과/정제", "배합", "건조", "분급", "포장", "DTP 잉크 배합", "제품 보관/출하", "폐수/폐기물 처리", "방지시설 운영"],
+  typicalRisks: ["유해화학물질 취급", "염료 분말 분진 노출", "분진 비산/퇴적", "VOC/악취 배출", "폐수 및 색도 관리", "지정폐기물", "인화성 용제/위험물", "화재/폭발", "정전기", "국소배기 및 집진", "보호구", "작업환경측정", "특수건강진단", "MSDS/GHS 관리", "화학물질 누출", "연구실 안전"],
+  priorityLawAreas: ["산업안전보건", "화학물질관리", "화학물질 등록평가", "위험물안전관리", "대기환경", "악취", "물환경/폐수", "폐기물", "소방시설", "연구실안전"],
+  responseStyle: [
+    "질문을 (주)오영의 섬유용 합성염료 제조, DTP 잉크, 텍스타일 케미컬 현장 상황으로 해석한다.",
+    "법령명만 나열하지 말고 계량, 반응, 건조, 포장, 폐수처리, 방지시설, 연구소 중 어느 현장에 적용되는지 설명한다.",
+    "현장에서 바로 확인할 관리 포인트와 개선 조치를 제시한다.",
+    "해당 법령 후보에 없는 내용은 단정하지 않고 원문 확인 필요로 표시한다."
+  ]
+};
 
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -50,6 +96,358 @@ async function readJson(filePath, fallback) {
 async function writeJson(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+}
+
+function compactText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function preserveText(value) {
+  return String(value ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
+}
+
+function pickInputValue(input, existing, key) {
+  return Object.prototype.hasOwnProperty.call(input || {}, key) ? input[key] : existing?.[key];
+}
+
+function normalizeLawDate(value) {
+  const text = compactText(value);
+  if (!text) return "";
+  const compactDate = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compactDate) return `${compactDate[1]}-${compactDate[2]}-${compactDate[3]}`;
+  const date = text.match(/(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})/);
+  if (!date) return text;
+  return `${date[1]}-${String(date[2]).padStart(2, "0")}-${String(date[3]).padStart(2, "0")}`;
+}
+
+function displayLawDate(value) {
+  const normalized = normalizeLawDate(value);
+  const date = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return date ? `${date[1]}. ${Number(date[2])}. ${Number(date[3])}` : normalized.replace(/(\d)\.$/, "$1");
+}
+
+function fileTimestamp(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+function normalizeLawName(value) {
+  return compactText(value)
+    .replace(/\s+/g, "")
+    .replace(/[「」『』\[\]()]/g, "")
+    .replace(/법률$/g, "법")
+    .trim();
+}
+
+function makeLawKey(name) {
+  return normalizeLawName(name).toLowerCase();
+}
+
+function cellText(row, index) {
+  return compactText(row?.[index]);
+}
+
+function pickLawDate(item, keys) {
+  for (const key of keys) {
+    const value = item?.[key];
+    if (value !== undefined && value !== null && compactText(value)) return displayLawDate(value);
+  }
+  return "";
+}
+
+function extractLawItems(payload) {
+  const law = payload?.LawSearch?.law;
+  if (Array.isArray(law)) return law;
+  if (law && typeof law === "object") return [law];
+  return [];
+}
+
+function parseLegalRegistryWorkbook(filePath) {
+  const workbook = XLSX.readFile(filePath, { cellDates: true });
+  const records = [];
+  const detailCards = [];
+  const sheet = workbook.Sheets["법규등록부"];
+  if (sheet) {
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false, blankrows: false });
+    let parentLaw = "";
+    let currentNo = "";
+    for (const row of rows) {
+      const first = cellText(row, 0);
+      const second = cellText(row, 1);
+      const third = cellText(row, 2);
+      if (/^No$/i.test(first) || !third || third === "개정일자") continue;
+      if (first && /^\d+/.test(first)) currentNo = first;
+      if (second) parentLaw = second;
+      const lawName = third || parentLaw;
+      if (!lawName || !cellText(row, 3)) continue;
+      records.push({
+        id: `LAW-${String(records.length + 1).padStart(4, "0")}`,
+        no: currentNo,
+        group: parentLaw || lawName,
+        lawName,
+        registeredEffectiveDate: displayLawDate(cellText(row, 3)),
+        officialEffectiveDate: "",
+        promulgationDate: "",
+        status: "등록",
+        source: "workbook",
+        note: cellText(row, 4),
+        updatedAt: null
+      });
+    }
+  }
+
+  for (const sheetName of workbook.SheetNames.filter((name) => /^법규등록부\d+/.test(name))) {
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: false, blankrows: false });
+    const displayRows = rows
+      .map((row) => row.map((cell) => compactText(cell)))
+      .filter((row) => row.some(Boolean));
+    const findValue = (label, offset = 1) => {
+      for (const row of rows) {
+        const index = row.findIndex((cell) => compactText(cell).includes(label));
+        if (index >= 0) return cellText(row, index + offset);
+      }
+      return "";
+    };
+    const contentRow = rows[7] || [];
+    const applyRow = rows[8] || [];
+    const lawName = findValue("법규명");
+    if (!lawName) continue;
+    detailCards.push({
+      id: sheetName,
+      sheetName,
+      category: findValue("구 분"),
+      lawName,
+      issuer: findValue("발행기관"),
+      channel: findValue("입수경로", 3) || findValue("입수경로"),
+      revisionDate: displayLawDate(findValue("제,개정일")),
+      registeredDate: displayLawDate(findValue("등록일", 3) || findValue("등록일")),
+      team: findValue("작성팀"),
+      author: findValue("작성자", 3) || findValue("작성자"),
+      applicability: cellText(applyRow, 1) || findValue("당사해당 유무"),
+      mainContent: cellText(contentRow, 1),
+      companyAction: cellText(applyRow, 2) || findValue("당사 적용사항", 3) || findValue("당사 적용사항"),
+      rows: displayRows
+    });
+  }
+
+  return { records, detailCards, sheetNames: workbook.SheetNames };
+}
+
+async function readLegalRegistry() {
+  const current = await readJson(legalRegistryDataPath, null);
+  if (current?.records) return current;
+  const seed = await readJson(legalRegistryDataSeedPath, null);
+  if (seed?.records) {
+    const payload = {
+      ...seed,
+      sourcePath: seed.sourcePath || defaultLegalRegistrySourcePath,
+      changes: Array.isArray(seed.changes) ? seed.changes : [],
+      refreshLogs: Array.isArray(seed.refreshLogs) ? seed.refreshLogs : [],
+      createdAt: seed.createdAt || new Date().toISOString(),
+      updatedAt: seed.updatedAt || new Date().toISOString()
+    };
+    await writeJson(legalRegistryDataPath, payload);
+    return payload;
+  }
+  try {
+    const parsed = parseLegalRegistryWorkbook(defaultLegalRegistrySourcePath);
+    const payload = {
+      sourcePath: defaultLegalRegistrySourcePath,
+      records: parsed.records,
+      detailCards: parsed.detailCards,
+      changes: [],
+      refreshLogs: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await writeJson(legalRegistryDataPath, payload);
+    return payload;
+  } catch (error) {
+    return {
+      sourcePath: defaultLegalRegistrySourcePath,
+      records: [],
+      detailCards: [],
+      changes: [],
+      refreshLogs: [{ at: new Date().toISOString(), ok: false, message: error.message }],
+      createdAt: new Date().toISOString(),
+      updatedAt: null
+    };
+  }
+}
+
+async function searchOfficialLaw(lawName, oc) {
+  const params = new URLSearchParams({
+    OC: oc,
+    target: "law",
+    type: "JSON",
+    display: "10",
+    search: "1",
+    query: lawName
+  });
+  const response = await fetch(`https://www.law.go.kr/DRF/lawSearch.do?${params}`);
+  const text = await response.text();
+  let payload = {};
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new Error(`법제처 응답을 해석하지 못했습니다: ${text.slice(0, 80)}`);
+  }
+  if (!response.ok || payload?.result) {
+    throw new Error(payload?.msg || payload?.result || `법제처 HTTP ${response.status}`);
+  }
+  const items = extractLawItems(payload);
+  const requested = makeLawKey(lawName);
+  return items.find((item) => makeLawKey(item["법령명한글"] || item.lsNm || item["법령명"]) === requested)
+    || items.find((item) => makeLawKey(item["법령명한글"] || item.lsNm || item["법령명"]).includes(requested))
+    || items[0]
+    || null;
+}
+
+function buildChange(record, official) {
+  const lawName = official?.["법령명한글"] || official?.lsNm || official?.["법령명"] || record.lawName;
+  const officialEffectiveDate = pickLawDate(official, ["시행일자", "efYd", "시행일", "시행일자문자열"]);
+  const promulgationDate = pickLawDate(official, ["공포일자", "ancYd", "공포일"]);
+  const lawId = compactText(official?.["법령ID"] || official?.lawId || official?.ID || official?.id);
+  const mst = compactText(official?.["법령일련번호"] || official?.MST || official?.mst);
+  const currentDate = normalizeLawDate(record.officialEffectiveDate || record.registeredEffectiveDate);
+  const nextDate = normalizeLawDate(officialEffectiveDate);
+  const changed = Boolean(nextDate && nextDate !== currentDate);
+  return {
+    id: `CHG-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+    recordId: record.id,
+    lawName,
+    previousEffectiveDate: record.officialEffectiveDate || record.registeredEffectiveDate || "",
+    effectiveDate: officialEffectiveDate,
+    promulgationDate,
+    lawId,
+    mst,
+    status: changed ? "new" : "same",
+    summary: changed ? "시행일자가 변경되어 등록 검토가 필요합니다." : "등록부와 최신 시행일자가 같습니다.",
+    checkedAt: new Date().toISOString()
+  };
+}
+
+function flattenLawText(value, output = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) flattenLawText(item, output);
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) flattenLawText(item, output);
+  } else if (value !== undefined && value !== null) {
+    const text = compactText(value);
+    if (text) output.push(text);
+  }
+  return output;
+}
+
+function summarizeAmendmentLines(lines) {
+  const clean = lines
+    .map((line) => compactText(line))
+    .filter(Boolean)
+    .filter((line) => !/^\[?본문 생략\]?$/.test(line))
+    .filter((line, index, array) => array.indexOf(line) === index);
+  return clean.slice(0, 80);
+}
+
+function lawDateParam(value) {
+  return normalizeLawDate(value).replace(/\D/g, "");
+}
+
+function collectLawContentValues(value, output = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectLawContentValues(item, output);
+  } else if (value && typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      if (/내용$/.test(key)) {
+        const text = compactText(item);
+        if (text) output.push(text);
+      } else if (typeof item === "object") {
+        collectLawContentValues(item, output);
+      }
+    }
+  }
+  return output;
+}
+
+function extractArticles(law) {
+  const units = law?.["조문"]?.["조문단위"];
+  const items = Array.isArray(units) ? units : units ? [units] : [];
+  return items
+    .filter((item) => item?.["조문여부"] === "조문")
+    .map((item) => {
+      const number = compactText(item["조문번호"]);
+      const branch = compactText(item["조문가지번호"]);
+      const title = compactText(item["조문제목"]);
+      const key = compactText(item["조문키"]) || `${number}-${branch}`;
+      const heading = `제${number}${branch ? `의${branch}` : ""}조${title ? `(${title})` : ""}`;
+      const lines = collectLawContentValues(item)
+        .filter((line, index, array) => array.indexOf(line) === index);
+      return {
+        key,
+        heading,
+        changed: compactText(item["조문변경여부"]) === "Y",
+        text: lines.join("\n")
+      };
+    });
+}
+
+function normalizeArticleText(value) {
+  return compactText(value).replace(/\s+/g, " ");
+}
+
+function diffArticles(previousArticles, currentArticles) {
+  const previousMap = new Map(previousArticles.map((item) => [item.key, item]));
+  const currentMap = new Map(currentArticles.map((item) => [item.key, item]));
+  const diffs = [];
+  for (const [key, current] of currentMap) {
+    const previous = previousMap.get(key);
+    if (!previous) {
+      diffs.push({ type: "added", heading: current.heading, after: current.text });
+    } else if (normalizeArticleText(previous.text) !== normalizeArticleText(current.text)) {
+      diffs.push({ type: "changed", heading: current.heading, before: previous.text, after: current.text });
+    }
+  }
+  for (const [key, previous] of previousMap) {
+    if (!currentMap.has(key)) {
+      diffs.push({ type: "removed", heading: previous.heading, before: previous.text });
+    }
+  }
+  return diffs.slice(0, 120);
+}
+
+async function fetchOfficialLawContent({ lawName, mst, lawId, oc, effectiveDate }) {
+  let selectedMst = compactText(mst);
+  let selectedLawId = compactText(lawId);
+  let official = null;
+  if (!selectedMst && !selectedLawId && lawName) {
+    official = await searchOfficialLaw(lawName, oc);
+    selectedMst = compactText(official?.["법령일련번호"] || official?.MST || official?.mst);
+    selectedLawId = compactText(official?.["법령ID"] || official?.lawId || official?.ID || official?.id);
+  }
+  const queryKey = selectedMst ? `MST=${encodeURIComponent(selectedMst)}` : `ID=${encodeURIComponent(selectedLawId)}`;
+  if (!selectedMst && !selectedLawId) throw new Error("법령 본문 조회에 필요한 법령 식별값을 찾지 못했습니다.");
+  const efYd = lawDateParam(effectiveDate);
+  const target = efYd ? "eflaw" : "law";
+  const response = await fetch(`https://www.law.go.kr/DRF/lawService.do?OC=${encodeURIComponent(oc)}&target=${target}&type=JSON&${queryKey}${efYd ? `&efYd=${encodeURIComponent(efYd)}` : ""}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.result) throw new Error(payload?.msg || payload?.result || `법령 본문 HTTP ${response.status}`);
+  const law = payload?.["법령"] || {};
+  const basic = law["기본정보"] || {};
+  const amendmentLines = summarizeAmendmentLines(flattenLawText(law["개정문"]?.["개정문내용"] || law["개정문"]));
+  const reasonLines = summarizeAmendmentLines(flattenLawText(law["제개정이유"]));
+  return {
+    lawName: compactText(basic["법령명_한글"] || basic["법령명한글"] || lawName || official?.["법령명한글"]),
+    mst: selectedMst,
+    lawId: selectedLawId,
+    amendmentLines,
+    reasonLines,
+    articles: extractArticles(law)
+  };
 }
 
 async function readRuntimeJsonWithSeed(filePath, seedPath, fallback) {
@@ -133,11 +531,64 @@ async function pickSafetyGeminiModel(apiKey) {
 }
 
 function isRetryableGeminiError(message) {
-  return /high demand|try again later|temporar|timeout|429|503|overloaded/i.test(String(message || ""));
+  return /not found|404|high demand|try again later|temporar|timeout|429|500|502|503|504|overloaded|unavailable|internal error|internal server error/i.test(String(message || ""));
 }
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getProposalGeminiModels(apiKey, preferredModel) {
+  let available = [];
+  try {
+    available = await listSafetyGeminiModels(apiKey);
+  } catch {
+    available = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
+  }
+  return [...new Set([preferredModel, ...available, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"].filter(Boolean))].slice(0, 5);
+}
+
+async function requestProposalGeminiWithFallback(apiKey, preferredModel, buildBody) {
+  const models = await getProposalGeminiModels(apiKey, preferredModel);
+  let lastError;
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey
+          },
+          body: JSON.stringify(buildBody(model))
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.error?.message || result?.message || `Gemini HTTP ${response.status}`);
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableGeminiError(error?.message)) throw error;
+        if (attempt < 2) await wait(attempt * 2500);
+      }
+    }
+  }
+  throw lastError || new Error("Gemini 분석 실패");
+}
+
+async function requestProposalOpenAIResponses(apiKey, body) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(body)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result?.error?.message || result?.message || `OpenAI HTTP ${response.status}`);
+  }
+  return result;
 }
 
 async function requestSafetyGeminiPdf(apiKey, base64, prompt) {
@@ -169,8 +620,20 @@ async function requestSafetyGeminiPdf(apiKey, base64, prompt) {
 
 async function requestSafetyGeminiText(apiKey, prompt) {
   let lastError;
-  const models = (await listSafetyGeminiModels(apiKey)).slice(0, 3);
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  let available = [];
+  try {
+    available = await listSafetyGeminiModels(apiKey);
+  } catch {
+    available = [];
+  }
+  const models = [...new Set([
+    ...available,
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-pro"
+  ].filter(Boolean))].slice(0, 8);
+  for (let attempt = 1; attempt <= models.length; attempt += 1) {
     try {
       const model = models[attempt - 1] || models[0] || await pickSafetyGeminiModel(apiKey);
       if (!model) throw new Error("사용 가능한 Gemini 모델을 찾지 못했습니다.");
@@ -187,7 +650,7 @@ async function requestSafetyGeminiText(apiKey, prompt) {
       return { text: payload.candidates?.[0]?.content?.parts?.[0]?.text || "", model };
     } catch (error) {
       lastError = error;
-      if (attempt >= 3 || !isRetryableGeminiError(error?.message)) break;
+      if (attempt >= models.length || !isRetryableGeminiError(error?.message)) break;
       await wait(attempt * 3000);
     }
   }
@@ -380,6 +843,11 @@ app.get("/safety", (_req, res) => {
   res.sendFile(safetyHtmlPath);
 });
 
+app.get("/legal-registry", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.sendFile(legalRegistryHtmlPath);
+});
+
 app.get("/safety-dept", (_req, res) => {
   res.redirect(302, "/safety");
 });
@@ -461,6 +929,512 @@ app.post("/api/safety-gemini/recommend-risk", async (req, res) => {
     return res.json(result);
   } catch (error) {
     return res.status(500).json({ error: { message: error.message || "Gemini 위험성평가 추천 실패" } });
+  }
+});
+
+app.post("/api/proposal-gpt/analyze", async (req, res) => {
+  try {
+    const apiKey = String(req.body?.apiKey || "").trim();
+    const base64 = String(req.body?.base64 || "").trim();
+    const prompt = String(req.body?.prompt || "").trim();
+    const model = String(req.body?.model || "gemini-2.5-flash").trim();
+    const provider = String(req.body?.provider || "gemini").trim().toLowerCase();
+    const fileName = String(req.body?.fileName || "proposal.pdf").trim();
+
+    if (!apiKey) {
+      return res.status(400).json({ error: { message: `${provider === "openai" ? "OpenAI" : "Gemini"} API 키가 필요합니다.` } });
+    }
+    if (!base64 || !prompt) {
+      return res.status(400).json({ error: { message: "PDF 데이터와 프롬프트가 필요합니다." } });
+    }
+
+    if (provider === "openai") {
+      const result = await requestProposalOpenAIResponses(apiKey, {
+        model: model || "gpt-4.1-mini",
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_text", text: prompt },
+            {
+              type: "input_file",
+              filename: fileName || "proposal.pdf",
+              file_data: `data:application/pdf;base64,${base64}`
+            }
+          ]
+        }],
+        temperature: 0.1,
+        max_output_tokens: 16000
+      });
+      return res.json(result);
+    }
+
+    const result = await requestProposalGeminiWithFallback(apiKey, model, () => ({
+        contents: [{
+          role: "user",
+          parts: [
+            { inlineData: { mimeType: "application/pdf", data: base64 } },
+            { text: prompt }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 16000
+        }
+      }));
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ error: { message: error.message || "PDF 분석 실패" } });
+  }
+});
+
+app.post("/api/proposal-gpt/analyze-image", async (req, res) => {
+  try {
+    const apiKey = String(req.body?.apiKey || "").trim();
+    const prompt = String(req.body?.prompt || "").trim();
+    const model = String(req.body?.model || "gemini-2.5-flash").trim();
+    const provider = String(req.body?.provider || "gemini").trim().toLowerCase();
+    const images = Array.isArray(req.body?.images) ? req.body.images : [];
+
+    if (!apiKey) {
+      return res.status(400).json({ error: { message: `${provider === "openai" ? "OpenAI" : "Gemini"} API 키가 필요합니다.` } });
+    }
+    if (!prompt || !images.length) {
+      return res.status(400).json({ error: { message: "이미지 데이터와 프롬프트가 필요합니다." } });
+    }
+
+    if (provider === "openai") {
+      const result = await requestProposalOpenAIResponses(apiKey, {
+        model: model || "gpt-4.1-mini",
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_text", text: prompt },
+            ...images.flatMap((image) => ([
+              { type: "input_text", text: `[후보 ${image.candidateNo}] pageNo=${image.pageNo}, absolutePageNo=${image.absolutePageNo}, title=${image.title || ""}` },
+              { type: "input_image", image_url: image.imageDataUrl }
+            ]))
+          ]
+        }],
+        temperature: 0,
+        max_output_tokens: 4000
+      });
+      return res.json(result);
+    }
+
+    const parts = [{ text: prompt }];
+    for (const image of images) {
+      const imageData = String(image?.imageDataUrl || "").replace(/^data:image\/\w+;base64,/, "").trim();
+      if (!imageData) continue;
+      parts.push({ text: `[후보 ${image.candidateNo}] pageNo=${image.pageNo}, absolutePageNo=${image.absolutePageNo}, title=${image.title || ""}` });
+      parts.push({ inlineData: { mimeType: "image/png", data: imageData } });
+    }
+
+    const result = await requestProposalGeminiWithFallback(apiKey, model, () => ({
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 4000
+        }
+      }));
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ error: { message: error.message || "이미지 분석 실패" } });
+  }
+});
+
+app.get("/api/legal-registry", async (_req, res) => {
+  const data = await readLegalRegistry();
+  res.json(data);
+});
+
+app.get("/api/legal-registry/export-readonly", async (_req, res) => {
+  const data = await readLegalRegistry();
+  const html = buildReadonlyHtml(data, new Date());
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `법규등록부_보기전용_${date}.html`;
+  const safeFilename = `legal-registry-readonly-${date}.html`;
+  const body = Buffer.from(html, "utf8");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  const disposition = _req.query?.inline === "1" ? "inline" : "attachment";
+  res.setHeader("Content-Disposition", `${disposition}; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  res.setHeader("Content-Length", String(body.length));
+  res.setHeader("Cache-Control", "no-store");
+  res.send(body);
+});
+
+app.post("/api/legal-registry/export-web", async (req, res) => {
+  try {
+    const exportedAt = new Date();
+    const versionStamp = exportedAt
+      .toISOString()
+      .replace(/\D/g, "")
+      .slice(0, 14);
+    const data = await readLegalRegistry();
+    const exportData = { ...data, exportedAt: exportedAt.toISOString(), exportType: "public-web" };
+    const html = buildReadonlyHtml(exportData, exportedAt);
+    const htmlPath = path.join(publicOyoungDir, publicLegalRegistryFileName);
+    const versionedFileName = `legal-registry-${versionStamp}.html`;
+    const versionedHtmlPath = path.join(publicOyoungDir, versionedFileName);
+
+    await fs.mkdir(publicOyoungDir, { recursive: true });
+    await fs.writeFile(htmlPath, html, "utf8");
+    await fs.writeFile(versionedHtmlPath, html, "utf8");
+
+    const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+    const protocol = forwardedProto || req.protocol || "http";
+    const baseUrl = `${protocol}://${req.get("host")}`;
+    const hostedUrl = `${baseUrl}/exports/${versionedFileName}`;
+    const latestUrl = `${baseUrl}/exports/${publicLegalRegistryFileName}`;
+    const deployCommand = "npx firebase-tools deploy --only hosting --config firebase.oyoung.json";
+    if (firebaseDeployEnabled) {
+      await execFileAsync("cmd.exe", [
+        "/c",
+        "npx",
+        "firebase-tools",
+        "deploy",
+        "--only",
+        "hosting",
+        "--config",
+        "firebase.oyoung.json"
+      ], {
+        cwd: rootDir,
+        windowsHide: true,
+        maxBuffer: 1024 * 1024 * 10
+      });
+    }
+
+    res.json({
+      ok: true,
+      deployed: firebaseDeployEnabled,
+      exportedAt: exportedAt.toISOString(),
+      html: htmlPath,
+      publicPath: publicLegalRegistryFileName,
+      versionedHtml: versionedHtmlPath,
+      versionedPublicPath: versionedFileName,
+      firebaseUrl: firebaseDeployEnabled ? `https://${firebaseProjectId}.web.app/${versionedFileName}` : hostedUrl,
+      latestUrl: firebaseDeployEnabled ? `https://${firebaseProjectId}.web.app/${publicLegalRegistryFileName}` : latestUrl,
+      firebaseAltUrl: `https://${firebaseProjectId}.firebaseapp.com/${versionedFileName}`,
+      deployCommand: firebaseDeployEnabled ? deployCommand : ""
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "웹 보기용 HTML 생성에 실패했습니다." });
+  }
+});
+
+app.post("/api/legal-registry/import-source", async (req, res) => {
+  try {
+    const sourcePath = compactText(req.body?.sourcePath) || defaultLegalRegistrySourcePath;
+    const parsed = parseLegalRegistryWorkbook(sourcePath);
+    const current = await readLegalRegistry();
+    const payload = {
+      ...current,
+      sourcePath,
+      records: parsed.records,
+      detailCards: parsed.detailCards,
+      updatedAt: new Date().toISOString()
+    };
+    await writeJson(legalRegistryDataPath, payload);
+    res.json({ ok: true, records: payload.records.length, detailCards: payload.detailCards.length, data: payload });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "법규등록부 원본을 불러오지 못했습니다." });
+  }
+});
+
+function normalizeDetailCardInput(input, existing = {}, index = 0) {
+  const card = {
+    ...existing,
+    id: existing.id || input.id || `DETAIL-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+    sheetName: compactText(input.sheetName || existing.sheetName || `사용자추가${index + 1}`),
+    category: compactText(input.category || existing.category),
+    lawName: compactText(input.lawName || existing.lawName),
+    issuer: compactText(input.issuer || existing.issuer || "법제처"),
+    channel: compactText(input.channel || existing.channel || "https://www.moleg.go.kr/"),
+    revisionDate: displayLawDate(input.revisionDate || existing.revisionDate),
+    registeredDate: displayLawDate(input.registeredDate || existing.registeredDate),
+    team: compactText(input.team || existing.team || "ESQ"),
+    author: compactText(input.author || existing.author),
+    applicability: compactText(input.applicability || existing.applicability || "■해당 □해당무"),
+    mainContent: preserveText(pickInputValue(input, existing, "mainContent")),
+    companyAction: preserveText(pickInputValue(input, existing, "companyAction")),
+    updatedAt: new Date().toISOString()
+  };
+  card.rows = [
+    ["법규등록부"],
+    ["구 분", card.category],
+    ["법규명", card.lawName],
+    ["발행처", "발행기관", card.issuer, "입수경로", card.channel],
+    ["제,개정이력", "제,개정일", card.revisionDate, "등록일", card.registeredDate],
+    ["등록자", "작성팀", card.team, "작성자", card.author],
+    ["", "조항", "법규 적용내용"],
+    ["", card.mainContent],
+    ["당사해당 유무", card.applicability, `당사 적용사항\n${card.companyAction}`]
+  ];
+  return card;
+}
+
+app.post("/api/legal-registry/detail-cards", async (req, res) => {
+  try {
+    const data = await readLegalRegistry();
+    const detailCards = Array.isArray(data.detailCards) ? data.detailCards : [];
+    const card = normalizeDetailCardInput(req.body || {}, {}, detailCards.length);
+    if (!card.lawName) return res.status(400).json({ ok: false, message: "법규명을 입력하세요." });
+    const payload = {
+      ...data,
+      detailCards: [...detailCards, card],
+      updatedAt: new Date().toISOString()
+    };
+    await writeJson(legalRegistryDataPath, payload);
+    res.json({ ok: true, card, detailCards: payload.detailCards, updatedAt: payload.updatedAt });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "상세 법규를 추가하지 못했습니다." });
+  }
+});
+
+app.put("/api/legal-registry/detail-cards/:id", async (req, res) => {
+  try {
+    const data = await readLegalRegistry();
+    const detailCards = Array.isArray(data.detailCards) ? data.detailCards : [];
+    const index = detailCards.findIndex((card) => card.id === req.params.id);
+    if (index < 0) return res.status(404).json({ ok: false, message: "상세 법규를 찾지 못했습니다." });
+    const card = normalizeDetailCardInput(req.body || {}, detailCards[index], index);
+    if (!card.lawName) return res.status(400).json({ ok: false, message: "법규명을 입력하세요." });
+    const nextCards = detailCards.slice();
+    nextCards[index] = card;
+    const payload = {
+      ...data,
+      detailCards: nextCards,
+      updatedAt: new Date().toISOString()
+    };
+    await writeJson(legalRegistryDataPath, payload);
+    res.json({ ok: true, card, detailCards: payload.detailCards, updatedAt: payload.updatedAt });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "상세 법규를 수정하지 못했습니다." });
+  }
+});
+
+app.post("/api/legal-registry/refresh", async (req, res) => {
+  try {
+    const oc = compactText(req.body?.oc || defaultLawOpenApiOc);
+    if (!oc) {
+      return res.status(400).json({ ok: false, message: "법제처 Open API 인증값(OC)을 입력하세요." });
+    }
+    const data = await readLegalRegistry();
+    const uniqueRecords = [];
+    const seen = new Set();
+    for (const record of data.records || []) {
+      const key = makeLawKey(record.lawName);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      uniqueRecords.push(record);
+    }
+
+    const checked = [];
+    const errors = [];
+    for (const record of uniqueRecords) {
+      try {
+        const official = await searchOfficialLaw(record.lawName, oc);
+        if (!official) {
+          errors.push({ lawName: record.lawName, message: "검색 결과 없음" });
+          continue;
+        }
+        checked.push(buildChange(record, official));
+      } catch (error) {
+        errors.push({ lawName: record.lawName, message: error.message || "조회 실패" });
+      }
+      await wait(120);
+    }
+
+    const autoAppliedAt = new Date().toISOString();
+    const byLaw = new Map(checked.map((item) => [makeLawKey(item.lawName), item]));
+    const records = (data.records || []).map((record) => {
+      const change = byLaw.get(makeLawKey(record.lawName));
+      if (!change) return record;
+      const changed = change.status === "new";
+      return {
+        ...record,
+        registeredEffectiveDate: changed ? (change.effectiveDate || record.registeredEffectiveDate) : record.registeredEffectiveDate,
+        officialEffectiveDate: change.effectiveDate || record.officialEffectiveDate || "",
+        promulgationDate: change.promulgationDate || record.promulgationDate || "",
+        lawId: change.lawId || record.lawId || "",
+        status: changed ? "자동등록" : "최신",
+        updatedAt: change.checkedAt
+      };
+    });
+    const pendingChanges = checked
+      .filter((item) => item.status === "new")
+      .map((item) => ({
+        ...item,
+        status: "auto-applied",
+        summary: "새로고침으로 변경 법규를 자동 등록했습니다.",
+        appliedAt: autoAppliedAt
+      }));
+    const existingChangeKeys = new Set((data.changes || []).map((item) => `${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`));
+    const changes = [
+      ...pendingChanges.filter((item) => !existingChangeKeys.has(`${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`)),
+      ...(data.changes || [])
+    ];
+    const log = {
+      at: new Date().toISOString(),
+      ok: errors.length === 0,
+      checked: checked.length,
+      changed: pendingChanges.length,
+      errors
+    };
+    const payload = {
+      ...data,
+      records,
+      changes,
+      refreshLogs: [log, ...(Array.isArray(data.refreshLogs) ? data.refreshLogs : [])].slice(0, 20),
+      updatedAt: log.at
+    };
+    await writeJson(legalRegistryDataPath, payload);
+    res.json({ ok: true, log, records, changes, checked, errors, updatedAt: payload.updatedAt });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "법규 새로고침에 실패했습니다." });
+  }
+});
+
+app.post("/api/legal-registry/changes/:id/apply", async (req, res) => {
+  const data = await readLegalRegistry();
+  const changes = Array.isArray(data.changes) ? data.changes : [];
+  const change = changes.find((item) => item.id === req.params.id);
+  if (!change) return res.status(404).json({ ok: false, message: "변경 항목을 찾지 못했습니다." });
+  const records = (data.records || []).map((record) => {
+    if (record.id !== change.recordId) return record;
+    return {
+      ...record,
+      registeredEffectiveDate: change.effectiveDate || record.registeredEffectiveDate,
+      officialEffectiveDate: change.effectiveDate || record.officialEffectiveDate,
+      promulgationDate: change.promulgationDate || record.promulgationDate,
+      lawId: change.lawId || record.lawId,
+      status: "등록완료",
+      updatedAt: new Date().toISOString()
+    };
+  });
+  change.status = "applied";
+  change.appliedAt = new Date().toISOString();
+  const payload = { ...data, records, changes, updatedAt: change.appliedAt };
+  await writeJson(legalRegistryDataPath, payload);
+  res.json({ ok: true, change, records, changes });
+});
+
+app.get("/api/legal-registry/change-content/:id", async (req, res) => {
+  try {
+    const data = await readLegalRegistry();
+    const change = (Array.isArray(data.changes) ? data.changes : []).find((item) => item.id === req.params.id);
+    if (!change) return res.status(404).json({ ok: false, message: "변경 항목을 찾지 못했습니다." });
+    const oc = compactText(req.query?.oc || defaultLawOpenApiOc);
+    const content = await fetchOfficialLawContent({
+      lawName: change.lawName,
+      mst: change.mst,
+      lawId: change.lawId,
+      oc,
+      effectiveDate: change.effectiveDate
+    });
+    let articleDiffs = [];
+    try {
+      const previousContent = await fetchOfficialLawContent({
+        lawName: change.lawName,
+        lawId: content.lawId || change.lawId,
+        oc,
+        effectiveDate: change.previousEffectiveDate
+      });
+      articleDiffs = diffArticles(previousContent.articles || [], content.articles || []);
+      if (!articleDiffs.length) {
+        articleDiffs = (content.articles || [])
+          .filter((item) => item.changed)
+          .slice(0, 80)
+          .map((item) => ({
+            type: "current-only",
+            heading: item.heading,
+            notice: "이전 시행본 원문 비교 대신 법제처가 변경 표시한 최신 조문입니다.",
+            after: item.text
+          }));
+      }
+    } catch (error) {
+      articleDiffs = [{ type: "notice", heading: "이전 시행본 비교 불가", notice: error.message || "이전 시행본을 불러오지 못했습니다." }];
+    }
+    if (!articleDiffs.length && content.amendmentLines?.length) {
+      articleDiffs = content.amendmentLines.slice(0, 60).map((line, index) => ({
+        type: "amendment",
+        heading: `개정문 ${index + 1}`,
+        notice: "법제처 개정문에 포함된 변경 내용입니다.",
+        before: line
+      }));
+    }
+    change.contentCheckedAt = new Date().toISOString();
+    change.amendmentLines = content.amendmentLines;
+    change.reasonLines = content.reasonLines;
+    change.articleDiffs = articleDiffs;
+    change.mst = change.mst || content.mst;
+    change.lawId = change.lawId || content.lawId;
+    await writeJson(legalRegistryDataPath, { ...data, updatedAt: change.contentCheckedAt });
+    res.json({ ok: true, change, content });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "변경 내용을 불러오지 못했습니다." });
+  }
+});
+
+app.post("/api/legal-registry/ai-answer", async (req, res) => {
+  try {
+    const question = compactText(req.body?.question);
+    if (!question) return res.status(400).json({ ok: false, message: "질문을 입력하세요." });
+
+    const config = await readSafetyConfig();
+    const apiKey = getSafetyGeminiApiKey(config);
+    if (!apiKey) {
+      return res.status(503).json({ ok: false, message: "Gemini API 키가 서버 로컬 설정에 없습니다." });
+    }
+
+    const registry = await readLegalRegistry();
+    const requestedCandidates = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
+    const registryRecords = Array.isArray(registry.records) ? registry.records : [];
+    const candidates = requestedCandidates.length
+      ? requestedCandidates
+      : registryRecords.slice(0, 80).map((record) => ({
+          lawName: record.lawName,
+          group: record.group,
+          no: record.no,
+          effectiveDate: record.officialEffectiveDate || record.registeredEffectiveDate
+        }));
+    const registryIndex = registryRecords.slice(0, 120).map((record) => ({
+      lawName: record.lawName,
+      group: record.group,
+      no: record.no,
+      effectiveDate: record.officialEffectiveDate || record.registeredEffectiveDate
+    }));
+
+    const prompt = [
+      "당신은 제조업 사업장의 법규등록부를 도와주는 한국어 법규 상담형 검색 보조자입니다.",
+      "아래 회사 프로필을 항상 기준으로 삼아 답하세요.",
+      JSON.stringify(legalRegistryCompanyProfile, null, 2),
+      "사용자 질문의 표현이 등록부 키워드와 정확히 일치하지 않아도, 작업 상황ㆍ위험요인ㆍ설비ㆍ물질ㆍ환경영향을 추론해 관련 법규 분야를 넓게 찾아주세요.",
+      "후보 법령은 참고자료입니다. 후보가 부족하면 등록부 전체 목록과 회사 프로필을 바탕으로 가능한 관련 법령을 추천하되, 확정이 필요한 부분은 원문 확인 필요로 표시하세요.",
+      "등록부에 없는 법령명을 새로 만들지 마세요. 다만 질문상 확인해야 할 법 분야는 answer/caution에 설명할 수 있습니다.",
+      "답변은 (주)오영의 염료 제조공정에서 실제로 확인할 조치 중심으로 작성하세요.",
+      "법률 자문이 아니라 내부 준수 검토용 안내입니다.",
+      "반드시 JSON으로만 답하세요. 형식: {\"answer\":\"...\", \"recommendedLaws\":[{\"lawName\":\"...\",\"reason\":\"...\"}], \"siteRisks\":[\"...\"], \"actionPlan\":[\"...\"], \"checkpoints\":[\"...\"], \"caution\":\"...\"}",
+      "",
+      `질문: ${question}`,
+      "",
+      "후보 법령:",
+      JSON.stringify(candidates.slice(0, 20), null, 2),
+      "",
+      "등록부 전체 목록:",
+      JSON.stringify(registryIndex, null, 2)
+    ].join("\n");
+
+    const result = await requestSafetyGeminiText(apiKey, prompt);
+    let parsed = null;
+    try {
+      parsed = JSON.parse(result.text || "{}");
+    } catch {
+      parsed = { answer: result.text || "", recommendedLaws: [], checkpoints: [], caution: "Gemini 응답을 JSON으로 해석하지 못했습니다." };
+    }
+
+    res.json({ ok: true, model: result.model, ...parsed });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "Gemini 답변 생성에 실패했습니다." });
   }
 });
 
@@ -744,6 +1718,11 @@ app.post("/api/safety-data", async (req, res) => {
 
 app.use("/assets", express.static(path.join(rootDir, "assets")));
 app.use("/frontend", express.static(path.join(rootDir, "frontend")));
+app.use("/exports", express.static(publicOyoungDir, {
+  setHeaders(res) {
+    res.setHeader("Cache-Control", "no-store");
+  }
+}));
 app.use("/vendor", express.static(path.join(rootDir, "node_modules")));
 
 function listenOnPort(targetPort) {

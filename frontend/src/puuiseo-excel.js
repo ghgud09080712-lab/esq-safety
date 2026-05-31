@@ -943,18 +943,62 @@
   function buildClientExcelBlob(rows) {
     if (!window.XLSX) throw new Error('엑셀 라이브러리를 불러오지 못했습니다.');
 
-    const headers = ['NO', '월', '접수일', '부서명', '제안자', '제안명', '등급', '시상금', '안전'];
-    const exportRows = rows.map((row, index) => ({
-      NO: index + 1,
-      월: row.month || '',
-      접수일: row.date || '',
-      부서명: row.department || '',
-      제안자: row.proposer || '',
-      제안명: row.title || '',
-      등급: typeof normalizeGrade === 'function' ? normalizeGrade(row.grade) : (row.grade || ''),
-      시상금: Number(row.reward) || 0,
-      안전: row.safety === '○' ? '○' : ''
-    }));
+    const formatExcelDepartment = (value) => {
+      const normalized = typeof normalizeDepartment === 'function'
+        ? normalizeDepartment(value)
+        : String(value || '').replace(/^[a-zA-Z](?:\.|\s+)/, '').trim();
+      const compact = String(normalized || '').replace(/^[a-zA-Z](?:\.|\s+)/, '').replace(/[.\s]/g, '').toLowerCase();
+      const compactNoSlash = compact.replace(/\//g, '');
+      const departmentMap = {
+        '생산1부': 'a.생산1부',
+        '생산2부': 'b.생산2부',
+        'sem': 'c.SEM',
+        '에스이엠': 'c.SEM',
+        '연구개발팀': 'd.연구개발팀',
+        '품질관리부': 'e.품질관리부',
+        '분산qc': 'e.품질관리부',
+        't/s': 'f.T/S팀',
+        't/s팀': 'f.T/S팀',
+        't/s부': 'f.T/S팀',
+        'ts': 'f.T/S팀',
+        'ts팀': 'f.T/S팀',
+        'ts부': 'f.T/S팀',
+        '물류관리팀': 'g.물류관리팀',
+        '공무팀': 'h.공무팀',
+        '공무': 'h.공무팀',
+        '공무과': 'h.공무팀',
+        '공무부': 'h.공무팀',
+        '공므': 'h.공무팀',
+        '공뮤': 'h.공무팀',
+        '궁무': 'h.공무팀',
+        '궁무팀': 'h.공무팀',
+        '공무텀': 'h.공무팀',
+        '공무딤': 'h.공무팀',
+        '공부팀': 'h.공무팀',
+        '환경관리과': 'i.환경관리과',
+        '총무과': 'j.총무과'
+      };
+      return departmentMap[compact] || departmentMap[compactNoSlash] || normalized || '';
+    };
+    const getProposalType = (row, grade) => {
+      return ['A', 'B', 'C'].includes(grade) ? '실시' : '아이디어';
+    };
+    const headers = ['NO', '월', '접수일', '부서명', '제안자', '제안명', '제안구분', '등급', '시상금', '안전'];
+    const exportRows = rows.map((row, index) => {
+      const grade = typeof normalizeGrade === 'function' ? normalizeGrade(row.grade) : (row.grade || '');
+      return {
+        NO: index + 1,
+        월: row.month || '',
+        접수일: row.date || '',
+        부서명: formatExcelDepartment(row.department),
+        제안자: row.proposer || '',
+        제안명: row.title || '',
+        제안구분: getProposalType(row, grade),
+        등급: grade,
+        시상금: Number(row.reward) || 0,
+        안전: row.safety === '○' ? '○' : ''
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(exportRows, { header: headers });
     ws['!cols'] = [
@@ -964,12 +1008,13 @@
       { wch: 16 },
       { wch: 12 },
       { wch: 70 },
+      { wch: 10 },
       { wch: 8 },
       { wch: 12 },
       { wch: 8 }
     ];
 
-    const rewardCol = 'H';
+    const rewardCol = 'I';
     for (let rowIndex = 2; rowIndex <= exportRows.length + 1; rowIndex++) {
       const cell = ws[rewardCol + rowIndex];
       if (cell) cell.z = '#,##0"원"';

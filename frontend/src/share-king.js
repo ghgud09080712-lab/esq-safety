@@ -15,7 +15,12 @@
     if (!snapshot || embeddedSnapshotApplied) return;
     embeddedSnapshotApplied = true;
 
-    const rows = Array.isArray(snapshot.rows) ? snapshot.rows : [];
+    const rows = Array.isArray(snapshot.rows)
+      ? snapshot.rows.map(row => ({
+        ...row,
+        department: row.department || ''
+      }))
+      : [];
     gridApi.setGridOption('rowData', rows);
     kingRows = Array.isArray(snapshot.kingRows) ? snapshot.kingRows : [];
     aGradeRows = Array.isArray(snapshot.aGradeRows) ? snapshot.aGradeRows : [];
@@ -68,7 +73,7 @@
       const currentAGradeLinks = currentShared?.aGradeRemoteLinks && typeof currentShared.aGradeRemoteLinks === 'object'
         ? currentShared.aGradeRemoteLinks
         : {};
-      const nextAGradeRows = Array.isArray(aGradeRows) && aGradeRows.length ? aGradeRows : currentAGradeRows;
+      const nextAGradeRows = Array.isArray(aGradeRows) ? aGradeRows : currentAGradeRows;
       const nextAGradeLinks = aGradeRemoteLinks && typeof aGradeRemoteLinks === 'object' && Object.keys(aGradeRemoteLinks).length
         ? aGradeRemoteLinks
         : currentAGradeLinks;
@@ -112,7 +117,8 @@
     const snapshot = window.__embeddedSnapshot__;
     if (!snapshot) return;
 
-    if ((!Array.isArray(aGradeRows) || !aGradeRows.length) && Array.isArray(snapshot.aGradeRows)) {
+    const hasSavedAGradeRows = localStorage.getItem(A_GRADE_ROWS_KEY) !== null;
+    if (!hasSavedAGradeRows && (!Array.isArray(aGradeRows) || !aGradeRows.length) && Array.isArray(snapshot.aGradeRows)) {
       aGradeRows = snapshot.aGradeRows;
       saveAGradeRowsToLocal();
     }
@@ -1007,6 +1013,7 @@
   .col-date { width: 110px; }
   .col-dept { width: 110px; }
   .col-proposer { width: 86px; }
+  .col-type { width: 84px; text-align: center; }
   .col-grade { width: 70px; text-align: center; }
   .col-reward { width: 92px; text-align: right; }
   .col-safety { width: 70px; text-align: center; }
@@ -1102,6 +1109,7 @@
                   <th class="col-dept">부서명</th>
                   <th class="col-proposer">제안자</th>
                   <th>제안명</th>
+                  <th class="col-type">제안구분</th>
                   <th class="col-grade">등급</th>
                   <th class="col-reward">시상금</th>
                   <th class="col-safety">안전</th>
@@ -1241,8 +1249,8 @@
   const kingFormula = { label: '기본 점수', subtitle: 'A×10 + B×5 + C×3 + 채택×3 + 참가×2 + 건의×1', weights: { A: 10, B: 5, C: 3, adopted: 3, joined: 2, suggested: 1 } };
   const chartGradeOrder = ['채택', '참가', '5S', '건의', 'A', 'B', 'C'];
   const chartGradeColors = { '채택':'#ff2d20', '참가':'#0ea5e9', '5S':'#f97316', '건의':'#4f79b3', 'A':'#fff200', 'B':'#4b97a8', 'C':'#8fd14f' };
-  const goalDeptOrder = ['생산1부','생산2부','에스이엠','연구개발팀','품질관리부','T/S팀','물류관리팀','공무팀','환경관리과','총무과'];
-  const goalDeptTargets = { '생산1부':32, '생산2부':5, '에스이엠':10, '연구개발팀':11, '품질관리부':16, 'T/S팀':9, '물류관리팀':9, '공무팀':8, '환경관리과':5, '총무과':1 };
+  const goalDeptOrder = ['생산1부','생산2부','SEM','연구개발팀','품질관리부','T/S팀','물류관리팀','공무팀','환경관리과','총무과'];
+  const goalDeptTargets = { '생산1부':32, '생산2부':5, 'SEM':10, '연구개발팀':11, '품질관리부':16, 'T/S팀':9, '물류관리팀':9, '공무팀':8, '환경관리과':5, '총무과':1 };
   const goalBarColors = ['#ff2d20','#ff3b30','#fbbf24','#9ca3af','#8fd14f','#22c55e','#20b2e6','#2f80ed','#3959a8','#6d28d9'];
 
   function formatCurrency(value) {
@@ -1257,27 +1265,79 @@
       .replace(/'/g, '&#39;');
   }
   function normalizeDepartmentName(value) {
-    const cleaned = String(value || '').trim();
+    const cleaned = String(value || '').replace(/^[a-zA-Z](?:\.|\s+)/, '').trim();
     const compact = cleaned.replace(/[.\s]/g, '').toLowerCase();
     if (!cleaned) return '';
     if (cleaned.includes('공무과')) return cleaned.replace(/공무과/g, '공무팀');
-    if (compact === 'sem' || compact === '에스이엠') return '에스이엠';
+    if (['공무', '공무팀', '공무부', '공무과', '공므', '공뮤', '궁무', '궁무팀', '공무텀', '공무딤', '공부팀'].includes(compact)) return '공무팀';
+    if (compact === '분산qc') return '품질관리부';
+    if (compact === 'sem' || compact === '에스이엠') return 'SEM';
+    if (compact === 'ts' || compact === 'ts팀' || compact === 't/s' || compact === 't/s팀') return 'T/S팀';
     return cleaned;
   }
   function normalizeAGradeMatchText(value) {
     return String(value || '').toLowerCase().replace(/\\.[^.\\\\/]+$/g, '').replace(/[\\s_\\-()[\\]{}.,#~·"'“”‘’]/g, '');
   }
+  function formatStandaloneAGradeYear(value) {
+    const match = String(value || '').match(/20\\d{2}/);
+    return match ? match[0] + '년' : String(value || '');
+  }
   function getAGradeRowKey(row) {
     return [
       row.no || '',
-      row.year || '',
+      formatStandaloneAGradeYear(row.year || row.date || ''),
       row.date || '',
       row.proposer || '',
       row.title || ''
     ].map(value => normalizeAGradeMatchText(value)).join('|');
   }
+  function getAGradeRowKeyCandidates(row) {
+    const formattedYear = formatStandaloneAGradeYear(row.year || row.date || '');
+    const rawYear = String(row.year || '').trim();
+    const yearWithoutSuffix = formattedYear.replace(/년/g, '');
+    const years = Array.from(new Set([formattedYear, rawYear, yearWithoutSuffix, yearWithoutSuffix + '?'].filter(Boolean)));
+    return years.map(year => [
+      row.no || '',
+      year,
+      row.date || '',
+      row.proposer || '',
+      row.title || ''
+    ].map(value => normalizeAGradeMatchText(value)).join('|'));
+  }
+  function getAGradePdfByRow(row) {
+    for (const key of getAGradeRowKeyCandidates(row)) {
+      if (allAGradeLinks[key]) return { key, pdf: allAGradeLinks[key] };
+    }
+    return { key: getAGradeRowKey(row), pdf: null };
+  }
+  function getAGradeDedupKey(row) {
+    const title = normalizeAGradeMatchText(row.title);
+    const proposer = normalizeAGradeMatchText(row.proposer);
+    const department = normalizeAGradeMatchText(normalizeDepartmentName(row.department));
+    if (!title) return '';
+    if (proposer) return 'proposer-title|' + proposer + '|' + title;
+    if (department) return 'department-title|' + department + '|' + title;
+    return 'title|' + title;
+  }
+  function dedupeStandaloneAGradeRows(rows) {
+    const seen = new Map();
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      if (!row || !String(row.title || '').trim()) return;
+      const key = getAGradeDedupKey(row);
+      if (!key) return;
+      const current = seen.get(key);
+      if (!current) {
+        seen.set(key, row);
+        return;
+      }
+      const currentHasPdf = !!getAGradePdfByRow(current).pdf;
+      const nextHasPdf = !!getAGradePdfByRow(row).pdf;
+      if (!currentHasPdf && nextHasPdf) seen.set(key, row);
+    });
+    return Array.from(seen.values());
+  }
   function getAGradePdf(row) {
-    return allAGradeLinks[getAGradeRowKey(row)] || null;
+    return getAGradePdfByRow(row).pdf;
   }
   async function loadLiveAGradeDataIfNeeded() {
     if (allAGradeRows.length) return;
@@ -1304,6 +1364,7 @@
     const subText = document.getElementById('aGradeSubText');
     if (!openBtn || !tbody || !empty || !subText) return;
     openBtn.style.display = 'inline-flex';
+    allAGradeRows = dedupeStandaloneAGradeRows(allAGradeRows);
     const search = aGradeSearch.trim().toLowerCase();
     const rows = allAGradeRows.filter(row => {
       if (!search) return true;
@@ -1314,14 +1375,15 @@
     });
     subText.textContent = rows.length + '건 표시 / 전체 ' + allAGradeRows.length + '건 · PDF 칸에서 바로 열기';
     tbody.innerHTML = rows.map(row => {
-      const key = getAGradeRowKey(row);
-      const pdf = getAGradePdf(row);
+      const pdfMatch = getAGradePdfByRow(row);
+      const key = pdfMatch.key;
+      const pdf = pdfMatch.pdf;
       const pdfCell = pdf && pdf.url
         ? '<button class="a-grade-pdf-btn" data-a-grade-key="' + htmlEscape(key) + '">보기</button>'
         : '<span class="a-grade-pdf-missing">없음</span>';
       return '<tr>' +
         '<td class="col-no">' + htmlEscape(row.no || '') + '</td>' +
-        '<td class="col-date">' + htmlEscape(row.year || '') + '</td>' +
+        '<td class="col-date">' + htmlEscape(formatStandaloneAGradeYear(row.year || row.date || '')) + '</td>' +
         '<td class="col-date">' + htmlEscape(row.date || '') + '</td>' +
         '<td class="col-dept">' + htmlEscape(normalizeDepartmentName(row.department)) + '</td>' +
         '<td class="col-proposer">' + htmlEscape(row.proposer || '') + '</td>' +
@@ -1349,14 +1411,24 @@
   }
   function normalizeGrade(raw) {
     const s = String(raw || '').trim();
-    if (s.includes('채택') || s.includes('채핵')) return '채택';
-    if (s.includes('건의') || s.includes('견의')) return '건의';
+    if (!s) return '';
+    const compact = s.replace(/[\\s._\\-(){}\\[\\],#~·"'“”‘’]/g, '').toUpperCase();
+    if (s.includes('채택') || s.includes('채핵') || s.includes('체택') || s.includes('재택') || s.includes('채댁') || s.includes('채턱') || s.includes('채텩')) return '채택';
+    if (s.includes('건의') || s.includes('견의') || s.includes('건이') || s.includes('건외') || s.includes('권의') || s.includes('전의')) return '건의';
     if (s.includes('참가') || s.includes('참카')) return '참가';
     if (/5\\s*s/i.test(s)) return '5S';
-    if (/^a$/i.test(s)) return 'A';
-    if (/^b$/i.test(s)) return 'B';
-    if (/^c$/i.test(s)) return 'C';
+    if (s.includes('단순')) return '단순';
+    if (s.includes('중복')) return '중복';
+    if (s.includes('보류')) return '보류';
+    if (/^A(?:급)?$/i.test(compact)) return 'A';
+    if (/^B(?:급)?$/i.test(compact)) return 'B';
+    if (/^C(?:급)?$/i.test(compact)) return 'C';
+    if (['O', '0', '○', '〇', 'ㄷ', 'ᄃ'].includes(compact)) return 'C';
     return s;
+  }
+  function normalizeProposalType(raw, grade) {
+    const normalizedGrade = normalizeGrade(grade);
+    return ['A', 'B', 'C'].includes(normalizedGrade) ? '실시' : '아이디어';
   }
   function getRowYear(row) {
     const match = String(row.date || '').match(/20\\d{2}/);
@@ -1565,7 +1637,7 @@
     return allRows.filter(row => {
       const byMonth = activeMonth === '전체' || row.month === activeMonth;
       const byGrade = activeGrade === '전체' || String(row.grade || '').trim() === activeGrade;
-      const haystack = [row.month, row.date, normalizeDepartmentName(row.department), row.proposer, row.title, row.grade, row.reward, row.safety]
+      const haystack = [row.month, row.date, normalizeDepartmentName(row.department), row.proposer, row.title, normalizeProposalType(row.type, row.grade), row.grade, row.reward, row.safety]
         .join(' ')
         .toLowerCase();
       const bySearch = !searchText || haystack.includes(searchText);
@@ -1586,6 +1658,7 @@
         '<td class="col-dept">' + normalizeDepartmentName(row.department) + '</td>' +
         '<td class="col-proposer">' + (row.proposer || '') + '</td>' +
         '<td>' + (row.title || '') + '</td>' +
+        '<td class="col-type">' + normalizeProposalType(row.type, row.grade) + '</td>' +
         '<td class="col-grade">' + (row.grade || '') + '</td>' +
         '<td class="col-reward">' + formatCurrency(row.reward) + '</td>' +
         '<td class="col-safety">' + safety + '</td>' +
@@ -1751,14 +1824,18 @@
   async function saveShareSnapshot() {
     const rows = collectGridRows();
     const sharedKingRows = getSortedKingRows().map(({ rank, score, ...row }) => row);
-    let shareAGradeRows = Array.isArray(aGradeRows) ? aGradeRows : [];
+    let shareAGradeRows = typeof dedupeAGradeRows === 'function'
+      ? dedupeAGradeRows(aGradeRows)
+      : (Array.isArray(aGradeRows) ? aGradeRows : []);
     let shareAGradeRemoteLinks = aGradeRemoteLinks && typeof aGradeRemoteLinks === 'object' ? aGradeRemoteLinks : {};
     try {
       const latestShared = await loadSharedData();
       if (latestShared) {
         if (Array.isArray(latestShared.aGradeRows) && latestShared.aGradeRows.length) {
-          shareAGradeRows = latestShared.aGradeRows;
-          aGradeRows = latestShared.aGradeRows;
+          shareAGradeRows = typeof dedupeAGradeRows === 'function'
+            ? dedupeAGradeRows(latestShared.aGradeRows)
+            : latestShared.aGradeRows;
+          aGradeRows = shareAGradeRows;
           saveAGradeRowsToLocal();
         }
         if (latestShared.aGradeRemoteLinks && typeof latestShared.aGradeRemoteLinks === 'object') {
@@ -1824,7 +1901,10 @@
       const saved = localStorage.getItem('impData');
       let rows = [];
       if (saved !== null) {
-        rows = JSON.parse(saved) || [];
+        rows = (JSON.parse(saved) || []).map(row => ({
+          ...row,
+          department: row.department || ''
+        }));
         loadKingFromLocal();
       } else if (window.__embeddedSnapshot__) {
         applyEmbeddedSnapshot(window.__embeddedSnapshot__);
@@ -1832,7 +1912,10 @@
       } else {
         const shared = await loadSharedData();
         if (shared && Array.isArray(shared.rows) && shared.rows.length) {
-          rows = shared.rows;
+          rows = shared.rows.map(row => ({
+            ...row,
+            department: row.department || ''
+          }));
           kingRows = Array.isArray(shared.kingRows) ? shared.kingRows : [];
           aGradeRows = Array.isArray(shared.aGradeRows) ? shared.aGradeRows : aGradeRows;
           aGradeRemoteLinks = shared.aGradeRemoteLinks && typeof shared.aGradeRemoteLinks === 'object' ? shared.aGradeRemoteLinks : aGradeRemoteLinks;

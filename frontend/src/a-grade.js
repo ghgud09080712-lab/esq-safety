@@ -369,14 +369,75 @@
     }
   }
 
+  function getAGradeDedupKey(row) {
+    const department = typeof normalizeDepartment === 'function'
+      ? normalizeDepartment(row.department)
+      : String(row.department || '').replace(/^[a-zA-Z](?:\.|\s+)/, '').trim();
+    const title = normalizeMatchText(row.title);
+    const proposer = normalizeMatchText(row.proposer);
+    const dept = normalizeMatchText(department);
+    if (!title) return '';
+    if (proposer) return `proposer-title|${proposer}|${title}`;
+    if (dept) return `department-title|${dept}|${title}`;
+    return `title|${title}`;
+  }
+
+  function dedupeAGradeRows(rows) {
+    const seen = new Map();
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      if (!row || !String(row.title || '').trim()) return;
+      const key = getAGradeDedupKey(row);
+      if (!key) return;
+      const current = seen.get(key);
+      if (!current) {
+        seen.set(key, row);
+        return;
+      }
+      const currentHasLink = !!(getLinkedAGradePdfPath(current) || getRemoteAGradePdf(current));
+      const nextHasLink = !!(getLinkedAGradePdfPath(row) || getRemoteAGradePdf(row));
+      const preferredDepartment = normalizeAGradeDepartment(row.department || current.department);
+      if (!currentHasLink && nextHasLink) {
+        seen.set(key, { ...current, ...row, department: preferredDepartment });
+        return;
+      }
+      seen.set(key, { ...row, ...current, department: preferredDepartment });
+    });
+    return Array.from(seen.values());
+  }
+
+  function normalizeAGradeDepartment(value) {
+    const stripped = String(value || '').replace(/^[a-zA-Z](?:\.|\s+)/, '').trim();
+    return typeof normalizeDepartment === 'function' ? normalizeDepartment(stripped) : stripped;
+  }
+
+  function formatAGradeYear(value) {
+    const match = String(value || '').match(/20\d{2}/);
+    return match ? `${match[0]}년` : String(value || '').trim();
+  }
+
+  function normalizeAGradeRegistryRow(row) {
+    return {
+      ...row,
+      year: formatAGradeYear(row?.year || row?.date || ''),
+      department: normalizeAGradeDepartment(row?.department || '')
+    };
+  }
+
   function saveAGradeRowsToLocal() {
+    aGradeRows = dedupeAGradeRows((aGradeRows || []).map(normalizeAGradeRegistryRow));
     localStorage.setItem(A_GRADE_ROWS_KEY, JSON.stringify(aGradeRows || []));
   }
 
   function loadAGradeRowsFromLocal() {
     try {
       const saved = localStorage.getItem(A_GRADE_ROWS_KEY);
-      if (saved) aGradeRows = JSON.parse(saved) || [];
+      if (saved) {
+        aGradeRows = dedupeAGradeRows((JSON.parse(saved) || []).map(row => ({
+          ...row,
+          department: row.department || ''
+        })));
+        saveAGradeRowsToLocal();
+      }
     } catch (e) {}
   }
 
@@ -394,15 +455,43 @@
   function getAGradeRowKey(row) {
     return [
       row.no || '',
-      row.year || '',
+      formatAGradeYear(row.year || row.date || ''),
       row.date || '',
       row.proposer || '',
       row.title || ''
     ].map(value => normalizeMatchText(value)).join('|');
   }
 
+  function getAGradeRowKeyCandidates(row) {
+    const baseYear = String(row?.year || row?.date || '');
+    const formattedYear = formatAGradeYear(baseYear);
+    const rawYear = String(row?.year || '').trim();
+    const yearWithoutSuffix = formattedYear.replace(/년/g, '');
+    const years = Array.from(new Set([formattedYear, rawYear, yearWithoutSuffix, `${yearWithoutSuffix}?`].filter(Boolean)));
+    return years.map(year => [
+      row.no || '',
+      year,
+      row.date || '',
+      row.proposer || '',
+      row.title || ''
+    ].map(value => normalizeMatchText(value)).join('|'));
+  }
+
+  function getFirstAGradeMapValue(map, row) {
+    if (!map || typeof map !== 'object') return null;
+    for (const key of getAGradeRowKeyCandidates(row)) {
+      if (map[key]) return map[key];
+    }
+    return null;
+  }
+
+  function deleteAGradeMapValues(map, row) {
+    if (!map || typeof map !== 'object') return;
+    getAGradeRowKeyCandidates(row).forEach(key => delete map[key]);
+  }
+
   function getLinkedAGradePdfPath(row) {
-    return aGradePdfLinks[getAGradeRowKey(row)] || '';
+    return getFirstAGradeMapValue(aGradePdfLinks, row) || '';
   }
 
   function saveAGradeRemoteLinksToLocal() {
@@ -417,7 +506,7 @@
   }
 
   function getRemoteAGradePdf(row) {
-    return aGradeRemoteLinks[getAGradeRowKey(row)] || null;
+    return getFirstAGradeMapValue(aGradeRemoteLinks, row);
   }
 
   function normalizeGoogleDriveUrl(url) {
@@ -515,6 +604,7 @@
       return null;
     }
     const key = getAGradeRowKey(row);
+    deleteAGradeMapValues(aGradeRemoteLinks, row);
     const record = {
       key,
       name: row.title || 'A급 개선제안 PDF',
@@ -591,7 +681,10 @@
       }
       const data = snap.data() || {};
       if (Array.isArray(data.rows) && data.rows.length) {
-        aGradeRows = data.rows;
+        aGradeRows = data.rows.map(row => ({
+          ...row,
+          department: row.department || ''
+        }));
         saveAGradeRowsToLocal();
       }
       aGradeRemoteLinks = data.links || {};
@@ -705,7 +798,10 @@
       if (!result || result.canceled) return;
 
       if (Array.isArray(result.rows) && result.rows.length) {
-        aGradeRows = result.rows;
+        aGradeRows = result.rows.map(row => ({
+          ...row,
+          department: row.department || ''
+        }));
         saveAGradeRowsToLocal();
       }
       aGradePdfLinks = { ...aGradePdfLinks, ...(result.links || {}) };
@@ -927,6 +1023,12 @@
     const modal = ensureAGradeRegistryModal();
     const subEl = document.getElementById('aGradeRegistrySub');
     const bodyEl = document.getElementById('aGradeRegistryBody');
+    const dedupedRows = dedupeAGradeRows(aGradeRows);
+    if (dedupedRows.length !== (aGradeRows || []).length) {
+      aGradeRows = dedupedRows;
+      saveAGradeRowsToLocal();
+      syncAGradeFileButtons();
+    }
     const searchText = getAGradeSearchText().trim().toLowerCase();
     const filteredRows = aGradeRows.filter((row) => {
       if (!searchText) return true;
@@ -994,6 +1096,7 @@
             <th style="padding:10px;border-bottom:1px solid #d7e2f0;text-align:center;width:72px;">구분</th>
             <th style="padding:10px;border-bottom:1px solid #d7e2f0;text-align:right;width:90px;">시상금</th>
             <th style="padding:10px;border-bottom:1px solid #d7e2f0;text-align:center;width:90px;">PDF</th>
+            <th style="padding:10px;border-bottom:1px solid #d7e2f0;text-align:center;width:78px;">삭제</th>
           </tr>
         </thead>
         <tbody>
@@ -1006,7 +1109,7 @@
               <td style="padding:10px;border-bottom:1px solid #eef2f8;text-align:center;color:#7a8799;font-weight:700;">${escapeHtml(row.no)}</td>
               <td style="padding:10px;border-bottom:1px solid #eef2f8;text-align:center;">${escapeHtml(row.year)}</td>
               <td style="padding:10px;border-bottom:1px solid #eef2f8;text-align:center;">${escapeHtml(row.date)}</td>
-              <td style="padding:10px;border-bottom:1px solid #eef2f8;">${escapeHtml(row.department)}</td>
+              <td style="padding:10px;border-bottom:1px solid #eef2f8;">${escapeHtml(row.department || '')}</td>
               <td style="padding:10px;border-bottom:1px solid #eef2f8;font-weight:700;">${escapeHtml(row.proposer)}</td>
               <td style="padding:10px;border-bottom:1px solid #eef2f8;line-height:1.45;">${escapeHtml(row.title)}</td>
               <td style="padding:10px;border-bottom:1px solid #eef2f8;text-align:center;">${escapeHtml(row.type || '실시')}</td>
@@ -1019,11 +1122,19 @@
                   title="${hasLinkedPdf ? 'PDF 열기' : 'PDF 등록'}"
                 >${hasLinkedPdf ? '보기' : '등록'}</button>
               </td>
+              <td style="padding:10px;border-bottom:1px solid #eef2f8;text-align:center;">
+                <button
+                  class="btn"
+                  onclick="deleteAGradeRow(${index})"
+                  style="min-width:54px;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:800;background:#fff1f2;border-color:#fecdd3;color:#be123c;"
+                  title="A급 등록부에서 삭제"
+                >삭제</button>
+              </td>
             </tr>
           `;
           }).join('') : `
             <tr>
-              <td colspan="9" style="padding:26px 16px;text-align:center;color:#6b778c;background:#fff;">검색 결과가 없습니다.</td>
+              <td colspan="10" style="padding:26px 16px;text-align:center;color:#6b778c;background:#fff;">검색 결과가 없습니다.</td>
             </tr>
           `}
         </tbody>
@@ -1068,6 +1179,31 @@
     return matches.length === 1 ? matches[0] : null;
   }
 
+  async function deleteAGradeRow(index) {
+    const row = aGradeRows[index];
+    if (!row) return;
+
+    const message = `"${row.title || '선택한 A급 제안'}"\nA급 개선제안 등록부에서 삭제할까요?`;
+    if (typeof confirm === 'function' && !confirm(message)) return;
+
+    const rowKey = getAGradeRowKey(row);
+    aGradeRows.splice(index, 1);
+    deleteAGradeMapValues(aGradePdfLinks, row);
+    deleteAGradeMapValues(aGradeRemoteLinks, row);
+    saveAGradeRowsToLocal();
+    saveAGradePdfLinksToLocal();
+    saveAGradeRemoteLinksToLocal();
+    syncAGradeFileButtons();
+
+    if (typeof saveSharedData === 'function' && !(typeof isEmbeddedShareFile === 'function' && isEmbeddedShareFile())) {
+      const rows = typeof collectGridRows === 'function' ? collectGridRows() : [];
+      saveSharedData(rows, kingRows || []);
+    }
+
+    renderAGradeRegistry();
+    showToast('✅ A급 개선제안에서 삭제했습니다.');
+  }
+
   async function getAGradePdfFilesFromFolder() {
     if (!hasDesktopPdfAccess() || !window.desktopApp.listPdfFiles) {
       const remoteLinks = await fetchRemoteAGradeLinks();
@@ -1100,7 +1236,7 @@
           showToast(`✅ 연결된 실물 PDF 열기`);
           return;
         }
-        delete aGradePdfLinks[getAGradeRowKey(row)];
+        deleteAGradeMapValues(aGradePdfLinks, row);
         saveAGradePdfLinksToLocal();
         renderAGradeRegistry();
       }
@@ -1204,7 +1340,10 @@
         const shared = await loadSharedData();
         if (shared) {
           if (Array.isArray(shared.aGradeRows)) {
-            aGradeRows = shared.aGradeRows;
+            aGradeRows = shared.aGradeRows.map(row => ({
+              ...row,
+              department: row.department || ''
+            }));
             saveAGradeRowsToLocal();
           }
           if (shared.aGradeRemoteLinks && typeof shared.aGradeRemoteLinks === 'object') {

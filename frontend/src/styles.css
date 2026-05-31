@@ -814,6 +814,181 @@
     max-height: 420px;
     opacity: 1;
   }
+  .analysis-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.48);
+    backdrop-filter: blur(12px);
+    z-index: 10030;
+  }
+  .analysis-modal.open {
+    display: flex;
+  }
+  .analysis-card {
+    width: min(620px, 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+    border: 1px solid rgba(114, 143, 192, 0.24);
+    border-radius: 24px;
+    box-shadow: 0 32px 80px rgba(10, 24, 48, 0.28);
+    overflow: hidden;
+  }
+  .analysis-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 24px 26px 20px;
+    background: linear-gradient(135deg, #163c74 0%, #2454a2 100%);
+    color: #fff;
+  }
+  .analysis-kicker {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: rgba(226, 237, 255, 0.76);
+    font-family: 'Space Grotesk', 'IBM Plex Sans KR', sans-serif;
+  }
+  .analysis-head h2 {
+    margin-top: 6px;
+    font-size: 24px;
+    letter-spacing: -0.03em;
+  }
+  .analysis-head p {
+    margin-top: 8px;
+    font-size: 13px;
+    color: rgba(241, 247, 255, 0.82);
+    line-height: 1.6;
+  }
+  .analysis-body {
+    display: grid;
+    gap: 18px;
+    padding: 24px 26px 26px;
+  }
+  .analysis-modal .tool-label {
+    color: #5e718e;
+  }
+  .analysis-modal .drop-zone {
+    border-color: rgba(36, 84, 162, 0.28);
+    background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .analysis-modal .drop-zone:hover,
+  .analysis-modal .drop-zone.active {
+    border-color: rgba(29, 95, 209, 0.58);
+    background: #f2f7ff;
+    box-shadow: 0 14px 28px rgba(34, 75, 140, 0.14);
+  }
+  .analysis-modal .drop-zone p {
+    color: #5c6f8d;
+  }
+  .analysis-modal .drop-zone b {
+    color: #163c74;
+  }
+  .analysis-modal .api-input {
+    background: #ffffff;
+    border-color: rgba(114, 143, 192, 0.32);
+    color: var(--text);
+  }
+  .analysis-modal .api-input:focus {
+    border-color: rgba(29, 95, 209, 0.60);
+    background: #ffffff;
+  }
+  .analysis-modal .info-box {
+    background: #f3f7ff;
+    border: 1px solid rgba(114, 143, 192, 0.20);
+    color: #61728b;
+  }
+  .analysis-modal .info-box a {
+    color: #1d5fd1;
+  }
+  .region-toolbox {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .region-toolbox .btn {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+  .region-picker-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(9, 18, 36, 0.58);
+    z-index: 10050;
+    backdrop-filter: blur(8px);
+  }
+  .region-picker-modal.open {
+    display: flex;
+  }
+  .region-picker-card {
+    width: min(980px, 96vw);
+    max-height: 94vh;
+    overflow: auto;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+    border: 1px solid rgba(114, 143, 192, 0.28);
+    border-radius: 20px;
+    box-shadow: 0 34px 90px rgba(10, 24, 48, 0.34);
+  }
+  .region-picker-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid rgba(114, 143, 192, 0.18);
+  }
+  .region-picker-head h2 {
+    margin: 4px 0 6px;
+    color: #10213d;
+  }
+  .region-picker-head p {
+    margin: 0;
+    color: #5c6f8d;
+    font-size: 13px;
+  }
+  .region-picker-body {
+    padding: 18px 24px 24px;
+  }
+  .region-canvas-wrap {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+    border: 1px solid rgba(114, 143, 192, 0.28);
+    background: #ffffff;
+    box-shadow: 0 12px 32px rgba(34, 75, 140, 0.13);
+    overflow: hidden;
+    cursor: crosshair;
+  }
+  #regionPickerCanvas {
+    display: block;
+    max-width: min(860px, 88vw);
+    height: auto;
+  }
+  .region-selection-box {
+    position: absolute;
+    border: 2px solid #ef2f2f;
+    background: rgba(239, 47, 47, 0.12);
+    box-shadow: 0 0 0 9999px rgba(14, 24, 45, 0.08);
+    pointer-events: none;
+    display: none;
+  }
+  .region-selection-box.grade {
+    border-color: #1d5fd1;
+    background: rgba(29, 95, 209, 0.12);
+  }
+  .region-picker-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 16px;
+  }
   .share-modal {
     position: fixed;
     inset: 0;

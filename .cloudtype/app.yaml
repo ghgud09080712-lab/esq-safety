@@ -8,6 +8,8 @@ options:
       value: "4173"
     - name: DATA_DIR
       value: "/data"
-  install: rm -rf node_modules package-lock.json && npm install --omit=dev
+    - name: FIREBASE_DEPLOY_ENABLED
+      value: "false"
+  install: npm ci --omit=dev
   ports: 4173/http
   start: npm start

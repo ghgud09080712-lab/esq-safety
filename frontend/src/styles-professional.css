@@ -197,6 +197,10 @@ main {
   height: 100vh;
 }
 
+aside {
+  display: none !important;
+}
+
 aside.collapsed {
   margin-left: calc(var(--sidebar-width) * -1);
 }

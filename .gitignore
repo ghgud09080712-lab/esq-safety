@@ -1,5 +1,8 @@
 node_modules/
 npm-debug.log*
+.env
+.env.*
+!.env.example
 
 # Local runtime data
 backend/data/
@@ -10,9 +13,12 @@ server.err
 # Local build/deploy tool state
 .firebase/
 .vercel/
+output/
 
 # Temporary source files
 tmp_*
+tmp-*
+*.log
 *.pdf
 *.xlsx
 
@@ -25,3 +31,9 @@ www/
 # Local generated/share files
 諛고룷諛깆뾽/
 shared-snapshot/
+public-oyoung/legal-registry*.html
+개선제안*.html
+법규등록부.html
+통합안전점검*.html
+/*.html
+.tools/

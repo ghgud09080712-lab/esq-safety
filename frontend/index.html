@@ -6,6 +6,8 @@
 <title>개선제안정리</title>
 <script src="/vendor/ag-grid-community/dist/ag-grid-community.min.js"></script>
 <script src="/vendor/xlsx/dist/xlsx.full.min.js"></script>
+<script src="/vendor/pdf-lib/dist/pdf-lib.min.js"></script>
+<script src="/vendor/pdfjs-dist/build/pdf.min.js"></script>
 <script src="/vendor/firebase/firebase-app-compat.js"></script>
 <script src="/vendor/firebase/firebase-auth-compat.js"></script>
 <script src="/vendor/firebase/firebase-firestore-compat.js"></script>
@@ -18,84 +20,23 @@
 </head>
 <body class="ag-theme-quartz">
 
-<aside id="sidebar" class="collapsed">
-  <div class="sidebar-header">
-    <div class="brand-lockup brand-lockup-sidebar">
-      <div class="brand-copy">
-        <div class="brand-name">ESQ본부</div>
-        <div class="brand-sub">Improvement Management</div>
-      </div>
-    </div>
-    <h2>WORKPLACE TOOLS</h2>
-  </div>
-
-  <div class="sidebar-content">
-    <div class="tool-item">
-      <button class="btn panel-toggle" id="analysisToggleBtn" onclick="toggleAnalysisPanel()" aria-expanded="false">
-        <span>PDF / Excel 분석</span>
-        <span id="analysisToggleIcon">+</span>
-      </button>
-    </div>
-
-    <div id="analysisToolsPanel" class="analysis-tools">
-    <!-- 드롭존 -->
-    <div class="tool-item">
-      <span class="tool-label">파일로 데이터 추가</span>
-      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        <span class="icon">📤</span>
-        <p><b>PDF / Excel</b><br>여기에 드롭하거나 클릭</p>
-        <input type="file" id="fileInput" class="hidden-input" accept=".xlsx,.xls,.pdf" onchange="handleFileChange(event)">
-      </div>
-    </div>
-
-    <!-- Gemini API 설정 -->
-    <div class="tool-item">
-      <span class="tool-label">AI 설정 <span class="api-badge claude">Gemini API</span></span>
-      <input type="password" id="apiKey" class="api-input" placeholder="AIzaSy...">
-      <div class="info-box">
-        📄 PDF 분석 시 <b class="accent-text">Gemini 1.5 Flash</b> 사용<br>
-        키 발급: <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>
-      </div>
-    </div>
-    </div>
-
-    <!-- 데이터 관리 -->
-    <div class="tool-item">
-      <span class="tool-label">데이터 편집</span>
-      <button class="btn btn-primary" onclick="addNewRow()">➕ 새 행 추가</button>
-      <button class="btn btn-danger-text" onclick="deleteSelected()">🗑 선택 삭제</button>
-    </div>
-
-    <div class="tool-item">
-      <span class="tool-label">파일 저장 / 공유</span>
-      <button class="btn btn-share" onclick="exportAsHTML()">📤 공유 파일 만들기</button>
-      <button class="btn btn-success" onclick="exportToExcel()">⬇ 엑셀 내보내기</button>
-    </div>
-
-    <div class="sidebar-spacer"></div>
-
-    <div class="tool-item">
-      <button class="btn btn-ghost-muted" onclick="clearAll()">데이터 전체 초기화</button>
-    </div>
-  </div>
-</aside>
-
 <!-- ── 메인 화면 ── -->
 <main>
   <header>
     <div class="page-heading">
       <div class="title-row">
-        <button id="sidebarToggleBtn" class="btn btn-square" type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('sidebar')?.classList.toggle('collapsed');">☰</button>
         <h1>ESQ본부 개선제안 관리시스템</h1>
       </div>
     </div>
     <div class="header-actions">
       <button class="btn" onclick="manualSave()">💾 저장</button>
-      <button class="btn btn-king" onclick="openKingViewer()">👑 제안왕</button>
+      <button class="btn btn-primary" onclick="addNewRow()">➕ 행 추가</button>
+      <button class="btn btn-danger-text" onclick="deleteSelected()">🗑 선택 삭제</button>
+      <button class="btn btn-primary" id="analysisToggleBtn" onclick="toggleAnalysisPanel(true)" aria-expanded="false">📄 PDF 분석</button>
+      <button class="btn btn-share" onclick="exportAsHTML()">📤 공유파일 만들기</button>
+      <button class="btn btn-success" onclick="exportToExcel()">⬇ 엑셀 내보내기</button>
       <button class="btn btn-a-grade" id="aGradeViewBtn" onclick="openAGradeFile()">⭐ A급 개선제안</button>
       <button class="btn btn-duplicate" onclick="openDuplicateViewer()">🔎 중복의심</button>
-      <button class="btn btn-grade-chart" onclick="openGradeChart()">📈 통계</button>
-      <button class="btn btn-reward" onclick="openRewardViewer()">🏅 시상금 조회</button>
     </div>
   </header>
 
@@ -132,6 +73,73 @@
   </footer>
 </main>
 
+<div id="analysisToolsPanel" class="analysis-modal" role="dialog" aria-modal="true" aria-labelledby="analysisModalTitle">
+  <div class="analysis-card">
+    <div class="analysis-head">
+      <div>
+        <div class="analysis-kicker">AI DOCUMENT READER</div>
+        <h2 id="analysisModalTitle">PDF 분석</h2>
+        <p>제안서 PDF를 올리면 제안구분, 부서, 제안자, 제안명 요약, 등급을 읽어서 표에 추가합니다.</p>
+      </div>
+      <button class="btn-modal-close" onclick="toggleAnalysisPanel(false)">✕ 닫기</button>
+    </div>
+    <div class="analysis-body">
+      <div class="tool-item">
+        <span class="tool-label">파일로 데이터 추가</span>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <span class="icon">📤</span>
+          <p><b>PDF / Excel</b><br>여기에 드롭하거나 클릭</p>
+          <input type="file" id="fileInput" class="hidden-input" accept=".xlsx,.xls,.pdf" onchange="handleFileChange(event)">
+        </div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-label">판독 영역 직접 설정</span>
+        <div class="region-toolbox">
+          <button class="btn btn-primary" id="redCheckRegionBtn" type="button">🔴 건의 체크 영역</button>
+          <button class="btn" id="gradeCellRegionBtn" type="button">🔎 등급칸 영역</button>
+          <button class="btn btn-danger-text" id="resetPdfRegionBtn" type="button">초기화</button>
+        </div>
+        <input type="file" id="regionPickerFileInput" class="hidden-input" accept=".pdf">
+        <div class="info-box" id="regionSettingStatus">영역을 지정하면 PDF마다 그 박스 안만 보고 판정합니다.</div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-label">AI 설정 <span class="api-badge claude" id="apiProviderBadge">Gemini API</span></span>
+        <select id="aiProvider" class="api-input" onchange="updateAiProviderUi()">
+          <option value="gemini">Gemini 2.5 Flash</option>
+          <option value="openai">GPT-4.1 mini</option>
+        </select>
+        <input type="password" id="apiKey" class="api-input" value="" placeholder="AIzaSy..." onkeydown="if(event.key==='Enter'){this.blur();}">
+        <div class="info-box">
+          📄 PDF 분석 시 <b class="accent-text" id="apiProviderName">Gemini 2.5 Flash</b> 사용<br>
+          키 발급: <a id="apiProviderLink" href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com/app/apikey</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="regionPickerModal" class="region-picker-modal" role="dialog" aria-modal="true" aria-labelledby="regionPickerTitle">
+  <div class="region-picker-card">
+    <div class="region-picker-head">
+      <div>
+        <div class="analysis-kicker">PDF REGION SETUP</div>
+        <h2 id="regionPickerTitle">판독 영역 설정</h2>
+        <p id="regionPickerGuide">PDF 첫 페이지에서 읽을 영역을 드래그로 지정하세요.</p>
+      </div>
+      <button class="btn-modal-close" id="closeRegionPickerBtn" type="button">✕ 닫기</button>
+    </div>
+    <div class="region-picker-body">
+      <div class="region-canvas-wrap" id="regionCanvasWrap">
+        <canvas id="regionPickerCanvas"></canvas>
+        <div id="regionSelectionBox" class="region-selection-box"></div>
+      </div>
+      <div class="region-picker-actions">
+        <button class="btn" id="defaultPdfRegionBtn" type="button">기본값 사용</button>
+        <button class="btn btn-primary" id="savePdfRegionBtn" type="button">이 영역 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- 편집 모달 -->
 <div id="puuiseoEditModal" class="modal-overlay edit-modal-overlay">

@@ -19,6 +19,7 @@
 
   // 등급 정규화 및 시상금 매핑
   const GRADE_REWARD = { 'A': 50000, 'B': 20000, 'C': 5000, '채택': 5000, '건의': 0, '참가': 2000, '5S': 0, '단순': 0, '중복': 0 };
+  const DEFAULT_GEMINI_API_KEY = '';
   const KING_FORMULA = { label: '기본 점수', subtitle: 'A×10 + B×5 + C×3 + 채택×3 + 참가×2 + 건의×1', weights: { A: 10, B: 5, C: 3, 채택: 3, 참가: 2, 건의: 1 } };
   const CHART_GRADE_ORDER = ['채택', '참가', '5S', '건의', 'A', 'B', 'C'];
   const CHART_GRADE_COLORS = {
@@ -62,6 +63,22 @@
   // 직급 제거 함수
   function stripRank(n) {
     return String(n||'').replace(/(팀장|대리|과장|차장|부장|사원|주임|선임|책임|이사|전무|상무|수석|파트장|계장|반장|소장|본부장|실장|매니저)$/g, '').trim();
+  }
+  function compactProposalSummary(value, fallbackParts = []) {
+    const fallback = fallbackParts.filter(Boolean).join(' ');
+    const source = String(value || fallback || '').replace(/\s+/g, ' ').trim();
+    if (!source) return '';
+    const cleaned = source
+      .replace(/하기\s*위해/g, '')
+      .replace(/할\s*수\s*있도록/g, '')
+      .replace(/가능하도록/g, '')
+      .replace(/하도록\s*한\s*제안/g, '')
+      .replace(/개선한\s*제안/g, '개선')
+      .replace(/한\s*제안/g, '')
+      .replace(/[,\s]+$/g, '')
+      .trim();
+    if (cleaned.length <= 54) return cleaned;
+    return cleaned.slice(0, 54).replace(/[,\s/·-]+$/g, '');
   }
   function deriveKingRowsFromGrid() {
     if (!gridApi) return [];
@@ -538,7 +555,7 @@
 
   // ── [핵심] Gemini API로 PDF 분석 ──
   async function processPDF(file) {
-    const key = document.getElementById('apiKey').value.trim();
+    const key = (document.getElementById('apiKey')?.value || DEFAULT_GEMINI_API_KEY).trim();
     if (!key) { showToast('❌ Gemini API Key를 입력해주세요.', true); return; }
 
     setLoading(true, 'PDF를 Gemini AI가 분석 중...', '표 데이터를 추출하고 있습니다');
@@ -595,9 +612,12 @@
 각 제안서에서 다음 필드를 추출하여 JSON 배열로만 응답하세요:
 - month: 접수일에서 월 추출 (예: "2월")
 - date: 접수일 (예: "2026.02.26")
-- department: 부서명 (손글씨라도 최대한 정확히. 예: "생산 1부"→"생산 1부", "품질관리부"→"품질관리부", "S.E.M."→"S.E.M.", "분산QC"→"분산QC", "물류관리팀"→"물류관리팀", "환경관리과"→"환경관리과", "생산 2부"→"생산 2부", "총무과"→"총무과")
+- department: 부서명 (손글씨라도 최대한 정확히. 단, "분산QC"는 "품질관리부"로, "에스이엠", "S.E.M.", "SEM"은 "SEM"으로 표준화. 예: "생산 1부"→"생산 1부", "품질관리부"→"품질관리부", "S.E.M."→"SEM", "분산QC"→"품질관리부", "물류관리팀"→"물류관리팀", "환경관리과"→"환경관리과", "생산 2부"→"생산 2부", "총무과"→"총무과")
 - proposer: 제안자 이름만 (직급 제외. "오진영 대리"→"오진영", "신은식 과장"→"신은식", "김경수"→"김경수")
-- title: 제안명 전체
+- rawTitle: 제안명 원문 전체
+- currentState: 현재상태 원문 핵심
+- improvement: 개선안 원문 핵심
+- title: 제안명 + 현재상태 + 개선안을 함께 반영한 42~50자 요약문. 제안 의도와 개선 효과가 보이게 자연스럽게 요약할 것
 - grade: 반드시 아래 7가지 중 정확히 하나만. 절대 다른 값 사용 금지.
   * 영문 대문자: A, B, C (실시 등급. C는 절대로 '채택'이 아님. 영문 알파벳 C)
   * 한글: 채택, 건의, 참가, 단순, 중복 (아이디어 등급. '채택'은 절대로 C가 아님. 두 글자 한글)
@@ -610,9 +630,9 @@
 
 반드시 순수 JSON 배열만 출력. 마크다운, 코드블록, 설명 없이.
 예: [
-{"month":"2월","date":"2026.02.26","department":"생산 1부","proposer":"공대영","title":"S.D 전 호기 집진노즐 확인용 클램프타입 간이 점검구 설치 건","grade":"채택","reward":0,"safety":"○"},
-{"month":"2월","date":"2026.02.23","department":"T/S","proposer":"오진영","title":"소핑제 사용 규격 표시","grade":"C","reward":0,"safety":""},
-{"month":"2월","date":"2026.02.26","department":"생산 2부","proposer":"정강민","title":"DO2~DO3 색소 저장탱크 H빔 충돌방지 개선 건","grade":"C","reward":0,"safety":""}
+{"month":"2월","date":"2026.02.26","department":"생산 1부","proposer":"공대영","rawTitle":"S.D 전 호기 집진노즐 확인용 클램프타입 간이 점검구 설치 건","currentState":"집진노즐 상태를 확인하려면 설비를 분해해야 해서 점검이 불편함","improvement":"클램프타입 간이 점검구를 설치해 분해 없이 확인 가능하도록 개선","title":"집진노즐 분해 점검 불편을 줄이고 확인 시간을 단축한 간이 점검구 설치","grade":"채택","reward":0,"safety":"○"},
+{"month":"2월","date":"2026.02.23","department":"T/S","proposer":"오진영","rawTitle":"소핑제 사용 규격 표시","currentState":"현장에서 소핑제 사용 기준이 명확하지 않아 혼선이 있음","improvement":"규격을 눈에 띄게 표시해 누구나 바로 확인 가능하도록 개선","title":"소핑제 사용 기준을 표시해 작업자 확인성과 현장 사용 혼선을 개선","grade":"C","reward":0,"safety":""},
+{"month":"2월","date":"2026.02.26","department":"생산 2부","proposer":"정강민","rawTitle":"DO2~DO3 색소 저장탱크 H빔 충돌방지 개선 건","currentState":"저장탱크 주변 H빔과 작업 동선 충돌 위험이 있음","improvement":"충돌방지 구조를 보강해 작업 중 접촉 위험을 줄임","title":"저장탱크 주변 H빔 충돌 위험을 줄이기 위한 방지 구조 보강","grade":"C","reward":0,"safety":""}
 ]`;
 
       const body = {
@@ -678,7 +698,7 @@
         date: String(r.date || ''),
         department: String(r.department || '').replace(/^[a-zA-Z]\s+/, '').trim(),
         proposer: stripRank(r.proposer),
-        title: String(r.title || ''),
+        title: compactProposalSummary(r.title, [r.rawTitle, r.currentState, r.improvement]),
         grade: normalizeGrade(r.grade),
         reward: rewardFromGrade(normalizeGrade(r.grade)),
         safety: (r.safety === '○' || r.safety === 'O' || r.safety === 'o' || r.safety === true || r.safety === 1 || String(r.safety||'').includes('○') || String(r.safety||'').includes('위험') || String(r.safety||'').includes('아차')) ? '○' : ''
@@ -4777,8 +4797,13 @@ function rvRender() {
   if (activeGrades.length === 0) activeGrades.push('C','채택','건의','참가');
 
   // 부서명 정규화 (별칭 → 대표명)
-  const DEPT_ALIAS = { '분산QC': '품질관리부' };
-  function normDept(d) { return DEPT_ALIAS[d] || d; }
+  const DEPT_ALIAS = { '분산QC': '품질관리부', '에스이엠': 'SEM', 'S.E.M.': 'SEM' };
+  function normDept(d) {
+    const compact = String(d || '').replace(/[.\s]/g, '').toLowerCase();
+    if (compact === '분산qc') return '품질관리부';
+    if (compact === 'sem' || compact === '에스이엠') return 'SEM';
+    return DEPT_ALIAS[d] || d;
+  }
 
   // 부서별 → 제안자별 집계
   const deptMap = {};

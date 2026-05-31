@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESQ 법규등록부</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-export-download">
+</head>
+<body class="sidebar-collapsed">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <strong>법규등록부</strong>
+        <span>Legal Registry</span>
+      </div>
+      <nav class="nav-list" aria-label="주 메뉴">
+        <button class="nav-item active" data-view="dashboard" type="button">대시보드</button>
+        <button class="nav-item" data-view="registry" type="button">법규등록부</button>
+        <button class="nav-item" data-view="changes" type="button">법규 변경사항</button>
+        <button class="nav-item" data-view="detailSheets" type="button">법규 검토</button>
+        <button class="nav-item" data-view="aiSearch" type="button">AI 법규찾기</button>
+      </nav>
+      <div class="side-tools">
+        <div class="tool-item">
+          <span class="tool-label">법제처 Open API</span>
+          <input class="side-input" id="ocInput" placeholder="자동 설정됨">
+          <button class="btn primary full" id="refreshBtn" type="button">새로고침</button>
+        </div>
+        <div class="tool-status" id="statusBox">대기 중</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-logo-layer">
+          <img class="topbar-center-logo" src="/assets/ohyoung-legal-logo.png" alt="OHYOUNG">
+        </div>
+        <div class="topbar-title">
+          <p class="eyebrow">OHYOUNG Legal Compliance</p>
+          <div class="title-row">
+            <button class="btn menu-toggle" id="sidebarToggleBtn" type="button" title="메뉴">=</button>
+            <h1>법규등록부</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn" data-jump="aiSearch" type="button">AI 법규찾기</button>
+          <button class="btn" id="exportBtn" type="button">HTML 내보내기</button>
+          <button class="btn" id="webExportBtn" type="button">웹 링크 생성</button>
+          <button class="btn primary" id="topRefreshBtn" type="button">새로고침</button>
+        </div>
+      </header>
+
+      <section id="dashboardView" class="view active">
+        <div class="metric-grid">
+          <article class="metric"><span>등록 법령</span><strong id="totalCount">0</strong></article>
+          <article class="metric"><span>자동 등록</span><strong id="changeCount">0</strong></article>
+          <article class="metric"><span>마지막 확인</span><strong id="lastChecked">-</strong></article>
+        </div>
+        <div class="result-alert" id="resultAlert" hidden></div>
+        <section class="panel">
+          <div class="panel-head">
+            <h3>최근 자동 등록</h3>
+            <button class="btn small" data-jump="changes" type="button">검토함 보기</button>
+          </div>
+          <div class="change-list" id="recentChanges"></div>
+        </section>
+      </section>
+
+      <section id="registryView" class="view">
+        <div class="registry-search-bar">
+          <input class="search-input" id="registrySearch" placeholder="법령명 검색">
+        </div>
+        <section class="panel table-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>분류</th>
+                <th>법령</th>
+                <th>등록 시행일</th>
+                <th>최신 시행일</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="registryRows"></tbody>
+          </table>
+        </section>
+      </section>
+
+      <section id="changesView" class="view">
+        <div class="section-actions feature-actions">
+          <input class="search-input" id="changeSearch" placeholder="법령명, 변경내용 검색">
+        </div>
+        <div class="change-list review" id="changeRows"></div>
+      </section>
+
+      <section id="detailSheetsView" class="view">
+        <div class="section-actions feature-actions">
+          <button class="btn primary" id="detailAddBtn" type="button">내용 추가</button>
+        </div>
+        <div class="detail-sheet-list" id="detailSheetRows"></div>
+      </section>
+
+      <section id="aiSearchView" class="view">
+        <section class="panel ai-search-panel">
+          <div class="ai-chat" id="aiChatLog">
+            <div class="ai-message assistant">
+              <strong>Gemini 법규 도우미</strong>
+              <p>(주)오영의 섬유용 합성염료, DTP 잉크, 텍스타일 케미컬 제조 기준으로 궁금한 작업이나 위험요인을 물어보세요. 관련 법령 후보와 현장 조치를 함께 정리해드립니다.</p>
+            </div>
+          </div>
+          <div class="ai-example-row">
+            <button class="btn small ai-example" type="button" data-query="온열질환 폭염 작업">온열질환</button>
+            <button class="btn small ai-example" type="button" data-query="염료 분말 계량 작업 중 분진 노출">염료 분진</button>
+            <button class="btn small ai-example" type="button" data-query="염료 제조 폐수와 색도 관리">폐수 색도</button>
+            <button class="btn small ai-example" type="button" data-query="DTP 잉크 배합 작업에서 용제와 화학물질 관리">DTP 잉크</button>
+            <button class="btn small ai-example" type="button" data-query="소음 노출 작업환경측정">소음</button>
+            <button class="btn small ai-example" type="button" data-query="화학물질 누출 취급 저장">화학물질</button>
+          </div>
+          <div class="ai-search-box">
+            <textarea id="aiLawQuery" class="ai-search-input" rows="2" placeholder="예: 염료 분말 계량 작업에서 분진 노출을 줄이려면 어떤 법규와 조치를 봐야 해?"></textarea>
+            <button class="btn primary" id="aiLawSearchBtn" type="button">질문</button>
+          </div>
+          <div class="ai-result-list" id="aiLawResults" hidden></div>
+        </section>
+      </section>
+
+    </main>
+  </div>
+  <div class="modal-backdrop" id="changeModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="changeModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="badge done" id="changeModalStatus">변경</span>
+          <h2 id="changeModalTitle">변경 상세</h2>
+        </div>
+        <button class="btn small" id="changeModalClose" type="button">닫기</button>
+      </div>
+      <dl class="change-detail-grid">
+        <dt>법령명</dt><dd id="detailLawName">-</dd>
+        <dt>변경 전</dt><dd id="detailBefore">-</dd>
+        <dt>변경 후</dt><dd id="detailAfter">-</dd>
+        <dt>공포일</dt><dd id="detailPromulgation">-</dd>
+        <dt>확인일시</dt><dd id="detailCheckedAt">-</dd>
+        <dt>등록일시</dt><dd id="detailAppliedAt">-</dd>
+      </dl>
+      <div class="detail-note" id="detailSummary">-</div>
+      <section class="content-diff">
+        <div class="panel-head">
+          <h3>전 법 대비 변경 내용</h3>
+          <button class="btn small" id="detailLoadContentBtn" type="button">비교 불러오기</button>
+        </div>
+        <div id="detailContentRows" class="content-lines">비교를 불러오면 이전 시행본과 최신 시행본의 차이가 표시됩니다.</div>
+      </section>
+      <div class="modal-actions">
+        <button class="btn" id="detailOpenLawBtn" type="button">법령 원문 열기</button>
+        <button class="btn primary" id="detailCloseBtn" type="button">확인</button>
+      </div>
+    </section>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-export-download"></script>
+</body>
+</html>

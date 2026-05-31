@@ -1,0 +1,6 @@
+action,x,y,x2,y2,durationMs,text,key,delayMs
+tap,540,1600,,,,,,500
+wait,,,,,,,,1000
+swipe,540,1600,540,600,400,,,500
+text,,,,,,hello test,,500
+key,,,,,,,ENTER,500
