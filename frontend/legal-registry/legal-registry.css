@@ -1269,6 +1269,164 @@ th {
   .change-item { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 700px) {
+  body {
+    height: 100dvh;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .app-shell {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .sidebar {
+    position: fixed;
+    inset: auto;
+    top: 58px;
+    left: 0;
+    width: 100%;
+    height: auto;
+    transform: none !important;
+    pointer-events: auto !important;
+    z-index: 70;
+    background: #0f3261;
+  }
+  .brand,
+  .side-tools {
+    display: none !important;
+  }
+  .nav-list {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav-list::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-item {
+    flex: 0 0 auto;
+    min-height: 36px;
+    border-radius: 999px;
+    padding: 0 13px;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .main {
+    height: 100dvh;
+    min-height: 100dvh;
+    margin-left: 0 !important;
+    padding-top: 110px;
+    overflow: hidden;
+  }
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 80;
+    min-height: 58px;
+    padding: 6px 12px;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .topbar-title,
+  .topbar-actions {
+    display: none !important;
+  }
+  .topbar-logo-layer {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
+  }
+  .topbar-center-logo {
+    width: 126px;
+    max-width: 42vw;
+  }
+  h1 {
+    font-size: 20px;
+  }
+  h2 {
+    font-size: 18px;
+  }
+  .view {
+    padding: 14px 12px 22px;
+  }
+  #registryView.view.active {
+    height: calc(100dvh - 110px);
+  }
+  .section-head {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .section-head p {
+    line-height: 1.55;
+    font-size: 12px;
+  }
+  .metric {
+    min-height: 82px;
+    padding: 14px;
+  }
+  .metric strong {
+    font-size: 24px;
+  }
+  .table-panel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table {
+    min-width: 680px;
+  }
+  th,
+  td {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .change-item {
+    padding: 12px;
+    gap: 10px;
+  }
+  .date-flow {
+    grid-template-columns: 1fr;
+  }
+  .detail-register-head {
+    min-height: 72px;
+    padding: 12px;
+  }
+  .detail-register-title h3 {
+    font-size: 17px;
+    line-height: 1.35;
+  }
+  .detail-register-actions {
+    align-items: flex-end;
+    min-width: auto;
+  }
+  .detail-meta-bar {
+    grid-template-columns: 1fr;
+  }
+  .detail-meta-item {
+    min-height: 62px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 12px;
+  }
+  .detail-main-title {
+    min-height: 44px;
+    padding: 10px 12px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .detail-main-panel pre {
+    padding: 14px 12px;
+    line-height: 1.75;
+    font-size: 12px;
+  }
+}
+
 body #registryView.view.active {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr);
