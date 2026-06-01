@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-refresh-count">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-ai-polish">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -105,6 +105,12 @@
 
       <section id="aiSearchView" class="view">
         <section class="panel ai-search-panel">
+          <div class="ai-panel-head">
+            <div>
+              <span>OHYOUNG Legal AI</span>
+              <h2>AI 법규찾기</h2>
+            </div>
+          </div>
           <div class="ai-chat" id="aiChatLog">
             <div class="ai-message assistant">
               <strong>Gemini 법규 도우미</strong>
@@ -121,7 +127,7 @@
           </div>
           <div class="ai-search-box">
             <textarea id="aiLawQuery" class="ai-search-input" rows="2" placeholder="예: 염료 분말 계량 작업에서 분진 노출을 줄이려면 어떤 법규와 조치를 봐야 해?"></textarea>
-            <button class="btn primary" id="aiLawSearchBtn" type="button">질문</button>
+            <button class="btn primary ai-send-btn" id="aiLawSearchBtn" type="button">질문</button>
           </div>
           <div class="ai-result-list" id="aiLawResults" hidden></div>
         </section>
@@ -170,6 +176,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-refresh-count"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-ai-polish"></script>
 </body>
 </html>
