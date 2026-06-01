@@ -644,10 +644,7 @@ async function renderAiSearchResults(query, options = {}) {
 
   if (!options.useGemini) return;
 
-  const loadingText = matches.length
-    ? `관련 법령 후보 ${matches.length}건과 등록부 전체를 함께 참고해서 답변을 작성 중입니다.`
-    : "키워드가 딱 맞지 않아도 질문 의도를 먼저 해석해서 관련 법규와 현장 조치를 찾는 중입니다.";
-  const loading = appendAiMessage("assistant", `<strong>오영 법규 도우미</strong><p>${escapeHtml(loadingText)}</p>`, "loading");
+  const loading = appendAiMessage("assistant", `<div class="ai-thinking" aria-label="오영 법규 도우미 답변 생성 중"><span></span><span></span><span></span></div>`, "loading");
   try {
     const payload = await requestJson("/api/legal-registry/ai-answer", {
       method: "POST",
