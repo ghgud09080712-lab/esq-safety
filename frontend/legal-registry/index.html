@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-ai-thinking">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-floating-ai">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -166,6 +166,31 @@
       </div>
     </section>
   </div>
+  <div class="floating-ai" id="floatingAi">
+    <button class="floating-ai-toggle" id="floatingAiToggle" type="button" aria-expanded="false" aria-controls="floatingAiPanel">
+      <img src="/frontend/legal-registry/assets/ai-law-bot.png" alt="">
+      <span>AI 법규</span>
+    </button>
+    <section class="floating-ai-panel" id="floatingAiPanel" aria-label="오영 법규 도우미" hidden>
+      <div class="floating-ai-head">
+        <div>
+          <span>OHYOUNG Legal AI</span>
+          <strong>오영 법규 도우미</strong>
+        </div>
+        <button class="btn small" id="floatingAiClose" type="button">닫기</button>
+      </div>
+      <div class="ai-chat floating-ai-chat" id="floatingAiChatLog">
+        <div class="ai-message assistant">
+          <strong>오영 법규 도우미</strong>
+          <p>어느 메뉴에서든 궁금한 법규나 새로고침 변경사항을 물어보세요.</p>
+        </div>
+      </div>
+      <div class="ai-search-box floating-ai-search-box">
+        <textarea id="floatingAiLawQuery" class="ai-search-input" rows="2" placeholder="예: 오늘 업데이트된 법규 뭐야?"></textarea>
+        <button class="btn primary ai-send-btn" id="floatingAiLawSearchBtn" type="button">질문</button>
+      </div>
+    </section>
+  </div>
   <div class="toast" id="toast" hidden></div>
   <div class="refresh-overlay" id="refreshOverlay" hidden>
     <div class="refresh-card">
@@ -176,6 +201,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-ai-thinking"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-floating-ai"></script>
 </body>
 </html>

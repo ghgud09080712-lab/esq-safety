@@ -614,19 +614,29 @@ function renderAiRefreshChangeResults(changes) {
   `).join("");
 }
 
-function scrollAiChatToBottom() {
-  const chat = $("#aiChatLog");
+function aiSurfaceSelector(options, name) {
+  const isFloating = options?.surface === "floating";
+  const selectors = {
+    chat: isFloating ? "#floatingAiChatLog" : "#aiChatLog",
+    input: isFloating ? "#floatingAiLawQuery" : "#aiLawQuery",
+    results: isFloating ? "" : "#aiLawResults"
+  };
+  return selectors[name] || "";
+}
+
+function scrollAiChatToBottom(options = {}) {
+  const chat = $(aiSurfaceSelector(options, "chat"));
   if (chat) chat.scrollTop = chat.scrollHeight;
 }
 
-function appendAiMessage(role, html, extraClass = "") {
-  const chat = $("#aiChatLog");
+function appendAiMessage(role, html, extraClass = "", options = {}) {
+  const chat = $(aiSurfaceSelector(options, "chat"));
   if (!chat) return null;
   const message = document.createElement("div");
   message.className = `ai-message ${role} ${extraClass}`.trim();
   message.innerHTML = html;
   chat.appendChild(message);
-  scrollAiChatToBottom();
+  scrollAiChatToBottom(options);
   return message;
 }
 
@@ -645,16 +655,21 @@ function renderLawMiniList(matches) {
 }
 
 async function renderAiSearchResults(query, options = {}) {
-  const results = $("#aiLawResults");
+  const surfaceOptions = { surface: options.surface };
+  const resultsSelector = aiSurfaceSelector(options, "results");
+  const results = resultsSelector ? $(resultsSelector) : null;
   const cleanQuery = String(query || "").trim();
   if (!cleanQuery) {
-    if (results) results.innerHTML = "";
+    if (results) {
+      results.innerHTML = "";
+      results.hidden = true;
+    }
     return;
   }
 
   if (options.useGemini) {
-    appendAiMessage("user", `<strong>질문</strong><p>${escapeHtml(cleanQuery)}</p>`);
-    const input = $("#aiLawQuery");
+    appendAiMessage("user", `<strong>질문</strong><p>${escapeHtml(cleanQuery)}</p>`, "", surfaceOptions);
+    const input = $(aiSurfaceSelector(options, "input"));
     if (input) input.value = "";
   }
 
@@ -675,8 +690,12 @@ async function renderAiSearchResults(query, options = {}) {
     : findAiLawMatches(cleanQuery);
   if (wantsRefreshUpdates && results) {
     results.innerHTML = renderAiRefreshChangeResults(refreshChanges);
+    results.hidden = false;
   } else if (!matches.length) {
-    if (results) results.innerHTML = "";
+    if (results) {
+      results.innerHTML = "";
+      results.hidden = true;
+    }
   } else if (results) {
     results.innerHTML = matches.map(({ record, reasons, score }) => `
     <article class="ai-result-card">
@@ -694,11 +713,12 @@ async function renderAiSearchResults(query, options = {}) {
       </div>
     </article>
   `).join("");
+    results.hidden = false;
   }
 
   if (!options.useGemini) return;
 
-  const loading = appendAiMessage("assistant", `<div class="ai-thinking" aria-label="오영 법규 도우미 답변 생성 중"><span></span><span></span><span></span></div>`, "loading");
+  const loading = appendAiMessage("assistant", `<div class="ai-thinking" aria-label="오영 법규 도우미 답변 생성 중"><span></span><span></span><span></span></div>`, "loading", surfaceOptions);
   try {
     const payload = await requestJson("/api/legal-registry/ai-answer", {
       method: "POST",
@@ -745,7 +765,7 @@ async function renderAiSearchResults(query, options = {}) {
       ${renderLawMiniList(matches)}
     `;
   }
-  scrollAiChatToBottom();
+  scrollAiChatToBottom(surfaceOptions);
 }
 
 function render() {
@@ -987,6 +1007,24 @@ function openSelectedChangeLaw() {
   if (change) openLaw(change.lawName);
 }
 
+function setFloatingAiOpen(isOpen) {
+  const panel = $("#floatingAiPanel");
+  const toggle = $("#floatingAiToggle");
+  if (!panel || !toggle) return;
+  panel.hidden = !isOpen;
+  toggle.setAttribute("aria-expanded", String(isOpen));
+  $("#floatingAi")?.classList.toggle("open", isOpen);
+  if (isOpen) {
+    window.setTimeout(() => $("#floatingAiLawQuery")?.focus(), 50);
+    scrollAiChatToBottom({ surface: "floating" });
+  }
+}
+
+function submitAiQuestion(inputSelector, surface = "") {
+  const input = $(inputSelector);
+  renderAiSearchResults(input?.value, { useGemini: true, surface });
+}
+
 function bindEvents() {
   $("#sidebarToggleBtn").addEventListener("click", () => document.body.classList.toggle("sidebar-collapsed"));
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
@@ -1012,11 +1050,20 @@ function bindEvents() {
     renderDetailSheets();
     $("#detailSheetRows")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  $("#aiLawSearchBtn").addEventListener("click", () => renderAiSearchResults($("#aiLawQuery").value, { useGemini: true }));
+  $("#aiLawSearchBtn").addEventListener("click", () => submitAiQuestion("#aiLawQuery"));
   $("#aiLawQuery").addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       renderAiSearchResults(event.target.value, { useGemini: true });
+    }
+  });
+  $("#floatingAiToggle")?.addEventListener("click", () => setFloatingAiOpen($("#floatingAiPanel")?.hidden));
+  $("#floatingAiClose")?.addEventListener("click", () => setFloatingAiOpen(false));
+  $("#floatingAiLawSearchBtn")?.addEventListener("click", () => submitAiQuestion("#floatingAiLawQuery", "floating"));
+  $("#floatingAiLawQuery")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      renderAiSearchResults(event.target.value, { useGemini: true, surface: "floating" });
     }
   });
   $$(".ai-example").forEach((button) => {
