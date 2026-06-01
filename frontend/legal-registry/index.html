@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-floating-ai">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-floating-ai-only">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -19,7 +19,6 @@
         <button class="nav-item" data-view="registry" type="button">법규등록부</button>
         <button class="nav-item" data-view="changes" type="button">법규 변경사항</button>
         <button class="nav-item" data-view="detailSheets" type="button">법규 검토</button>
-        <button class="nav-item" data-view="aiSearch" type="button">AI 법규찾기</button>
         <button class="nav-item mobile-refresh-nav" id="mobileRefreshBtn" type="button">새로고침</button>
       </nav>
       <div class="side-tools">
@@ -45,7 +44,6 @@
           </div>
         </div>
         <div class="topbar-actions">
-          <button class="btn" data-jump="aiSearch" type="button">AI 법규찾기</button>
           <button class="btn" id="exportBtn" type="button">HTML 내보내기</button>
           <button class="btn" id="webExportBtn" type="button">웹 링크 생성</button>
           <button class="btn primary" id="topRefreshBtn" type="button">새로고침</button>
@@ -101,36 +99,6 @@
           <button class="btn primary" id="detailAddBtn" type="button">내용 추가</button>
         </div>
         <div class="detail-sheet-list" id="detailSheetRows"></div>
-      </section>
-
-      <section id="aiSearchView" class="view">
-        <section class="panel ai-search-panel">
-          <div class="ai-panel-head">
-            <div>
-              <span>OHYOUNG Legal AI</span>
-              <h2>AI 법규찾기</h2>
-            </div>
-          </div>
-          <div class="ai-chat" id="aiChatLog">
-            <div class="ai-message assistant">
-              <strong>오영 법규 도우미</strong>
-              <p>(주)오영의 섬유용 합성염료, DTP 잉크, 텍스타일 케미컬 제조 기준으로 궁금한 작업이나 위험요인을 물어보세요. 관련 법령 후보와 현장 조치를 함께 정리해드립니다.</p>
-            </div>
-          </div>
-          <div class="ai-example-row">
-            <button class="btn small ai-example" type="button" data-query="온열질환 폭염 작업">온열질환</button>
-            <button class="btn small ai-example" type="button" data-query="염료 분말 계량 작업 중 분진 노출">염료 분진</button>
-            <button class="btn small ai-example" type="button" data-query="염료 제조 폐수와 색도 관리">폐수 색도</button>
-            <button class="btn small ai-example" type="button" data-query="DTP 잉크 배합 작업에서 용제와 화학물질 관리">DTP 잉크</button>
-            <button class="btn small ai-example" type="button" data-query="소음 노출 작업환경측정">소음</button>
-            <button class="btn small ai-example" type="button" data-query="화학물질 누출 취급 저장">화학물질</button>
-          </div>
-          <div class="ai-search-box">
-            <textarea id="aiLawQuery" class="ai-search-input" rows="2" placeholder="예: 염료 분말 계량 작업에서 분진 노출을 줄이려면 어떤 법규와 조치를 봐야 해?"></textarea>
-            <button class="btn primary ai-send-btn" id="aiLawSearchBtn" type="button">질문</button>
-          </div>
-          <div class="ai-result-list" id="aiLawResults" hidden></div>
-        </section>
       </section>
 
     </main>
@@ -201,6 +169,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-floating-ai"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-floating-ai-only"></script>
 </body>
 </html>

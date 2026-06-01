@@ -12,7 +12,7 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
-const VALID_HISTORY_VIEWS = new Set(["dashboard", "registry", "detailSheets", "changes", "aiSearch"]);
+const VALID_HISTORY_VIEWS = new Set(["dashboard", "registry", "detailSheets", "changes"]);
 let restoringHistory = false;
 
 function escapeHtml(value) {
@@ -773,7 +773,6 @@ function render() {
   renderRegistry();
   renderDetailSheets();
   renderChanges();
-  renderAiSearchResults($("#aiLawQuery")?.value || "");
 }
 
 async function refreshLaws() {
@@ -1050,13 +1049,6 @@ function bindEvents() {
     renderDetailSheets();
     $("#detailSheetRows")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  $("#aiLawSearchBtn").addEventListener("click", () => submitAiQuestion("#aiLawQuery"));
-  $("#aiLawQuery").addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      renderAiSearchResults(event.target.value, { useGemini: true });
-    }
-  });
   $("#floatingAiToggle")?.addEventListener("click", () => setFloatingAiOpen($("#floatingAiPanel")?.hidden));
   $("#floatingAiClose")?.addEventListener("click", () => setFloatingAiOpen(false));
   $("#floatingAiLawSearchBtn")?.addEventListener("click", () => submitAiQuestion("#floatingAiLawQuery", "floating"));
@@ -1065,12 +1057,6 @@ function bindEvents() {
       event.preventDefault();
       renderAiSearchResults(event.target.value, { useGemini: true, surface: "floating" });
     }
-  });
-  $$(".ai-example").forEach((button) => {
-    button.addEventListener("click", () => {
-      $("#aiLawQuery").value = button.dataset.query || "";
-      renderAiSearchResults($("#aiLawQuery").value, { useGemini: true });
-    });
   });
   document.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-detail-edit]");
