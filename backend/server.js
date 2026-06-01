@@ -1374,16 +1374,70 @@ app.get("/api/legal-registry/change-content/:id", async (req, res) => {
   }
 });
 
+function buildLocalLegalAiAnswer(question, candidates, registryRecords, reason = "") {
+  const normalizedQuestion = compactText(question).toLowerCase();
+  const fallbackKeywords = [
+    { words: ["분진", "먼지", "분말", "호흡", "마스크", "노출"], laws: ["산업안전보건법", "화학물질관리법"] },
+    { words: ["폐수", "방류", "색도", "수질"], laws: ["물환경보전법", "하수도법"] },
+    { words: ["대기", "배출", "방지시설", "집진", "먼지", "voc", "악취"], laws: ["대기환경보전법", "악취방지법"] },
+    { words: ["화학", "유해화학", "msds", "누출", "보관", "취급"], laws: ["화학물질관리법", "화학물질의 등록 및 평가 등에 관한 법률", "산업안전보건법"] },
+    { words: ["위험물", "인화", "화재", "폭발", "소방"], laws: ["위험물안전관리법", "소방시설 설치 및 관리에 관한 법률"] },
+    { words: ["폐기물", "지정폐기물", "보관", "처리"], laws: ["폐기물관리법", "자원의 절약과 재활용촉진에 관한 법률"] },
+    { words: ["연구실", "실험실", "시약"], laws: ["연구실 안전환경 조성에 관한 법률"] },
+    { words: ["소음", "진동", "청력"], laws: ["산업안전보건법", "소음ㆍ진동관리법"] },
+    { words: ["온열", "폭염", "더위", "열사병"], laws: ["산업안전보건법"] }
+  ];
+  const records = Array.isArray(registryRecords) ? registryRecords : [];
+  const candidateLaws = Array.isArray(candidates) ? candidates : [];
+  const pickedNames = [];
+
+  for (const candidate of candidateLaws) {
+    if (candidate?.lawName) pickedNames.push(candidate.lawName);
+  }
+  for (const rule of fallbackKeywords) {
+    if (!rule.words.some((word) => normalizedQuestion.includes(word))) continue;
+    pickedNames.push(...rule.laws);
+  }
+
+  const recommended = [];
+  for (const lawName of Array.from(new Set(pickedNames.filter(Boolean)))) {
+    const matchedRecord = records.find((record) => normalizeLawName(record.lawName).includes(normalizeLawName(lawName)))
+      || records.find((record) => normalizeLawName(lawName).includes(normalizeLawName(record.lawName)));
+    if (!matchedRecord && !lawName) continue;
+    recommended.push({
+      lawName: matchedRecord?.lawName || lawName,
+      reason: "(주)오영 염료 제조업 현장 질문과 관련성이 높아 우선 확인할 법규입니다."
+    });
+    if (recommended.length >= 6) break;
+  }
+
+  return {
+    ok: true,
+    model: "local-fallback",
+    answer: `Gemini 연결 없이 법규등록부 기준으로 답변합니다. "${question}"은 (주)오영의 염료 제조, 화학물질 취급, 작업환경 또는 환경 배출 관리와 연결될 수 있으므로 아래 법규와 현장 조치를 우선 확인하세요.`,
+    recommendedLaws: recommended,
+    siteRisks: [
+      "염료 분말, 화학물질, 용제, 폐수, 대기배출시설 등 현장 위험요인과 연결되는지 확인",
+      "작업 장소, 취급 물질, 배출 또는 노출 경로를 기준으로 적용 법규 분류"
+    ],
+    actionPlan: [
+      "관련 작업의 MSDS, 작업표준, 보호구, 교육기록을 먼저 확인",
+      "해당 설비 또는 공정의 점검기록, 측정기록, 인허가 조건과 법규등록부 적용사항을 대조",
+      "법규 원문과 시행규칙 세부 기준을 확인한 뒤 당사 적용사항에 반영"
+    ],
+    checkpoints: [
+      "질문한 작업이 어떤 공정인지: 계량, 혼합, 반응, 건조, 포장, 보관, 폐수처리, 방지시설",
+      "사람 노출인지, 환경 배출인지, 인허가/신고 사항인지 구분",
+      "최근 새로고침으로 시행일 변경이 잡혔는지 확인"
+    ],
+    caution: reason ? `Gemini 답변 대신 기본 답변을 표시했습니다. 사유: ${reason}` : "Gemini API 키가 없어서 기본 답변을 표시했습니다."
+  };
+}
+
 app.post("/api/legal-registry/ai-answer", async (req, res) => {
   try {
     const question = compactText(req.body?.question);
     if (!question) return res.status(400).json({ ok: false, message: "질문을 입력하세요." });
-
-    const config = await readSafetyConfig();
-    const apiKey = getSafetyGeminiApiKey(config);
-    if (!apiKey) {
-      return res.status(503).json({ ok: false, message: "Gemini API 키가 서버 로컬 설정에 없습니다." });
-    }
 
     const registry = await readLegalRegistry();
     const requestedCandidates = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
@@ -1402,6 +1456,12 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
       no: record.no,
       effectiveDate: record.officialEffectiveDate || record.registeredEffectiveDate
     }));
+
+    const config = await readSafetyConfig();
+    const apiKey = getSafetyGeminiApiKey(config);
+    if (!apiKey) {
+      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "Gemini API 키가 서버에 설정되지 않았습니다."));
+    }
 
     const prompt = [
       "당신은 제조업 사업장의 법규등록부를 도와주는 한국어 법규 상담형 검색 보조자입니다.",
@@ -1423,7 +1483,10 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
       JSON.stringify(registryIndex, null, 2)
     ].join("\n");
 
-    const result = await requestSafetyGeminiText(apiKey, prompt);
+    const result = await requestSafetyGeminiText(apiKey, prompt).catch((error) => null);
+    if (!result) {
+      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "Gemini 호출에 실패했습니다."));
+    }
     let parsed = null;
     try {
       parsed = JSON.parse(result.text || "{}");
