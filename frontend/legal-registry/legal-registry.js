@@ -676,6 +676,8 @@ async function refreshLaws() {
   setStatus(oc ? "법제처 최신 정보를 확인 중입니다." : "저장된 API 인증값으로 법제처 최신 정보를 확인 중입니다.");
   $("#refreshBtn").disabled = true;
   $("#topRefreshBtn").disabled = true;
+  const mobileRefreshBtn = $("#mobileRefreshBtn");
+  if (mobileRefreshBtn) mobileRefreshBtn.disabled = true;
   try {
     const result = await requestJson("/api/legal-registry/refresh", {
       method: "POST",
@@ -694,6 +696,7 @@ async function refreshLaws() {
   } finally {
     $("#refreshBtn").disabled = false;
     $("#topRefreshBtn").disabled = false;
+    if (mobileRefreshBtn) mobileRefreshBtn.disabled = false;
   }
 }
 
@@ -907,6 +910,7 @@ function bindEvents() {
   $$("[data-jump]").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.jump)));
   $("#refreshBtn").addEventListener("click", refreshLaws);
   $("#topRefreshBtn").addEventListener("click", refreshLaws);
+  $("#mobileRefreshBtn")?.addEventListener("click", refreshLaws);
   const importBtn = $("#importBtn");
   if (importBtn) importBtn.addEventListener("click", importSource);
   $("#exportBtn").addEventListener("click", exportReadonlyHtml);
