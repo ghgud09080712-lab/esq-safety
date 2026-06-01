@@ -618,6 +618,8 @@ async function renderAiSearchResults(query, options = {}) {
 
   if (options.useGemini) {
     appendAiMessage("user", `<strong>질문</strong><p>${escapeHtml(cleanQuery)}</p>`);
+    const input = $("#aiLawQuery");
+    if (input) input.value = "";
   }
 
   const matches = findAiLawMatches(cleanQuery);
@@ -948,7 +950,10 @@ function bindEvents() {
   });
   $("#aiLawSearchBtn").addEventListener("click", () => renderAiSearchResults($("#aiLawQuery").value, { useGemini: true }));
   $("#aiLawQuery").addEventListener("keydown", (event) => {
-    if (event.key === "Enter") renderAiSearchResults(event.target.value, { useGemini: true });
+    if (event.key === "Enter") {
+      event.preventDefault();
+      renderAiSearchResults(event.target.value, { useGemini: true });
+    }
   });
   $$(".ai-example").forEach((button) => {
     button.addEventListener("click", () => {
