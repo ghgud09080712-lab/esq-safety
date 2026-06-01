@@ -6,6 +6,7 @@ const state = {
   addingDetail: false,
   editingDetailId: "",
   expandedDetailIds: new Set(),
+  currentRefreshChanged: 0,
   selectedChangeId: ""
 };
 
@@ -295,7 +296,7 @@ function renderDashboard() {
   const changes = pendingChanges();
   const lastLog = (state.data.refreshLogs || [])[0];
   $("#totalCount").textContent = records.length;
-  $("#changeCount").textContent = Number(lastLog?.changed || 0);
+  $("#changeCount").textContent = Number(state.currentRefreshChanged || 0);
   $("#lastChecked").textContent = formatDateTime(lastLog?.at || state.data.updatedAt);
 
   $("#recentChanges").innerHTML = changes.slice(0, 5).map(renderChangeItem).join("") || `<div class="empty">아직 검토할 변경 법규가 없습니다.</div>`;
@@ -703,6 +704,7 @@ async function refreshLaws() {
       method: "POST",
       body: JSON.stringify({ oc })
     });
+    state.currentRefreshChanged = Number(result.log?.changed || 0);
     state.data = { ...state.data, records: result.records, changes: result.changes, updatedAt: result.updatedAt, refreshLogs: [result.log, ...(state.data.refreshLogs || [])] };
     render();
     const message = `새로고침 성공: 확인 ${result.log.checked}건 · 자동등록 ${result.log.changed}건 · 오류 ${result.log.errors.length}건`;
