@@ -1414,7 +1414,7 @@ function buildLocalLegalAiAnswer(question, candidates, registryRecords, reason =
   return {
     ok: true,
     model: "local-fallback",
-    answer: `Gemini 연결 없이 법규등록부 기준으로 답변합니다. "${question}"은 (주)오영의 염료 제조, 화학물질 취급, 작업환경 또는 환경 배출 관리와 연결될 수 있으므로 아래 법규와 현장 조치를 우선 확인하세요.`,
+    answer: `오영 법규등록부 기준으로 답변합니다. "${question}"은 (주)오영의 염료 제조, 화학물질 취급, 작업환경 또는 환경 배출 관리와 연결될 수 있으므로 아래 법규와 현장 조치를 우선 확인하세요.`,
     recommendedLaws: recommended,
     siteRisks: [
       "염료 분말, 화학물질, 용제, 폐수, 대기배출시설 등 현장 위험요인과 연결되는지 확인",
@@ -1430,7 +1430,7 @@ function buildLocalLegalAiAnswer(question, candidates, registryRecords, reason =
       "사람 노출인지, 환경 배출인지, 인허가/신고 사항인지 구분",
       "최근 새로고침으로 시행일 변경이 잡혔는지 확인"
     ],
-    caution: reason ? `Gemini 답변 대신 기본 답변을 표시했습니다. 사유: ${reason}` : "Gemini API 키가 없어서 기본 답변을 표시했습니다."
+    caution: reason ? `오영 기본 답변을 표시했습니다. 사유: ${reason}` : "AI API 키가 없어서 오영 기본 답변을 표시했습니다."
   };
 }
 
@@ -1460,7 +1460,7 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
     const config = await readSafetyConfig();
     const apiKey = getSafetyGeminiApiKey(config);
     if (!apiKey) {
-      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "Gemini API 키가 서버에 설정되지 않았습니다."));
+      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "AI API 키가 서버에 설정되지 않았습니다."));
     }
 
     const prompt = [
@@ -1485,18 +1485,18 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
 
     const result = await requestSafetyGeminiText(apiKey, prompt).catch((error) => null);
     if (!result) {
-      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "Gemini 호출에 실패했습니다."));
+      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "AI 답변 생성에 실패했습니다."));
     }
     let parsed = null;
     try {
       parsed = JSON.parse(result.text || "{}");
     } catch {
-      parsed = { answer: result.text || "", recommendedLaws: [], checkpoints: [], caution: "Gemini 응답을 JSON으로 해석하지 못했습니다." };
+      parsed = { answer: result.text || "", recommendedLaws: [], checkpoints: [], caution: "AI 응답을 JSON으로 해석하지 못했습니다." };
     }
 
     res.json({ ok: true, model: result.model, ...parsed });
   } catch (error) {
-    res.status(500).json({ ok: false, message: error.message || "Gemini 답변 생성에 실패했습니다." });
+    res.status(500).json({ ok: false, message: error.message || "AI 답변 생성에 실패했습니다." });
   }
 });
 

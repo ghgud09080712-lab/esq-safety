@@ -647,7 +647,7 @@ async function renderAiSearchResults(query, options = {}) {
   const loadingText = matches.length
     ? `관련 법령 후보 ${matches.length}건과 등록부 전체를 함께 참고해서 답변을 작성 중입니다.`
     : "키워드가 딱 맞지 않아도 질문 의도를 먼저 해석해서 관련 법규와 현장 조치를 찾는 중입니다.";
-  const loading = appendAiMessage("assistant", `<strong>Gemini 법규 도우미</strong><p>${escapeHtml(loadingText)}</p>`, "loading");
+  const loading = appendAiMessage("assistant", `<strong>오영 법규 도우미</strong><p>${escapeHtml(loadingText)}</p>`, "loading");
   try {
     const payload = await requestJson("/api/legal-registry/ai-answer", {
       method: "POST",
@@ -665,7 +665,7 @@ async function renderAiSearchResults(query, options = {}) {
     });
     loading.classList.remove("loading");
     loading.innerHTML = `
-      <strong>Gemini 답변</strong>
+      <strong>오영 법규 답변</strong>
       <p>${escapeHtml(payload.answer || "답변을 생성하지 못했습니다.")}</p>
       ${(payload.recommendedLaws || []).length ? `<p><b>관련 법령</b></p><ul>${(payload.recommendedLaws || []).map((item) => `<li>${escapeHtml(item.lawName || "")}${item.reason ? `: ${escapeHtml(item.reason)}` : ""}</li>`).join("")}</ul>` : renderLawMiniList(matches)}
       ${(payload.siteRisks || []).length ? `<p><b>오영 염료 제조업 기준 위험요인</b></p><ul>${(payload.siteRisks || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
@@ -676,7 +676,7 @@ async function renderAiSearchResults(query, options = {}) {
   } catch (error) {
     loading.classList.remove("loading");
     loading.innerHTML = `
-      <strong>Gemini 답변 생성 실패</strong>
+      <strong>오영 법규 답변 생성 실패</strong>
       <p>${escapeHtml(error.message)}</p>
       <p>대신 관련 법령 후보를 먼저 보여드립니다.</p>
       ${renderLawMiniList(matches)}

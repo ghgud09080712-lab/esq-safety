@@ -770,6 +770,7 @@ th {
 }
 
 .ai-search-panel {
+  position: relative;
   display: grid;
   gap: 14px;
   height: min(780px, calc(100vh - 150px));
@@ -777,6 +778,44 @@ th {
   padding: 0;
   overflow: hidden;
   background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+}
+
+.ai-search-panel::before,
+.ai-search-panel::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  border: 1px solid rgba(32, 90, 168, .14);
+  background:
+    linear-gradient(90deg, rgba(32, 90, 168, .12) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(32, 90, 168, .10) 0 1px, transparent 1px 100%),
+    rgba(255, 255, 255, .62);
+  background-size: 14px 14px;
+  box-shadow: 0 18px 36px rgba(19, 63, 115, .08);
+  animation: ai-float 7s ease-in-out infinite;
+}
+
+.ai-search-panel::before {
+  width: 112px;
+  height: 72px;
+  right: 24px;
+  top: 76px;
+  border-radius: 18px 18px 18px 6px;
+}
+
+.ai-search-panel::after {
+  width: 78px;
+  height: 52px;
+  left: 32px;
+  bottom: 156px;
+  border-radius: 16px 16px 6px 16px;
+  animation-delay: -3.4s;
+}
+
+.ai-search-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .ai-panel-head {
@@ -873,6 +912,7 @@ th {
 }
 
 .ai-chat {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -881,12 +921,15 @@ th {
   border: 0;
   border-radius: 0;
   background:
-    radial-gradient(circle at top left, rgba(32, 90, 168, .08), transparent 28%),
+    linear-gradient(90deg, rgba(32, 90, 168, .045) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(32, 90, 168, .04) 1px, transparent 1px),
     linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  background-size: 28px 28px, 28px 28px, auto;
   padding: 18px 20px;
 }
 
 .ai-message {
+  position: relative;
   width: min(780px, 92%);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -895,22 +938,57 @@ th {
   box-shadow: 0 10px 24px rgba(19, 63, 115, .06);
 }
 
+.ai-message::before {
+  position: absolute;
+  top: 6px;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  box-shadow: 0 10px 18px rgba(19, 63, 115, .14);
+}
+
 .ai-message.user {
   align-self: flex-end;
   max-width: min(680px, 88%);
+  margin-right: 46px;
   background: #205aa8;
   border-color: #205aa8;
   color: #fff;
   border-bottom-right-radius: 4px;
 }
 
+.ai-message.user::before {
+  content: "나";
+  right: -46px;
+  background: #205aa8;
+  color: #ffffff;
+}
+
 .ai-message.assistant {
   align-self: flex-start;
+  margin-left: 46px;
   border-bottom-left-radius: 4px;
+}
+
+.ai-message.assistant::before {
+  content: "OY";
+  left: -46px;
+  border: 1px solid #b9d3f2;
+  background: #ffffff;
+  color: #205aa8;
 }
 
 .ai-message.loading {
   color: var(--text-dim);
+}
+
+.ai-message.loading::before {
+  animation: ai-bot-pulse 1.2s ease-in-out infinite;
 }
 
 .ai-message strong {
@@ -1072,6 +1150,16 @@ body.is-refreshing #topRefreshBtn {
 
 @keyframes refresh-spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes ai-float {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: .56; }
+  50% { transform: translate3d(0, -14px, 0); opacity: .86; }
+}
+
+@keyframes ai-bot-pulse {
+  0%, 100% { transform: translateY(0); box-shadow: 0 10px 18px rgba(19, 63, 115, .14); }
+  50% { transform: translateY(-3px); box-shadow: 0 16px 24px rgba(32, 90, 168, .20); }
 }
 
 .modal-backdrop {
@@ -1573,6 +1661,15 @@ body.is-refreshing #topRefreshBtn {
     height: calc(100dvh - 138px);
     gap: 10px;
   }
+  .ai-search-panel::before {
+    width: 76px;
+    height: 48px;
+    right: 10px;
+    top: 54px;
+  }
+  .ai-search-panel::after {
+    display: none;
+  }
   .ai-panel-head {
     display: none;
   }
@@ -1581,12 +1678,29 @@ body.is-refreshing #topRefreshBtn {
     gap: 10px;
   }
   .ai-message {
-    width: 94%;
+    width: calc(100% - 38px);
     padding: 12px;
     border-radius: 10px;
   }
+  .ai-message::before {
+    width: 28px;
+    height: 28px;
+    top: 8px;
+    border-radius: 9px;
+    font-size: 10px;
+  }
   .ai-message.user {
-    max-width: 90%;
+    max-width: calc(100% - 38px);
+    margin-right: 38px;
+  }
+  .ai-message.user::before {
+    right: -38px;
+  }
+  .ai-message.assistant {
+    margin-left: 38px;
+  }
+  .ai-message.assistant::before {
+    left: -38px;
   }
   .ai-example-row {
     flex-wrap: nowrap;
