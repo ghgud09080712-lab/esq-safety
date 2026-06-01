@@ -1114,6 +1114,8 @@ th {
   justify-items: end;
   gap: 12px;
   pointer-events: none;
+  touch-action: none;
+  user-select: none;
 }
 
 .floating-ai > * {
@@ -1135,6 +1137,7 @@ th {
   box-shadow: 0 18px 38px rgba(19, 63, 115, .20);
   cursor: pointer;
   animation: floating-ai-bob 4.6s ease-in-out infinite;
+  touch-action: none;
 }
 
 .floating-ai-toggle img {
@@ -1160,6 +1163,15 @@ th {
   box-shadow: 0 28px 70px rgba(15, 23, 42, .25);
 }
 
+.floating-ai.dragging .floating-ai-toggle,
+.floating-ai.dragging .floating-ai-head {
+  cursor: grabbing;
+}
+
+.floating-ai.dragging .floating-ai-toggle {
+  animation-play-state: paused;
+}
+
 .floating-ai-panel[hidden] {
   display: none;
 }
@@ -1172,6 +1184,8 @@ th {
   padding: 14px 14px 12px 18px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+  cursor: grab;
+  touch-action: none;
 }
 
 .floating-ai-head span {

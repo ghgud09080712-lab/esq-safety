@@ -14,6 +14,17 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const VALID_HISTORY_VIEWS = new Set(["dashboard", "registry", "detailSheets", "changes"]);
 let restoringHistory = false;
+const FLOATING_AI_POSITION_KEY = "ohyoungLegalFloatingAiPosition";
+const floatingAiDrag = {
+  active: false,
+  moved: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  originLeft: 0,
+  originTop: 0,
+  suppressClick: false
+};
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -1006,6 +1017,100 @@ function openSelectedChangeLaw() {
   if (change) openLaw(change.lawName);
 }
 
+function floatingAiBounds(element) {
+  const rect = element.getBoundingClientRect();
+  const margin = window.innerWidth <= 700 ? 12 : 18;
+  return {
+    maxLeft: Math.max(margin, window.innerWidth - rect.width - margin),
+    maxTop: Math.max(margin, window.innerHeight - rect.height - margin),
+    margin
+  };
+}
+
+function moveFloatingAi(left, top, save = true) {
+  const floating = $("#floatingAi");
+  if (!floating) return;
+  const bounds = floatingAiBounds(floating);
+  const nextLeft = Math.min(Math.max(bounds.margin, left), bounds.maxLeft);
+  const nextTop = Math.min(Math.max(bounds.margin, top), bounds.maxTop);
+  floating.style.left = `${nextLeft}px`;
+  floating.style.top = `${nextTop}px`;
+  floating.style.right = "auto";
+  floating.style.bottom = "auto";
+  if (save) {
+    localStorage.setItem(FLOATING_AI_POSITION_KEY, JSON.stringify({ left: nextLeft, top: nextTop }));
+  }
+}
+
+function restoreFloatingAiPosition() {
+  const floating = $("#floatingAi");
+  if (!floating) return;
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(FLOATING_AI_POSITION_KEY) || "null");
+  } catch {
+    saved = null;
+  }
+  if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) return;
+  requestAnimationFrame(() => moveFloatingAi(saved.left, saved.top, false));
+}
+
+function startFloatingAiDrag(event) {
+  if (event.button !== undefined && event.button !== 0) return;
+  if (event.target.closest("button, textarea, input") && !event.target.closest("#floatingAiToggle")) return;
+  const floating = $("#floatingAi");
+  if (!floating) return;
+  const rect = floating.getBoundingClientRect();
+  floatingAiDrag.active = true;
+  floatingAiDrag.moved = false;
+  floatingAiDrag.pointerId = event.pointerId;
+  floatingAiDrag.startX = event.clientX;
+  floatingAiDrag.startY = event.clientY;
+  floatingAiDrag.originLeft = rect.left;
+  floatingAiDrag.originTop = rect.top;
+  floating.classList.add("dragging");
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+
+function moveFloatingAiDrag(event) {
+  if (!floatingAiDrag.active || floatingAiDrag.pointerId !== event.pointerId) return;
+  const dx = event.clientX - floatingAiDrag.startX;
+  const dy = event.clientY - floatingAiDrag.startY;
+  if (Math.abs(dx) + Math.abs(dy) > 5) floatingAiDrag.moved = true;
+  if (!floatingAiDrag.moved) return;
+  event.preventDefault();
+  moveFloatingAi(floatingAiDrag.originLeft + dx, floatingAiDrag.originTop + dy);
+}
+
+function endFloatingAiDrag(event) {
+  if (!floatingAiDrag.active || floatingAiDrag.pointerId !== event.pointerId) return;
+  $("#floatingAi")?.classList.remove("dragging");
+  floatingAiDrag.active = false;
+  floatingAiDrag.pointerId = null;
+  floatingAiDrag.suppressClick = floatingAiDrag.moved;
+  window.setTimeout(() => {
+    floatingAiDrag.suppressClick = false;
+  }, 0);
+}
+
+function bindFloatingAiDrag() {
+  const toggle = $("#floatingAiToggle");
+  const head = $(".floating-ai-head");
+  [toggle, head].filter(Boolean).forEach((handle) => {
+    handle.addEventListener("pointerdown", startFloatingAiDrag);
+    handle.addEventListener("pointermove", moveFloatingAiDrag);
+    handle.addEventListener("pointerup", endFloatingAiDrag);
+    handle.addEventListener("pointercancel", endFloatingAiDrag);
+  });
+  window.addEventListener("resize", () => {
+    const floating = $("#floatingAi");
+    if (!floating || floating.style.left === "") return;
+    const rect = floating.getBoundingClientRect();
+    moveFloatingAi(rect.left, rect.top);
+  });
+  restoreFloatingAiPosition();
+}
+
 function setFloatingAiOpen(isOpen) {
   const panel = $("#floatingAiPanel");
   const toggle = $("#floatingAiToggle");
@@ -1014,6 +1119,7 @@ function setFloatingAiOpen(isOpen) {
   toggle.setAttribute("aria-expanded", String(isOpen));
   $("#floatingAi")?.classList.toggle("open", isOpen);
   if (isOpen) {
+    restoreFloatingAiPosition();
     window.setTimeout(() => $("#floatingAiLawQuery")?.focus(), 50);
     scrollAiChatToBottom({ surface: "floating" });
   }
@@ -1049,7 +1155,11 @@ function bindEvents() {
     renderDetailSheets();
     $("#detailSheetRows")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  $("#floatingAiToggle")?.addEventListener("click", () => setFloatingAiOpen($("#floatingAiPanel")?.hidden));
+  bindFloatingAiDrag();
+  $("#floatingAiToggle")?.addEventListener("click", () => {
+    if (floatingAiDrag.suppressClick) return;
+    setFloatingAiOpen($("#floatingAiPanel")?.hidden);
+  });
   $("#floatingAiClose")?.addEventListener("click", () => setFloatingAiOpen(false));
   $("#floatingAiLawSearchBtn")?.addEventListener("click", () => submitAiQuestion("#floatingAiLawQuery", "floating"));
   $("#floatingAiLawQuery")?.addEventListener("keydown", (event) => {
