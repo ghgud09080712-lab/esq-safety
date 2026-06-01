@@ -1267,15 +1267,16 @@ app.post("/api/legal-registry/refresh", async (req, res) => {
         appliedAt: autoAppliedAt
       }));
     const existingChangeKeys = new Set((data.changes || []).map((item) => `${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`));
+    const newChanges = pendingChanges.filter((item) => !existingChangeKeys.has(`${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`));
     const changes = [
-      ...pendingChanges.filter((item) => !existingChangeKeys.has(`${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`)),
+      ...newChanges,
       ...(data.changes || [])
     ];
     const log = {
       at: new Date().toISOString(),
       ok: errors.length === 0,
       checked: checked.length,
-      changed: pendingChanges.length,
+      changed: newChanges.length,
       errors
     };
     const payload = {
