@@ -1374,6 +1374,62 @@ app.get("/api/legal-registry/change-content/:id", async (req, res) => {
   }
 });
 
+function isRefreshUpdateQuestion(question) {
+  const normalized = normalizeLawName(question);
+  const refreshWords = ["새로고침", "업데이트", "오늘", "방금", "이번", "최근", "현재", "수정", "변경", "바뀐", "변경이력"];
+  const targetWords = ["법규", "법령", "등록부", "업데이트", "변경", "수정", "바뀐"];
+  return refreshWords.some((word) => normalized.includes(normalizeLawName(word)))
+    && targetWords.some((word) => normalized.includes(normalizeLawName(word)));
+}
+
+function displayRefreshDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return compactText(value);
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}. ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function buildRefreshUpdateAiAnswer(refreshChanges, lastRefreshLog) {
+  const changes = Array.isArray(refreshChanges) ? refreshChanges : [];
+  const checked = Number(lastRefreshLog?.checked || 0);
+  const changed = Number(lastRefreshLog?.changed ?? changes.length);
+  const refreshedAt = displayRefreshDateTime(lastRefreshLog?.at);
+
+  if (!changes.length) {
+    return {
+      ok: true,
+      model: "refresh-log",
+      answer: `${refreshedAt ? `${refreshedAt} 새로고침 기준으로 ` : "이번 새로고침 기준으로 "}새로 잡힌 변경 법규는 없습니다.${checked ? ` 총 ${checked}건을 확인했고 변경이력 신규 등록은 0건입니다.` : ""}`,
+      recommendedLaws: [],
+      siteRisks: [],
+      actionPlan: ["필요하면 상단 새로고침을 다시 눌러 최신 법제처 시행일을 확인하세요."],
+      checkpoints: ["이 답변은 현재 화면에서 마지막으로 실행한 새로고침 결과만 기준으로 합니다."],
+      caution: "법규 일반 검색이 아니라 이번 새로고침 변경이력을 기준으로 답변했습니다."
+    };
+  }
+
+  return {
+    ok: true,
+    model: "refresh-log",
+    answer: `${refreshedAt ? `${refreshedAt} 새로고침 기준으로 ` : "이번 새로고침 기준으로 "}수정/업데이트된 법규는 ${changed || changes.length}건입니다. 아래 법규들이 법제처 최신 시행일과 등록부 시행일이 달라 자동 변경이력으로 잡혔습니다.`,
+    recommendedLaws: changes.map((change) => ({
+      lawName: compactText(change.lawName),
+      reason: `등록 시행일 ${displayLawDate(change.previousEffectiveDate) || "-"} -> 최신 시행일 ${displayLawDate(change.effectiveDate) || "-"}${change.promulgationDate ? `, 공포일 ${displayLawDate(change.promulgationDate)}` : ""}`
+    })),
+    siteRisks: [],
+    actionPlan: [
+      "변경이력 탭에서 각 법규의 상세 버튼을 눌러 변경 조문을 확인하세요.",
+      "당사 적용사항에 영향이 있는 법규는 법규등록부 1~5 내용과 작업표준, 허가/신고, 교육자료 반영 여부를 확인하세요."
+    ],
+    checkpoints: [
+      "이 목록은 현재 화면에서 마지막으로 누른 새로고침에서 새로 감지된 변경분입니다.",
+      "이미 과거에 등록된 같은 시행일 변경분은 중복 집계하지 않습니다."
+    ],
+    caution: "법규 일반 검색이 아니라 이번 새로고침 변경이력을 기준으로 답변했습니다."
+  };
+}
+
 function buildLocalLegalAiAnswer(question, candidates, registryRecords, reason = "") {
   const normalizedQuestion = compactText(question).toLowerCase();
   const fallbackKeywords = [
@@ -1440,6 +1496,12 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
     if (!question) return res.status(400).json({ ok: false, message: "질문을 입력하세요." });
 
     const registry = await readLegalRegistry();
+    const refreshChanges = Array.isArray(req.body?.refreshChanges) ? req.body.refreshChanges : [];
+    const lastRefreshLog = req.body?.lastRefreshLog && typeof req.body.lastRefreshLog === "object" ? req.body.lastRefreshLog : null;
+    if (req.body?.refreshQuestion || isRefreshUpdateQuestion(question)) {
+      return res.json(buildRefreshUpdateAiAnswer(refreshChanges, lastRefreshLog));
+    }
+
     const requestedCandidates = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
     const registryRecords = Array.isArray(registry.records) ? registry.records : [];
     const candidates = requestedCandidates.length

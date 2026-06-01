@@ -578,6 +578,42 @@ function findAiLawMatches(query) {
     .slice(0, 8);
 }
 
+function isRefreshUpdateQuestion(query) {
+  const text = normalizeSearchText(query);
+  const refreshWords = ["새로고침", "업데이트", "오늘", "방금", "이번", "최근", "현재", "수정", "변경", "바뀐", "변경이력"];
+  const targetWords = ["법규", "법령", "등록부", "업데이트", "변경", "수정", "바뀐"];
+  return refreshWords.some((word) => text.includes(normalizeSearchText(word)))
+    && targetWords.some((word) => text.includes(normalizeSearchText(word)));
+}
+
+function currentRefreshChanges() {
+  const count = Math.max(0, Number(state.currentRefreshChanged || 0));
+  if (!count) return [];
+  return (state.data.changes || []).slice(0, count);
+}
+
+function renderAiRefreshChangeResults(changes) {
+  if (!changes.length) {
+    return `<div class="empty">이번 새로고침에서 새로 잡힌 변경 법규가 없습니다.</div>`;
+  }
+  return changes.map((change) => `
+    <article class="ai-result-card">
+      <div>
+        <h3>${escapeHtml(change.lawName || "")}</h3>
+        <p>등록 시행일 ${escapeHtml(formatLawDate(change.previousEffectiveDate))} -> 최신 시행일 ${escapeHtml(formatLawDate(change.effectiveDate))}${change.promulgationDate ? ` · 공포일 ${escapeHtml(formatLawDate(change.promulgationDate))}` : ""}</p>
+        <div class="ai-result-tags">
+          <span>이번 새로고침</span>
+          <span>${escapeHtml(change.summary || "변경 법규")}</span>
+        </div>
+      </div>
+      <div class="change-actions">
+        <button class="btn small" data-detail="${escapeHtml(change.id)}" type="button">상세</button>
+        <button class="btn small" data-ai-open="${escapeHtml(change.lawName || "")}" type="button">원문</button>
+      </div>
+    </article>
+  `).join("");
+}
+
 function scrollAiChatToBottom() {
   const chat = $("#aiChatLog");
   if (chat) chat.scrollTop = chat.scrollHeight;
@@ -622,8 +658,24 @@ async function renderAiSearchResults(query, options = {}) {
     if (input) input.value = "";
   }
 
-  const matches = findAiLawMatches(cleanQuery);
-  if (!matches.length) {
+  const wantsRefreshUpdates = isRefreshUpdateQuestion(cleanQuery);
+  const refreshChanges = currentRefreshChanges();
+  const matches = wantsRefreshUpdates
+    ? refreshChanges.map((change) => ({
+        record: {
+          lawName: change.lawName,
+          group: "이번 새로고침",
+          no: "",
+          officialEffectiveDate: change.effectiveDate,
+          registeredEffectiveDate: change.previousEffectiveDate
+        },
+        reasons: ["이번 새로고침", "변경 법규"],
+        score: 999
+      }))
+    : findAiLawMatches(cleanQuery);
+  if (wantsRefreshUpdates && results) {
+    results.innerHTML = renderAiRefreshChangeResults(refreshChanges);
+  } else if (!matches.length) {
     if (results) results.innerHTML = "";
   } else if (results) {
     results.innerHTML = matches.map(({ record, reasons, score }) => `
@@ -659,7 +711,19 @@ async function renderAiSearchResults(query, options = {}) {
           effectiveDate: record.officialEffectiveDate || record.registeredEffectiveDate,
           reasons,
           score
-        }))
+        })),
+        lastRefreshLog: (state.data.refreshLogs || [])[0] || null,
+        refreshChanges: refreshChanges.map((change) => ({
+          lawName: change.lawName,
+          previousEffectiveDate: change.previousEffectiveDate,
+          effectiveDate: change.effectiveDate,
+          promulgationDate: change.promulgationDate,
+          checkedAt: change.checkedAt,
+          appliedAt: change.appliedAt,
+          summary: change.summary,
+          status: change.status
+        })),
+        refreshQuestion: wantsRefreshUpdates
       })
     });
     loading.classList.remove("loading");
