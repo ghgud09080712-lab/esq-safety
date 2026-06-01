@@ -948,6 +948,67 @@ th {
 .toast.success { background: var(--success); }
 .toast.error { background: var(--danger); }
 
+.refresh-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, .28);
+}
+
+.refresh-overlay[hidden] {
+  display: none;
+}
+
+.refresh-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid #b9d3f2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 16px 18px;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, .24);
+}
+
+.refresh-card strong {
+  display: block;
+  color: #123863;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.refresh-card p {
+  margin-top: 5px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.refresh-spinner {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 4px solid #dbeafe;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: refresh-spin .8s linear infinite;
+}
+
+body.is-refreshing .mobile-refresh-nav,
+body.is-refreshing #refreshBtn,
+body.is-refreshing #topRefreshBtn {
+  opacity: .72;
+}
+
+@keyframes refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

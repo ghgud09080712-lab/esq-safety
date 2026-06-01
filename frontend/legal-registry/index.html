@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-mobile-refresh">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260601-refresh-busy">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -161,6 +161,15 @@
     </section>
   </div>
   <div class="toast" id="toast" hidden></div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-mobile-refresh"></script>
+  <div class="refresh-overlay" id="refreshOverlay" hidden>
+    <div class="refresh-card">
+      <span class="refresh-spinner" aria-hidden="true"></span>
+      <div>
+        <strong>법규 새로고침 중</strong>
+        <p>법제처 최신 시행일과 변경 이력을 확인하고 있습니다.</p>
+      </div>
+    </div>
+  </div>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260601-refresh-busy"></script>
 </body>
 </html>

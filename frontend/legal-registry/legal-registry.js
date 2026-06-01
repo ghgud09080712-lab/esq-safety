@@ -117,6 +117,27 @@ function setStatus(message) {
   $("#statusBox").textContent = message;
 }
 
+function setRefreshBusy(isBusy) {
+  const refreshOverlay = $("#refreshOverlay");
+  const refreshBtn = $("#refreshBtn");
+  const topRefreshBtn = $("#topRefreshBtn");
+  const mobileRefreshBtn = $("#mobileRefreshBtn");
+  document.body.classList.toggle("is-refreshing", isBusy);
+  if (refreshOverlay) refreshOverlay.hidden = !isBusy;
+  if (refreshBtn) {
+    refreshBtn.disabled = isBusy;
+    refreshBtn.textContent = isBusy ? "확인 중..." : "새로고침";
+  }
+  if (topRefreshBtn) {
+    topRefreshBtn.disabled = isBusy;
+    topRefreshBtn.textContent = isBusy ? "확인 중..." : "새로고침";
+  }
+  if (mobileRefreshBtn) {
+    mobileRefreshBtn.disabled = isBusy;
+    mobileRefreshBtn.textContent = isBusy ? "확인 중..." : "새로고침";
+  }
+}
+
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -674,10 +695,9 @@ function render() {
 async function refreshLaws() {
   const oc = $("#ocInput").value.trim();
   setStatus(oc ? "법제처 최신 정보를 확인 중입니다." : "저장된 API 인증값으로 법제처 최신 정보를 확인 중입니다.");
-  $("#refreshBtn").disabled = true;
-  $("#topRefreshBtn").disabled = true;
-  const mobileRefreshBtn = $("#mobileRefreshBtn");
-  if (mobileRefreshBtn) mobileRefreshBtn.disabled = true;
+  showResult("법규 새로고침 중입니다. 법제처 최신 시행일과 변경 이력을 확인하고 있습니다.", "success");
+  showToast("법규 새로고침을 시작했습니다.", "success");
+  setRefreshBusy(true);
   try {
     const result = await requestJson("/api/legal-registry/refresh", {
       method: "POST",
@@ -694,9 +714,7 @@ async function refreshLaws() {
     showResult(`새로고침 실패: ${error.message}`, "error");
     showToast(error.message, "error");
   } finally {
-    $("#refreshBtn").disabled = false;
-    $("#topRefreshBtn").disabled = false;
-    if (mobileRefreshBtn) mobileRefreshBtn.disabled = false;
+    setRefreshBusy(false);
   }
 }
 
