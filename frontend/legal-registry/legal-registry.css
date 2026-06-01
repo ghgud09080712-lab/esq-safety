@@ -940,10 +940,10 @@ th {
 
 .ai-message::before {
   position: absolute;
-  top: 6px;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+  top: 4px;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   font-size: 11px;
@@ -955,7 +955,7 @@ th {
 .ai-message.user {
   align-self: flex-end;
   max-width: min(680px, 88%);
-  margin-right: 46px;
+  margin-right: 50px;
   background: #205aa8;
   border-color: #205aa8;
   color: #fff;
@@ -964,23 +964,27 @@ th {
 
 .ai-message.user::before {
   content: "나";
-  right: -46px;
+  right: -50px;
   background: #205aa8;
   color: #ffffff;
 }
 
 .ai-message.assistant {
   align-self: flex-start;
-  margin-left: 46px;
+  margin-left: 54px;
   border-bottom-left-radius: 4px;
 }
 
 .ai-message.assistant::before {
-  content: "OY";
-  left: -46px;
+  content: "";
+  left: -54px;
   border: 1px solid #b9d3f2;
-  background: #ffffff;
-  color: #205aa8;
+  background:
+    #ffffff
+    url("/frontend/legal-registry/assets/ai-law-bot.png")
+    center / 92% auto
+    no-repeat;
+  color: transparent;
 }
 
 .ai-message.loading {
@@ -1683,24 +1687,24 @@ body.is-refreshing #topRefreshBtn {
     border-radius: 10px;
   }
   .ai-message::before {
-    width: 28px;
-    height: 28px;
-    top: 8px;
-    border-radius: 9px;
+    width: 34px;
+    height: 34px;
+    top: 7px;
+    border-radius: 12px;
     font-size: 10px;
   }
   .ai-message.user {
     max-width: calc(100% - 38px);
-    margin-right: 38px;
+    margin-right: 42px;
   }
   .ai-message.user::before {
-    right: -38px;
+    right: -42px;
   }
   .ai-message.assistant {
-    margin-left: 38px;
+    margin-left: 42px;
   }
   .ai-message.assistant::before {
-    left: -38px;
+    left: -42px;
   }
   .ai-example-row {
     flex-wrap: nowrap;
