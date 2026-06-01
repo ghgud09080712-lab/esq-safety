@@ -1145,7 +1145,7 @@ th {
 }
 
 .floating-ai.open .floating-ai-toggle {
-  animation-play-state: paused;
+  display: none;
 }
 
 .floating-ai-panel {
