@@ -97,6 +97,7 @@ let typeReportMonthFilter = "all";
 let nearMissRiskPickYear = "";
 let nearMissRiskPickMonth = "";
 let nearMissRiskPickCount = 2;
+let nearMissRiskPickVisible = false;
 let nearMissFormMode = "form";
 let nearMissFormDraft = null;
 let safetySettings = { departmentStamps: {} };
@@ -2696,26 +2697,30 @@ function renderNearMissRiskPicks(sourceRows) {
   const pickCount = Math.max(1, Math.min(5, Number(nearMissRiskPickCount) || 2));
 
   if (yearSelect) {
-    const current = yearSelect.value;
     yearSelect.innerHTML = [
       `<option value="">자동</option>`,
       ...yearOptions.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}년</option>`)
     ].join("");
     yearSelect.value = nearMissRiskPickYear && yearOptions.includes(nearMissRiskPickYear)
       ? nearMissRiskPickYear
-      : (current && yearOptions.includes(current) ? current : "");
+      : "";
   }
   if (monthSelect) {
-    const current = monthSelect.value;
     monthSelect.innerHTML = [
       `<option value="">자동</option>`,
       ...monthOptions.map((month) => `<option value="${escapeHtml(month)}">${escapeHtml(month)}</option>`)
     ].join("");
     monthSelect.value = nearMissRiskPickMonth && monthOptions.includes(nearMissRiskPickMonth)
       ? nearMissRiskPickMonth
-      : (current && monthOptions.includes(current) ? current : "");
+      : "";
   }
   if (countSelect) countSelect.value = String(pickCount);
+
+  if (!nearMissRiskPickVisible) {
+    caption.textContent = "등록연도, 등록월, 갯수를 선택한 뒤 추천보기를 누르세요.";
+    list.innerHTML = `<div class="risk-pick-empty">조건을 선택하고 추천보기를 누르면 별도 위험성평가 등록 추천 항목이 표시됩니다.</div>`;
+    return;
+  }
 
   const picks = getMonthlyRiskAssessmentPicks(nearMissSourceRows, pickCount, selectedMonth, selectedYear, false);
   const monthHint = picks.sourceCount
@@ -5581,17 +5586,28 @@ function bindUiHandlers() {
 
   $("#nearMissRiskPickMonthSelect")?.addEventListener("change", (event) => {
     nearMissRiskPickMonth = event.target.value || "";
+    nearMissRiskPickVisible = false;
     renderNearMiss();
   });
 
   $("#nearMissRiskPickYearSelect")?.addEventListener("change", (event) => {
     nearMissRiskPickYear = event.target.value || "";
     nearMissRiskPickMonth = "";
+    nearMissRiskPickVisible = false;
     renderNearMiss();
   });
 
   $("#nearMissRiskPickCountSelect")?.addEventListener("change", (event) => {
     nearMissRiskPickCount = Math.max(1, Math.min(5, Number(event.target.value) || 2));
+    nearMissRiskPickVisible = false;
+    renderNearMiss();
+  });
+
+  $("#nearMissRiskPickShowBtn")?.addEventListener("click", () => {
+    nearMissRiskPickYear = $("#nearMissRiskPickYearSelect")?.value || "";
+    nearMissRiskPickMonth = $("#nearMissRiskPickMonthSelect")?.value || "";
+    nearMissRiskPickCount = Math.max(1, Math.min(5, Number($("#nearMissRiskPickCountSelect")?.value) || 2));
+    nearMissRiskPickVisible = true;
     renderNearMiss();
   });
 
