@@ -2254,11 +2254,18 @@ async function saveRecordsToServer() {
     if (Number(payload.records) !== records.length) {
       throw new Error(`저장 건수 불일치: 서버 ${payload.records ?? "?"}건 / 화면 ${records.length}건`);
     }
+    console.info("safety server save ok:", {
+      records: payload.records,
+      previousRecords: payload.previousRecords,
+      updatedAt: payload.updatedAt,
+      dataDir: payload.dataDir,
+      safetyDataPath: payload.safetyDataPath
+    });
     setAiStatus("\uC800\uC7A5 \uC644\uB8CC", "success");
     return true;
   } catch (error) {
     console.warn("safety server save failed:", error);
-    setAiStatus("\uC11C\uBC84 \uC800\uC7A5 \uC2E4\uD328: \uBE0C\uB77C\uC6B0\uC800 \uC800\uC7A5\uB9CC \uC644\uB8CC", "error");
+    setAiStatus(`서버 저장 실패: ${error.message || "원인 확인 필요"}`, "error");
     return false;
   }
 }

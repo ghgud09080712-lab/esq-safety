@@ -100,6 +100,17 @@ async function writeJson(filePath, value) {
   await fs.rename(tempPath, filePath);
 }
 
+async function backupJsonFile(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    const backupPath = path.join(path.dirname(filePath), `${path.basename(filePath)}.backup.json`);
+    await fs.writeFile(backupPath, raw, "utf8");
+    return backupPath;
+  } catch {
+    return "";
+  }
+}
+
 function compactText(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
@@ -1860,21 +1871,41 @@ app.put("/api/safety-form-submissions/:id/status", async (req, res) => {
 });
 
 app.put("/api/safety-data", async (req, res) => {
+  const previous = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+  const backupPath = await backupJsonFile(safetyDataPath);
   const payload = {
     records: Array.isArray(req.body?.records) ? req.body.records : [],
     updatedAt: new Date().toISOString()
   };
   await writeJson(safetyDataPath, payload);
-  res.json({ ok: true, records: payload.records.length, updatedAt: payload.updatedAt });
+  res.json({
+    ok: true,
+    records: payload.records.length,
+    previousRecords: Array.isArray(previous.records) ? previous.records.length : 0,
+    updatedAt: payload.updatedAt,
+    dataDir,
+    safetyDataPath,
+    backupPath
+  });
 });
 
 app.post("/api/safety-data", async (req, res) => {
+  const previous = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+  const backupPath = await backupJsonFile(safetyDataPath);
   const payload = {
     records: Array.isArray(req.body?.records) ? req.body.records : [],
     updatedAt: new Date().toISOString()
   };
   await writeJson(safetyDataPath, payload);
-  res.json({ ok: true, records: payload.records.length, updatedAt: payload.updatedAt });
+  res.json({
+    ok: true,
+    records: payload.records.length,
+    previousRecords: Array.isArray(previous.records) ? previous.records.length : 0,
+    updatedAt: payload.updatedAt,
+    dataDir,
+    safetyDataPath,
+    backupPath
+  });
 });
 
 app.use("/assets", express.static(path.join(rootDir, "assets")));
