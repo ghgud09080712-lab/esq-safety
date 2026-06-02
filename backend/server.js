@@ -1153,19 +1153,23 @@ app.post("/api/legal-registry/import-source", async (req, res) => {
 });
 
 function normalizeDetailCardInput(input, existing = {}, index = 0) {
+  const pick = (key, fallback = "") => {
+    const value = pickInputValue(input, existing, key);
+    return value === undefined || value === null ? fallback : value;
+  };
   const card = {
     ...existing,
     id: existing.id || input.id || `DETAIL-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
-    sheetName: compactText(input.sheetName || existing.sheetName || `사용자추가${index + 1}`),
-    category: compactText(input.category || existing.category),
-    lawName: compactText(input.lawName || existing.lawName),
-    issuer: compactText(input.issuer || existing.issuer || "법제처"),
-    channel: compactText(input.channel || existing.channel || "https://www.moleg.go.kr/"),
-    revisionDate: displayLawDate(input.revisionDate || existing.revisionDate),
-    registeredDate: displayLawDate(input.registeredDate || existing.registeredDate),
-    team: compactText(input.team || existing.team || "ESQ"),
-    author: compactText(input.author || existing.author),
-    applicability: compactText(input.applicability || existing.applicability || "■해당 □해당무"),
+    sheetName: compactText(pick("sheetName", `사용자추가${index + 1}`)),
+    category: compactText(pick("category")),
+    lawName: compactText(pick("lawName")),
+    issuer: compactText(pick("issuer", "법제처")),
+    channel: compactText(pick("channel", "https://www.moleg.go.kr/")),
+    revisionDate: displayLawDate(pick("revisionDate")),
+    registeredDate: displayLawDate(pick("registeredDate")),
+    team: compactText(pick("team", "ESQ")),
+    author: compactText(pick("author")),
+    applicability: compactText(pick("applicability", "■해당 □해당무")),
     mainContent: preserveText(pickInputValue(input, existing, "mainContent")),
     companyAction: preserveText(pickInputValue(input, existing, "companyAction")),
     updatedAt: new Date().toISOString()

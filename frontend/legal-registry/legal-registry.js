@@ -15,6 +15,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const VALID_HISTORY_VIEWS = new Set(["dashboard", "registry", "detailSheets", "changes"]);
 let restoringHistory = false;
 const FLOATING_AI_POSITION_KEY = "ohyoungLegalFloatingAiPosition";
+const DATA_SYNC_INTERVAL_MS = 8000;
 const floatingAiDrag = {
   active: false,
   moved: false,
@@ -165,6 +166,31 @@ async function loadData() {
   const sourceInput = $("#sourcePathInput");
   if (sourceInput) sourceInput.value = state.data.sourcePath || "";
   render();
+}
+
+async function syncLatestData(options = {}) {
+  if (state.addingDetail || state.editingDetailId) return;
+  try {
+    const latest = await requestJson("/api/legal-registry");
+    const previousVersion = JSON.stringify({
+      updatedAt: state.data.updatedAt || "",
+      detailCards: state.data.detailCards || [],
+      records: state.data.records || [],
+      changes: state.data.changes || []
+    });
+    const latestVersion = JSON.stringify({
+      updatedAt: latest.updatedAt || "",
+      detailCards: latest.detailCards || [],
+      records: latest.records || [],
+      changes: latest.changes || []
+    });
+    if (previousVersion === latestVersion) return;
+    state.data = latest;
+    render();
+    if (!options.silent) showToast("최신 법규등록부 내용을 반영했습니다.", "success");
+  } catch (error) {
+    if (!options.silent) showToast(error.message, "error");
+  }
 }
 
 function switchView(view, options = {}) {
@@ -867,8 +893,13 @@ async function saveDetailForm(form) {
         method: mode === "edit" ? "PUT" : "POST",
         body: JSON.stringify(payload)
       });
-    state.data.detailCards = result.detailCards || state.data.detailCards;
-    state.data.updatedAt = result.updatedAt || state.data.updatedAt;
+    const latest = await requestJson("/api/legal-registry");
+    state.data = {
+      ...state.data,
+      ...latest,
+      detailCards: result.detailCards || latest.detailCards || state.data.detailCards,
+      updatedAt: result.updatedAt || latest.updatedAt || state.data.updatedAt
+    };
     state.addingDetail = false;
     state.editingDetailId = "";
     if (result.card?.id) state.expandedDetailIds = new Set([result.card.id]);
@@ -1233,6 +1264,7 @@ function bindEvents() {
     if (event.target.id === "changeModal") closeChangeDetail();
   });
   window.addEventListener("resize", fitRegistryTable);
+  window.addEventListener("focus", () => syncLatestData({ silent: true }));
 }
 
 bindEvents();
@@ -1241,3 +1273,4 @@ loadData().catch((error) => {
   setStatus(error.message);
   showToast(error.message);
 });
+window.setInterval(() => syncLatestData({ silent: true }), DATA_SYNC_INTERVAL_MS);
