@@ -5818,7 +5818,9 @@ async function init() {
     const loadedFromServer = await loadRecordsFromServer();
     if (!IS_DEPARTMENT_MODE) await loadFormSubmissions();
     switchView(activeView, { skipSave: true });
-    if (!loadedFromServer && loadedLocalRecordCount > 0) saveRecordsToServer();
+    if (!loadedFromServer && loadedLocalRecordCount > 0) {
+      setAiStatus("서버 데이터 불러오기 실패: 로컬 임시 데이터만 표시 중입니다.", "error");
+    }
   } catch (error) {
     console.error("init failed:", error);
     setAiStatus(`init error: ${error.message}`, "error");

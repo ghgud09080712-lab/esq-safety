@@ -70,8 +70,8 @@ const legalRegistryCompanyProfile = {
   ]
 };
 
-app.use(express.json({ limit: "100mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "500mb" }));
+app.use(express.urlencoded({ extended: true, limit: "500mb" }));
 app.use(async (req, _res, next) => {
   const forwardedFor = req.headers["x-forwarded-for"];
   const ip = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor || req.socket.remoteAddress;
@@ -95,7 +95,9 @@ async function readJson(filePath, fallback) {
 
 async function writeJson(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+  const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
+  await fs.writeFile(tempPath, JSON.stringify(value, null, 2), "utf8");
+  await fs.rename(tempPath, filePath);
 }
 
 function compactText(value) {
@@ -1765,6 +1767,40 @@ app.put("/api/shared-data", async (req, res) => {
 app.get("/api/safety-data", async (_req, res) => {
   const data = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
   res.json(data);
+});
+
+app.get("/api/safety-data/status", async (_req, res) => {
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+    const probePath = path.join(dataDir, `.write-check-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.tmp`);
+    await fs.writeFile(probePath, "ok", "utf8");
+    await fs.unlink(probePath);
+    const data = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+    let stat = null;
+    try {
+      stat = await fs.stat(safetyDataPath);
+    } catch {
+      stat = null;
+    }
+    res.json({
+      ok: true,
+      dataDir,
+      safetyDataPath,
+      writable: true,
+      records: Array.isArray(data.records) ? data.records.length : 0,
+      updatedAt: data.updatedAt || null,
+      fileUpdatedAt: stat ? stat.mtime.toISOString() : null,
+      fileSize: stat ? stat.size : 0
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      dataDir,
+      safetyDataPath,
+      writable: false,
+      message: error.message || "safety data status failed"
+    });
+  }
 });
 
 app.get("/api/safety-settings", async (_req, res) => {
