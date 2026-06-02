@@ -2127,7 +2127,7 @@ function getMonthlyRiskAssessmentPicks(sourceRows, limit = 2, monthOverride = ""
   const month = normalizeRecordMonth(monthOverride) || getCurrentReportMonth();
   const year = normalizeRecordYear(yearOverride) || getCurrentReportYear();
   const reportableRows = sourceRows.filter((row) => row.kind === "nearMiss" || row.kind === "incident");
-  const monthRows = reportableRows.filter((row) => getRecordReportYear(row) === year && getRecordReportMonth(row) === month);
+  const monthRows = reportableRows.filter((row) => getRecordYear(row) === year && getRecordMonth(row) === month);
   const targetRows = monthRows.length || !allowFallback ? monthRows : reportableRows;
   const candidates = targetRows
     .filter((row) => safeText(row.description || row.action).trim())
@@ -2175,25 +2175,25 @@ function riskPickFilteredRows() {
 function getDefaultRiskPickPeriod(sourceRows) {
   const currentYear = getCurrentReportYear();
   const currentMonth = getCurrentReportMonth();
-  if (sourceRows.some((row) => getRecordReportYear(row) === currentYear && getRecordReportMonth(row) === currentMonth)) {
+  if (sourceRows.some((row) => getRecordYear(row) === currentYear && getRecordMonth(row) === currentMonth)) {
     return { year: currentYear, month: currentMonth };
   }
   const periods = sourceRows
-    .map((row) => ({ year: getRecordReportYear(row), month: getRecordReportMonth(row) }))
+    .map((row) => ({ year: getRecordYear(row), month: getRecordMonth(row) }))
     .filter((period) => period.year && period.month)
     .sort((a, b) => Number(b.year) - Number(a.year) || Number(b.month.replace(/\D/g, "")) - Number(a.month.replace(/\D/g, "")));
   return periods[0] || { year: currentYear, month: currentMonth };
 }
 
 function getRiskPickYearOptions(sourceRows) {
-  return Array.from(new Set(sourceRows.map(getRecordReportYear).filter(Boolean)))
+  return Array.from(new Set(sourceRows.map(getRecordYear).filter(Boolean)))
     .sort((a, b) => Number(b) - Number(a));
 }
 
 function getRiskPickMonthOptions(sourceRows, year = "") {
   const targetYear = normalizeRecordYear(year);
-  const filteredRows = targetYear ? sourceRows.filter((row) => getRecordReportYear(row) === targetYear) : sourceRows;
-  return Array.from(new Set(filteredRows.map(getRecordReportMonth).filter(Boolean)))
+  const filteredRows = targetYear ? sourceRows.filter((row) => getRecordYear(row) === targetYear) : sourceRows;
+  return Array.from(new Set(filteredRows.map(getRecordMonth).filter(Boolean)))
     .sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, "")));
 }
 
@@ -2724,15 +2724,15 @@ function renderNearMissRiskPicks(sourceRows) {
   if (countSelect) countSelect.value = String(pickCount);
 
   if (!nearMissRiskPickVisible) {
-    caption.textContent = "등록연도, 등록월, 갯수를 선택한 뒤 추천보기를 누르세요.";
+    caption.textContent = "발생연도, 발생월, 갯수를 선택한 뒤 추천보기를 누르세요.";
     list.innerHTML = `<div class="risk-pick-empty">조건을 선택하고 추천보기를 누르면 별도 위험성평가 등록 추천 항목이 표시됩니다.</div>`;
     return;
   }
 
   const picks = getMonthlyRiskAssessmentPicks(nearMissSourceRows, pickCount, selectedMonth, selectedYear, false);
   const monthHint = picks.sourceCount
-    ? `${picks.year}년 ${picks.month} 등록 기준 ${picks.sourceCount}건 중 별도 위험성평가 추천`
-    : `${picks.year}년 ${picks.month} 등록 자료가 없습니다`;
+    ? `${picks.year}년 ${picks.month} 발생 기준 ${picks.sourceCount}건 중 별도 위험성평가 추천`
+    : `${picks.year}년 ${picks.month} 발생 자료가 없습니다`;
   caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
 
   if (!picks.items.length) {
@@ -2758,7 +2758,7 @@ function renderNearMissRiskPicks(sourceRows) {
         <p class="risk-pick-desc">${escapeHtml(row.description || row.action || "-")}</p>
         <div class="risk-pick-reasons">${reasonChips}</div>
         <div class="risk-pick-foot">
-          <span>추천점수 ${escapeHtml(score)} · 등록 ${escapeHtml(getRecordReportYear(row) || "-")}년 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
+          <span>추천점수 ${escapeHtml(score)} · 발생 ${escapeHtml(getRecordYear(row) || "-")}년 ${escapeHtml(getRecordMonth(row) || "-")}</span>
           <div class="risk-pick-actions">
             <button class="btn small ghost" type="button" data-edit="${escapeHtml(row.id)}">아차사고 보기</button>
             <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
@@ -4213,8 +4213,8 @@ function renderRiskPicks() {
   const targetMonth = selectedMonth === "all" ? defaultPeriod.month : selectedMonth;
   const picks = getMonthlyRiskAssessmentPicks(sourceRows, 2, targetMonth, defaultPeriod.year);
   const monthHint = picks.sourceCount
-    ? `${picks.year}년 ${picks.month} 제출 기준 ${picks.sourceCount}건 중 별도 등록 추천`
-    : `${picks.year}년 ${picks.month} 제출 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
+    ? `${picks.year}년 ${picks.month} 발생 기준 ${picks.sourceCount}건 중 별도 등록 추천`
+    : `${picks.year}년 ${picks.month} 발생 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
   caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
 
   if (!picks.items.length) {
@@ -4241,7 +4241,7 @@ function renderRiskPicks() {
         <p class="risk-pick-desc">${escapeHtml(row.description || row.action || "-")}</p>
         <div class="risk-pick-reasons">${reasonChips}</div>
         <div class="risk-pick-foot">
-          <span>추천점수 ${escapeHtml(score)} · 제출 ${escapeHtml(getRecordReportYear(row) || "-")}년 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
+          <span>추천점수 ${escapeHtml(score)} · 발생 ${escapeHtml(getRecordYear(row) || "-")}년 ${escapeHtml(getRecordMonth(row) || "-")}</span>
           <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
         </div>
       </article>
