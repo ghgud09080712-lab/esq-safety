@@ -94,6 +94,7 @@ let deptReportMonthFilter = "all";
 let typeReportCompanyFilter = "all";
 let typeReportYearFilter = "all";
 let typeReportMonthFilter = "all";
+let nearMissRiskPickYear = "";
 let nearMissRiskPickMonth = "";
 let nearMissRiskPickCount = 2;
 let nearMissFormMode = "form";
@@ -1818,6 +1819,11 @@ function getRecordYear(record) {
   return match ? match[0] : "";
 }
 
+function normalizeRecordYear(value) {
+  const match = safeText(value).match(/(19|20)\d{2}/);
+  return match ? match[0] : "";
+}
+
 function normalizeRecordMonth(value) {
   const month = Number(safeText(value).match(/\d{1,2}/)?.[0] || 0);
   return month >= 1 && month <= 12 ? `${month}월` : "";
@@ -1825,6 +1831,10 @@ function normalizeRecordMonth(value) {
 
 function getCurrentReportMonth() {
   return `${new Date().getMonth() + 1}월`;
+}
+
+function getCurrentReportYear() {
+  return String(new Date().getFullYear());
 }
 
 function getRecordMonth(record) {
@@ -1836,6 +1846,10 @@ function getRecordMonth(record) {
 
 function getRecordReportMonth(record) {
   return normalizeRecordMonth(record.reportMonth) || getRecordMonth(record);
+}
+
+function getRecordReportYear(record) {
+  return normalizeRecordYear(record.reportYear) || normalizeRecordYear(record.updatedAt) || getRecordYear(record);
 }
 
 function ensureUniqueRecordIds(items) {
@@ -1993,6 +2007,7 @@ function normalizeRecord(record) {
     description: safeText(record.description).trim(),
     action: safeText(record.action).trim(),
     completedDate: safeText(record.completedDate).trim(),
+    reportYear: normalizeRecordYear(record.reportYear) || normalizeRecordYear(record.updatedAt) || getRecordYear(record) || getCurrentReportYear(),
     reportMonth: normalizeRecordMonth(record.reportMonth),
     updatedAt: record.updatedAt || new Date().toISOString()
   };
@@ -2107,11 +2122,13 @@ function getRiskAssessmentRecommendationScore(record, monthRows = []) {
   return baseScore + bonus;
 }
 
-function getMonthlyRiskAssessmentPicks(sourceRows, limit = 2, monthOverride = "") {
+function getMonthlyRiskAssessmentPicks(sourceRows, limit = 2, monthOverride = "", yearOverride = "", allowFallback = true) {
   const month = normalizeRecordMonth(monthOverride) || getCurrentReportMonth();
+  const year = normalizeRecordYear(yearOverride) || getCurrentReportYear();
   const reportableRows = sourceRows.filter((row) => row.kind === "nearMiss" || row.kind === "incident");
-  const monthRows = reportableRows.filter((row) => getRecordReportMonth(row) === month);
-  const candidates = (monthRows.length ? monthRows : reportableRows)
+  const monthRows = reportableRows.filter((row) => getRecordReportYear(row) === year && getRecordReportMonth(row) === month);
+  const targetRows = monthRows.length || !allowFallback ? monthRows : reportableRows;
+  const candidates = targetRows
     .filter((row) => safeText(row.description || row.action).trim())
     .map((row) => ({
       row,
@@ -2120,6 +2137,7 @@ function getMonthlyRiskAssessmentPicks(sourceRows, limit = 2, monthOverride = ""
     }))
     .sort((a, b) => b.score - a.score || getRiskScore(b.row) - getRiskScore(a.row));
   return {
+    year,
     month,
     sourceCount: monthRows.length,
     items: candidates.slice(0, limit)
@@ -2153,16 +2171,28 @@ function riskPickFilteredRows() {
   });
 }
 
-function getDefaultRiskPickMonth(sourceRows) {
+function getDefaultRiskPickPeriod(sourceRows) {
+  const currentYear = getCurrentReportYear();
   const currentMonth = getCurrentReportMonth();
-  if (sourceRows.some((row) => getRecordReportMonth(row) === currentMonth)) return currentMonth;
-  const months = Array.from(new Set(sourceRows.map(getRecordReportMonth).filter(Boolean)))
-    .sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, "")));
-  return months[0] || currentMonth;
+  if (sourceRows.some((row) => getRecordReportYear(row) === currentYear && getRecordReportMonth(row) === currentMonth)) {
+    return { year: currentYear, month: currentMonth };
+  }
+  const periods = sourceRows
+    .map((row) => ({ year: getRecordReportYear(row), month: getRecordReportMonth(row) }))
+    .filter((period) => period.year && period.month)
+    .sort((a, b) => Number(b.year) - Number(a.year) || Number(b.month.replace(/\D/g, "")) - Number(a.month.replace(/\D/g, "")));
+  return periods[0] || { year: currentYear, month: currentMonth };
 }
 
-function getRiskPickMonthOptions(sourceRows) {
-  return Array.from(new Set(sourceRows.map(getRecordReportMonth).filter(Boolean)))
+function getRiskPickYearOptions(sourceRows) {
+  return Array.from(new Set(sourceRows.map(getRecordReportYear).filter(Boolean)))
+    .sort((a, b) => Number(b) - Number(a));
+}
+
+function getRiskPickMonthOptions(sourceRows, year = "") {
+  const targetYear = normalizeRecordYear(year);
+  const filteredRows = targetYear ? sourceRows.filter((row) => getRecordReportYear(row) === targetYear) : sourceRows;
+  return Array.from(new Set(filteredRows.map(getRecordReportMonth).filter(Boolean)))
     .sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, "")));
 }
 
@@ -2648,18 +2678,33 @@ function renderReports() {
 function renderNearMissRiskPicks(sourceRows) {
   const list = $("#nearMissRiskPickList");
   const caption = $("#nearMissRiskPickCaption");
+  const yearSelect = $("#nearMissRiskPickYearSelect");
   const monthSelect = $("#nearMissRiskPickMonthSelect");
   const countSelect = $("#nearMissRiskPickCountSelect");
   if (!list || !caption) return;
 
   const nearMissSourceRows = sourceRows.filter((row) => row.kind === "nearMiss");
-  const monthOptions = getRiskPickMonthOptions(nearMissSourceRows);
-  const defaultMonth = getDefaultRiskPickMonth(nearMissSourceRows);
+  const yearOptions = getRiskPickYearOptions(nearMissSourceRows);
+  const defaultPeriod = getDefaultRiskPickPeriod(nearMissSourceRows);
+  const selectedYear = nearMissRiskPickYear && yearOptions.includes(nearMissRiskPickYear)
+    ? nearMissRiskPickYear
+    : defaultPeriod.year;
+  const monthOptions = getRiskPickMonthOptions(nearMissSourceRows, selectedYear);
   const selectedMonth = nearMissRiskPickMonth && monthOptions.includes(nearMissRiskPickMonth)
     ? nearMissRiskPickMonth
-    : defaultMonth;
+    : (monthOptions.includes(defaultPeriod.month) ? defaultPeriod.month : monthOptions[0] || defaultPeriod.month);
   const pickCount = Math.max(1, Math.min(5, Number(nearMissRiskPickCount) || 2));
 
+  if (yearSelect) {
+    const current = yearSelect.value;
+    yearSelect.innerHTML = [
+      `<option value="">자동</option>`,
+      ...yearOptions.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}년</option>`)
+    ].join("");
+    yearSelect.value = nearMissRiskPickYear && yearOptions.includes(nearMissRiskPickYear)
+      ? nearMissRiskPickYear
+      : (current && yearOptions.includes(current) ? current : "");
+  }
   if (monthSelect) {
     const current = monthSelect.value;
     monthSelect.innerHTML = [
@@ -2672,10 +2717,10 @@ function renderNearMissRiskPicks(sourceRows) {
   }
   if (countSelect) countSelect.value = String(pickCount);
 
-  const picks = getMonthlyRiskAssessmentPicks(nearMissSourceRows, pickCount, selectedMonth);
+  const picks = getMonthlyRiskAssessmentPicks(nearMissSourceRows, pickCount, selectedMonth, selectedYear, false);
   const monthHint = picks.sourceCount
-    ? `${picks.month} 등록 기준 ${picks.sourceCount}건 중 별도 위험성평가 추천`
-    : `${picks.month} 등록 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
+    ? `${picks.year}년 ${picks.month} 등록 기준 ${picks.sourceCount}건 중 별도 위험성평가 추천`
+    : `${picks.year}년 ${picks.month} 등록 자료가 없습니다`;
   caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
 
   if (!picks.items.length) {
@@ -2701,7 +2746,7 @@ function renderNearMissRiskPicks(sourceRows) {
         <p class="risk-pick-desc">${escapeHtml(row.description || row.action || "-")}</p>
         <div class="risk-pick-reasons">${reasonChips}</div>
         <div class="risk-pick-foot">
-          <span>추천점수 ${escapeHtml(score)} · 등록월 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
+          <span>추천점수 ${escapeHtml(score)} · 등록 ${escapeHtml(getRecordReportYear(row) || "-")}년 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
           <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
         </div>
       </article>
@@ -4149,11 +4194,12 @@ function renderRiskPicks() {
 
   const selectedMonth = safeText($("#monthFilter")?.value || "all");
   const sourceRows = riskPickFilteredRows();
-  const targetMonth = selectedMonth === "all" ? getDefaultRiskPickMonth(sourceRows) : selectedMonth;
-  const picks = getMonthlyRiskAssessmentPicks(sourceRows, 2, targetMonth);
+  const defaultPeriod = getDefaultRiskPickPeriod(sourceRows);
+  const targetMonth = selectedMonth === "all" ? defaultPeriod.month : selectedMonth;
+  const picks = getMonthlyRiskAssessmentPicks(sourceRows, 2, targetMonth, defaultPeriod.year);
   const monthHint = picks.sourceCount
-    ? `${picks.month} 제출 기준 ${picks.sourceCount}건 중 별도 등록 추천`
-    : `${picks.month} 제출 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
+    ? `${picks.year}년 ${picks.month} 제출 기준 ${picks.sourceCount}건 중 별도 등록 추천`
+    : `${picks.year}년 ${picks.month} 제출 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
   caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
 
   if (!picks.items.length) {
@@ -4180,7 +4226,7 @@ function renderRiskPicks() {
         <p class="risk-pick-desc">${escapeHtml(row.description || row.action || "-")}</p>
         <div class="risk-pick-reasons">${reasonChips}</div>
         <div class="risk-pick-foot">
-          <span>추천점수 ${escapeHtml(score)} · 제출월 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
+          <span>추천점수 ${escapeHtml(score)} · 제출 ${escapeHtml(getRecordReportYear(row) || "-")}년 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
           <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
         </div>
       </article>
@@ -4368,9 +4414,11 @@ function openDialog(record = null) {
     date: today(),
     likelihood: 3,
     severity: 3,
+    reportYear: getCurrentReportYear(),
     reportMonth: getCurrentReportMonth(),
     status: K.received
   };
+  values.reportYear = getRecordReportYear(values) || getCurrentReportYear();
   values.reportMonth = getRecordReportMonth(values) || getCurrentReportMonth();
   Object.entries(values).forEach(([key, value]) => {
     if (form.elements[key]) form.elements[key].value = value ?? "";
@@ -4398,6 +4446,7 @@ function formToRecord() {
     ...(existing || {}),
     ...data,
     id: editingId || nextId(data.kind),
+    reportYear: normalizeRecordYear(data.reportYear) || getCurrentReportYear(),
     reportMonth: normalizeRecordMonth(data.reportMonth) || getCurrentReportMonth(),
     likelihood: Number(data.likelihood || 3),
     severity: Number(data.severity || 3),
@@ -4482,7 +4531,7 @@ async function bulkDeleteVisibleRecords() {
 }
 
 function toCsv(rows) {
-  const headers = ["id", "kind", "company", "date", "reportMonth", "department", "author", "location", "process", "type", "cause", "victim", "claimType", "riskLevel", "riskScore", "status", "dueDate", "owner", "description", "action"];
+  const headers = ["id", "kind", "company", "date", "reportYear", "reportMonth", "department", "author", "location", "process", "type", "cause", "victim", "claimType", "riskLevel", "riskScore", "status", "dueDate", "owner", "description", "action"];
   const lines = [headers.join(",")];
   rows.forEach((row) => {
     const enriched = { ...row, riskLevel: getRiskLevel(row), riskScore: getRiskScore(row) };
@@ -5046,6 +5095,7 @@ function mapExcelRowToImported(sheetName, row, col, sheetKind) {
     victim: readCell(row, col.victim),
     claimType: readCell(row, col.claimType),
     lostDays: Number(readCell(row, col.lostDays) || 0),
+    reportYear: normalizeRecordYear(readCell(row, col.reportYear)) || getCurrentReportYear(),
     reportMonth: normalizeRecordMonth(readCell(row, col.reportMonth)) || getCurrentReportMonth(),
     likelihood: Number(readCell(row, col.likelihood) || 3),
     severity: Number(readCell(row, col.severity) || 3),
@@ -5091,7 +5141,8 @@ function parseSafetyWorkbook(workbook) {
       victim: findColumn(headers, ["\uC0AC\uACE0\uC790", "\uC7AC\uD574\uC790", "\uD53C\uD574\uC790"]),
       claimType: findColumn(headers, ["\uC0B0\uC7AC", "\uBE44\uACE0", "\uCC98\uB9AC\uAD6C\uBD84"]),
       lostDays: findColumn(headers, ["\uD734\uC5C5", "\uD734\uC5C5\uC77C\uC218", "\uD734\uC5C5\uC608\uC0C1\uC77C\uC218"]),
-      reportMonth: findColumn(headers, ["\uC81C\uCD9C\uC6D4", "\uC9D1\uACC4\uC6D4", "\uBCF4\uACE0\uC6D4"]),
+      reportYear: findColumn(headers, ["\uC81C\uCD9C\uC5F0\uB3C4", "\uC9D1\uACC4\uC5F0\uB3C4", "\uBCF4\uACE0\uC5F0\uB3C4", "\uB4F1\uB85D\uC5F0\uB3C4"]),
+      reportMonth: findColumn(headers, ["\uC81C\uCD9C\uC6D4", "\uC9D1\uACC4\uC6D4", "\uBCF4\uACE0\uC6D4", "\uB4F1\uB85D\uC6D4"]),
       likelihood: findColumn(headers, ["\uAC00\uB2A5\uC131", "\uBC1C\uC0DD\uAC00\uB2A5\uC131"]),
       severity: findColumn(headers, ["\uC911\uB300\uC131", "\uAC15\uB3C4"]),
       status: findColumn(headers, ["\uC0C1\uD0DC", "\uC9C4\uD589\uC0C1\uD0DC"]),
@@ -5414,6 +5465,7 @@ function generateAutoCountermeasure(recordLike) {
   return location ? `${location} 구간에 대해 ${action}` : action;
 }
 function mapImportedSafetyRecords(items, options = {}) {
+  const reportYear = normalizeRecordYear(options.reportYear) || getCurrentReportYear();
   const reportMonth = normalizeRecordMonth(options.reportMonth);
   return ensureUniqueRecordIds(items.map((item) => normalizeRecord({
     id: nextId(item.kind === "incident" ? "incident" : "nearMiss"),
@@ -5442,6 +5494,7 @@ function mapImportedSafetyRecords(items, options = {}) {
       location: sanitizeImportedLocation(item.location),
       cause: item.cause
     }),
+    reportYear,
     reportMonth
   })).filter((item) => item.description || item.action));
 }
@@ -5457,7 +5510,7 @@ async function processSafetyPdf(file) {
     const prompt = buildSafetyPdfPrompt();
     const analysis = await requestGeminiPdfAnalysis(base64, prompt);
     const rawText = analysis.text || "";
-    const imported = mapImportedSafetyRecords(parseGeminiJsonArray(rawText), { reportMonth: getCurrentReportMonth() });
+    const imported = mapImportedSafetyRecords(parseGeminiJsonArray(rawText), { reportYear: getCurrentReportYear(), reportMonth: getCurrentReportMonth() });
     if (!imported.length) throw new Error("No importable items found.");
     records = [...imported, ...records];
     const saved = await saveRecords();
@@ -5528,6 +5581,12 @@ function bindUiHandlers() {
 
   $("#nearMissRiskPickMonthSelect")?.addEventListener("change", (event) => {
     nearMissRiskPickMonth = event.target.value || "";
+    renderNearMiss();
+  });
+
+  $("#nearMissRiskPickYearSelect")?.addEventListener("change", (event) => {
+    nearMissRiskPickYear = event.target.value || "";
+    nearMissRiskPickMonth = "";
     renderNearMiss();
   });
 

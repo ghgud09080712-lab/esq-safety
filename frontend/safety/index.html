@@ -258,9 +258,15 @@
           <div class="panel-head compact">
             <div>
               <h3>위험성평가 등록 추천</h3>
-              <p class="risk-pick-caption" id="nearMissRiskPickCaption">등록월 기준으로 별도 위험성평가가 필요한 항목을 추천합니다.</p>
+              <p class="risk-pick-caption" id="nearMissRiskPickCaption">등록연월 기준으로 별도 위험성평가가 필요한 항목을 추천합니다.</p>
             </div>
             <div class="risk-pick-controls">
+              <label>
+                <span>등록연도</span>
+                <select id="nearMissRiskPickYearSelect">
+                  <option value="">자동</option>
+                </select>
+              </label>
               <label>
                 <span>등록월</span>
                 <select id="nearMissRiskPickMonthSelect">
@@ -612,6 +618,10 @@
             <option value="공상">공상</option>
             <option value="미신청">미신청</option>
           </select>
+        </label>
+        <label>
+          <span>제출연도</span>
+          <input name="reportYear" type="number" min="2016" max="2035" placeholder="자동">
         </label>
         <label>
           <span>제출월</span>
