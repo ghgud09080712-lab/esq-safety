@@ -2752,7 +2752,10 @@ function renderNearMissRiskPicks(sourceRows) {
         <div class="risk-pick-reasons">${reasonChips}</div>
         <div class="risk-pick-foot">
           <span>추천점수 ${escapeHtml(score)} · 등록 ${escapeHtml(getRecordReportYear(row) || "-")}년 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
-          <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
+          <div class="risk-pick-actions">
+            <button class="btn small ghost" type="button" data-edit="${escapeHtml(row.id)}">아차사고 보기</button>
+            <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
+          </div>
         </div>
       </article>
     `;

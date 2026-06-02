@@ -1628,6 +1628,13 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
   font-weight: 800;
 }
 
+.risk-pick-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .risk-pick-empty {
   border: 1px dashed #c9d7e8;
   border-radius: 6px;
