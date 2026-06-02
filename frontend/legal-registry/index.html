@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260603-live-detail-sync">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260603-qc-review">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -98,6 +98,14 @@
         <div class="section-actions feature-actions">
           <button class="btn primary" id="detailAddBtn" type="button">내용 추가</button>
         </div>
+        <div class="qc-summary-grid" id="qcSummary"></div>
+        <div class="qc-filter-row" id="qcFilterRow">
+          <button class="btn small active" data-qc-filter="전체" type="button">전체</button>
+          <button class="btn small" data-qc-filter="진행중" type="button">진행중</button>
+          <button class="btn small" data-qc-filter="완료" type="button">완료</button>
+          <button class="btn small" data-qc-filter="지연" type="button">지연</button>
+          <button class="btn small" data-qc-filter="증빙누락" type="button">증빙누락</button>
+        </div>
         <div class="detail-sheet-list" id="detailSheetRows"></div>
       </section>
 
@@ -169,6 +177,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260603-live-detail-sync"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260603-qc-review"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ const state = {
   activeView: "dashboard",
   search: "",
   changeSearch: "",
+  qcFilter: "전체",
   addingDetail: false,
   editingDetailId: "",
   expandedDetailIds: new Set(),
@@ -107,6 +108,23 @@ function formatLawDate(value) {
   const dotted = text.match(/(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})/);
   if (dotted) return `${dotted[1]}. ${Number(dotted[2])}. ${Number(dotted[3])}`;
   return text.replace(/(\d)\.$/, "$1");
+}
+
+function parseLawDateValue(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "-") return null;
+  const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  const normal = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const dotted = text.match(/(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})/);
+  const match = compact || normal || dotted;
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function qcToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 function showToast(message, type = "") {
@@ -263,6 +281,8 @@ function pendingChanges() {
 
 const CATEGORY_OPTIONS = ["안전", "환경", "에너지"];
 const APPLICABILITY_OPTIONS = ["해당", "해당무"];
+const QC_STATUS_OPTIONS = ["미착수", "진행중", "완료", "보류", "해당없음"];
+const QC_FILTERS = ["전체", "진행중", "완료", "지연", "증빙누락"];
 
 function markedOptionValue(options, selected) {
   return options.map((option) => `${option === selected ? "■" : "□"}${option}`).join(" ");
@@ -328,6 +348,79 @@ function renderMarkedPills(options, value) {
   `;
 }
 
+function qcBaseStatus(card) {
+  return QC_STATUS_OPTIONS.includes(card.qcStatus) ? card.qcStatus : "미착수";
+}
+
+function qcComputedStatus(card) {
+  const status = qcBaseStatus(card);
+  if (status === "완료" || status === "해당없음") return status;
+  const due = parseLawDateValue(card.qcDueDate);
+  if (due && due < qcToday() && !parseLawDateValue(card.qcDoneDate)) return "지연";
+  return status;
+}
+
+function qcHasMissingEvidence(card) {
+  return qcComputedStatus(card) !== "해당없음" && !String(card.qcEvidence || "").trim();
+}
+
+function qcProgress(card) {
+  const status = qcComputedStatus(card);
+  if (status === "완료" || status === "해당없음") return 100;
+  if (status === "지연") return 35;
+  if (status === "진행중") return 55;
+  if (status === "보류") return 20;
+  return 0;
+}
+
+function qcStatusClass(status) {
+  if (status === "완료") return "done";
+  if (status === "진행중") return "doing";
+  if (status === "지연") return "late";
+  if (status === "보류") return "hold";
+  if (status === "해당없음") return "none";
+  return "todo";
+}
+
+function renderQcSummary(cards) {
+  const counts = {
+    전체: cards.length,
+    진행중: cards.filter((card) => qcComputedStatus(card) === "진행중").length,
+    완료: cards.filter((card) => qcComputedStatus(card) === "완료").length,
+    지연: cards.filter((card) => qcComputedStatus(card) === "지연").length,
+    증빙누락: cards.filter(qcHasMissingEvidence).length
+  };
+  const target = $("#qcSummary");
+  if (target) {
+    target.innerHTML = QC_FILTERS.map((label) => `
+      <article class="qc-summary-card ${state.qcFilter === label ? "active" : ""}">
+        <span>${escapeHtml(label)}</span>
+        <strong>${counts[label] || 0}건</strong>
+      </article>
+    `).join("");
+  }
+  $$("#qcFilterRow [data-qc-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.qcFilter === state.qcFilter);
+  });
+}
+
+function matchesQcFilter(card) {
+  if (state.qcFilter === "전체") return true;
+  if (state.qcFilter === "증빙누락") return qcHasMissingEvidence(card);
+  return qcComputedStatus(card) === state.qcFilter;
+}
+
+function renderQcStatusOptions(value) {
+  const selected = QC_STATUS_OPTIONS.includes(value) ? value : "미착수";
+  return `
+    <label>관리상태
+      <select name="qcStatus">
+        ${QC_STATUS_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${selected === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
 function renderDashboard() {
   const records = state.data.records || [];
   const changes = pendingChanges();
@@ -389,6 +482,8 @@ function renderRegistry() {
 
 function renderDetailSheets() {
   const cards = state.data.detailCards || [];
+  renderQcSummary(cards);
+  const visibleCards = cards.filter(matchesQcFilter);
 
   const metaItem = (label, value) => `
     <div class="detail-meta-item">
@@ -420,18 +515,27 @@ function renderDetailSheets() {
           <label>작성팀<input name="team" value="${inputValue(card.team || "ESQ")}"></label>
           <label>작성자<input name="author" value="${inputValue(card.author)}"></label>
           ${renderApplicabilityChecks(card.applicability)}
+          ${renderQcStatusOptions(card.qcStatus)}
+          <label>담당자<input name="qcOwner" value="${inputValue(card.qcOwner)}" placeholder="예: 김호형"></label>
+          <label>예정일<input name="qcDueDate" value="${inputValue(card.qcDueDate ? formatLawDate(card.qcDueDate) : "")}" placeholder="2026. 7. 1"></label>
+          <label>완료일<input name="qcDoneDate" value="${inputValue(card.qcDoneDate ? formatLawDate(card.qcDoneDate) : "")}" placeholder="완료 시 입력"></label>
+          <label>증빙자료<input name="qcEvidence" value="${inputValue(card.qcEvidence)}" placeholder="품의서, 허가증, 사진, 보관경로"></label>
         </div>
         <div class="detail-form-textareas">
           <label>법규 적용내용<textarea name="mainContent" rows="10">${inputValue(card.mainContent)}</textarea></label>
           <label>당사 적용사항<textarea name="companyAction" rows="10">${inputValue(card.companyAction)}</textarea></label>
+          <label class="detail-form-wide">정도관리 메모<textarea name="qcMemo" rows="5" placeholder="예: 품의서 작성 완료 / 화학사고예방관리계획서 작성 중">${inputValue(card.qcMemo)}</textarea></label>
         </div>
       </form>
     </article>
   `;
 
-  $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${cards.map((card, index) => {
+  $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${visibleCards.map((card) => {
+    const index = cards.findIndex((item) => item.id === card.id);
     if (state.editingDetailId === card.id) return detailForm(card, "edit");
     const isOpen = state.expandedDetailIds.has(card.id);
+    const qcStatus = qcComputedStatus(card);
+    const progress = qcProgress(card);
     return `
     <article class="detail-sheet-card ${isOpen ? "open" : "collapsed"}">
       <button class="detail-register-head" data-detail-toggle="${escapeHtml(card.id || "")}" type="button" aria-expanded="${isOpen ? "true" : "false"}">
@@ -440,6 +544,7 @@ function renderDetailSheets() {
           <h3>${escapeHtml(card.lawName || card.sheetName || "")}</h3>
         </div>
         <div class="detail-register-actions">
+          <span class="qc-status-badge ${qcStatusClass(qcStatus)}">${escapeHtml(qcStatus)}</span>
           <span>${escapeHtml(formatLawDate(card.revisionDate))}</span>
           <i aria-hidden="true"></i>
         </div>
@@ -460,6 +565,21 @@ function renderDetailSheets() {
           ${metaItem("작성", [card.team, card.author].filter(Boolean).join(" / "))}
           ${metaItem("입수경로", card.channel)}
         </div>
+        <div class="qc-meta-bar">
+          <div class="qc-meta-item">
+            <span>관리상태</span>
+            <strong><em class="qc-status-badge ${qcStatusClass(qcStatus)}">${escapeHtml(qcStatus)}</em></strong>
+          </div>
+          ${metaItem("담당자", card.qcOwner)}
+          ${metaItem("예정일", formatLawDate(card.qcDueDate))}
+          ${metaItem("완료일", formatLawDate(card.qcDoneDate))}
+          ${metaItem("증빙", card.qcEvidence || (qcHasMissingEvidence(card) ? "증빙누락" : ""))}
+          <div class="qc-meta-item qc-progress-item">
+            <span>진행률</span>
+            <strong>${progress}%</strong>
+            <div class="qc-progress"><i style="width:${progress}%"></i></div>
+          </div>
+        </div>
         <div class="detail-main-grid">
           <section class="detail-main-panel">
             <div class="detail-main-title">
@@ -474,6 +594,10 @@ function renderDetailSheets() {
             </div>
             <pre>${escapeHtml(card.companyAction || "-")}</pre>
           </section>
+        </div>
+        <div class="qc-note-panel">
+          <strong>정도관리 메모</strong>
+          <pre>${escapeHtml(card.qcMemo || "-")}</pre>
         </div>
       </div>
     </article>
@@ -872,7 +996,13 @@ function getDetailFormPayload(form) {
     author: String(formData.get("author") || "").trim(),
     applicability: String(formData.get("applicability") || "").trim(),
     mainContent: String(formData.get("mainContent") || "").trim(),
-    companyAction: String(formData.get("companyAction") || "").trim()
+    companyAction: String(formData.get("companyAction") || "").trim(),
+    qcStatus: String(formData.get("qcStatus") || "").trim(),
+    qcOwner: String(formData.get("qcOwner") || "").trim(),
+    qcDueDate: String(formData.get("qcDueDate") || "").trim(),
+    qcDoneDate: String(formData.get("qcDoneDate") || "").trim(),
+    qcEvidence: String(formData.get("qcEvidence") || "").trim(),
+    qcMemo: String(formData.get("qcMemo") || "").trim()
   };
 }
 
@@ -1185,6 +1315,12 @@ function bindEvents() {
     state.editingDetailId = "";
     renderDetailSheets();
     $("#detailSheetRows")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $$("#qcFilterRow [data-qc-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.qcFilter = button.dataset.qcFilter || "전체";
+      renderDetailSheets();
+    });
   });
   bindFloatingAiDrag();
   $("#floatingAiToggle")?.addEventListener("click", () => {

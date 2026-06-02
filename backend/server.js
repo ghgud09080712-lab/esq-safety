@@ -1138,11 +1138,20 @@ app.post("/api/legal-registry/import-source", async (req, res) => {
     const sourcePath = compactText(req.body?.sourcePath) || defaultLegalRegistrySourcePath;
     const parsed = parseLegalRegistryWorkbook(sourcePath);
     const current = await readLegalRegistry();
+    const existingDetailByLaw = new Map((current.detailCards || []).map((card) => [makeLawKey(card.lawName), card]));
+    const detailCards = parsed.detailCards.map((card, index) => ({
+      ...card,
+      ...(existingDetailByLaw.get(makeLawKey(card.lawName)) || {}),
+      rows: card.rows,
+      sheetName: card.sheetName || existingDetailByLaw.get(makeLawKey(card.lawName))?.sheetName || `법규등록부${index + 1}`
+    }));
+    const parsedKeys = new Set(detailCards.map((card) => makeLawKey(card.lawName)));
+    const userAddedCards = (current.detailCards || []).filter((card) => !parsedKeys.has(makeLawKey(card.lawName)));
     const payload = {
       ...current,
       sourcePath,
       records: parsed.records,
-      detailCards: parsed.detailCards,
+      detailCards: [...detailCards, ...userAddedCards],
       updatedAt: new Date().toISOString()
     };
     await writeJson(legalRegistryDataPath, payload);
@@ -1172,6 +1181,12 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
     applicability: compactText(pick("applicability", "■해당 □해당무")),
     mainContent: preserveText(pickInputValue(input, existing, "mainContent")),
     companyAction: preserveText(pickInputValue(input, existing, "companyAction")),
+    qcStatus: compactText(pick("qcStatus", "미착수")),
+    qcOwner: compactText(pick("qcOwner")),
+    qcDueDate: displayLawDate(pick("qcDueDate")),
+    qcDoneDate: displayLawDate(pick("qcDoneDate")),
+    qcEvidence: compactText(pick("qcEvidence")),
+    qcMemo: preserveText(pickInputValue(input, existing, "qcMemo")),
     updatedAt: new Date().toISOString()
   };
   card.rows = [
@@ -1183,7 +1198,8 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
     ["등록자", "작성팀", card.team, "작성자", card.author],
     ["", "조항", "법규 적용내용"],
     ["", card.mainContent],
-    ["당사해당 유무", card.applicability, `당사 적용사항\n${card.companyAction}`]
+    ["당사해당 유무", card.applicability, `당사 적용사항\n${card.companyAction}`],
+    ["정도관리", card.qcStatus, `담당자 ${card.qcOwner}`, `예정일 ${card.qcDueDate}`, `완료일 ${card.qcDoneDate}`, `증빙 ${card.qcEvidence}`, card.qcMemo]
   ];
   return card;
 }
