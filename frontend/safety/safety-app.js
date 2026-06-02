@@ -2062,6 +2062,103 @@ function getRiskLevel(record) {
   return K.low;
 }
 
+function getRiskAssessmentRecommendationReason(record, monthRows = []) {
+  const type = normalizeAccidentType(record.type) || record.type || "기타";
+  const text = [
+    type,
+    record.description,
+    record.location,
+    record.process,
+    record.cause,
+    record.action
+  ].map(safeText).join(" ");
+  const compact = text.replace(/\s/g, "");
+  const reasons = [];
+  const score = getRiskScore(record);
+  const highType = ["끼임", "깔림", "떨어짐", "누전", "화학물질 누출", "화재 폭발"].includes(type);
+  const severeKeywords = [
+    "감전", "누전", "추락", "끼임", "협착", "깔림", "중량물", "지게차", "고소",
+    "화학물질", "누출", "폭발", "화재", "화상", "절단", "개구부", "밀폐", "탱크"
+  ];
+  const repeatTypeCount = monthRows.filter((row) => normalizeAccidentType(row.type) === type).length;
+  const repeatDepartmentCount = monthRows.filter((row) => cleanDepartment(row.department) === cleanDepartment(record.department)).length;
+
+  if (score >= 16) reasons.push(`위험점수 ${score}점`);
+  else if (score >= 12) reasons.push(`위험도 ${getRiskLevel(record)}`);
+  if (highType) reasons.push(`${type} 유형은 중대재해로 이어질 가능성이 큼`);
+  if (severeKeywords.some((keyword) => compact.includes(keyword))) reasons.push("중대 위험 키워드 포함");
+  if (repeatTypeCount >= 2) reasons.push(`동일 유형 ${repeatTypeCount}건 반복`);
+  if (repeatDepartmentCount >= 2) reasons.push(`${cleanDepartment(record.department)} ${repeatDepartmentCount}건 집중`);
+  if (!safeText(record.action).trim()) reasons.push("감소대책 미작성");
+
+  return reasons.slice(0, 3);
+}
+
+function getRiskAssessmentRecommendationScore(record, monthRows = []) {
+  const type = normalizeAccidentType(record.type) || record.type || "";
+  const baseScore = getRiskScore(record);
+  const reasons = getRiskAssessmentRecommendationReason(record, monthRows);
+  let bonus = reasons.length * 3;
+  if (["끼임", "깔림", "떨어짐", "누전", "화학물질 누출", "화재 폭발"].includes(type)) bonus += 6;
+  if (!safeText(record.action).trim()) bonus += 4;
+  if (record.kind === "incident") bonus += 6;
+  return baseScore + bonus;
+}
+
+function getMonthlyRiskAssessmentPicks(sourceRows, limit = 2, monthOverride = "") {
+  const month = normalizeRecordMonth(monthOverride) || getCurrentReportMonth();
+  const reportableRows = sourceRows.filter((row) => row.kind === "nearMiss" || row.kind === "incident");
+  const monthRows = reportableRows.filter((row) => getRecordReportMonth(row) === month);
+  const candidates = (monthRows.length ? monthRows : reportableRows)
+    .filter((row) => safeText(row.description || row.action).trim())
+    .map((row) => ({
+      row,
+      score: getRiskAssessmentRecommendationScore(row, monthRows),
+      reasons: getRiskAssessmentRecommendationReason(row, monthRows)
+    }))
+    .sort((a, b) => b.score - a.score || getRiskScore(b.row) - getRiskScore(a.row));
+  return {
+    month,
+    sourceCount: monthRows.length,
+    items: candidates.slice(0, limit)
+  };
+}
+
+function riskPickFilteredRows() {
+  const query = safeText($("#searchInput")?.value).trim().toLowerCase();
+  const department = safeText($("#departmentFilter")?.value || "all");
+  const year = safeText($("#yearFilter")?.value || "all");
+  const risk = safeText($("#riskFilter")?.value || "all");
+
+  return records.filter((record) => {
+    const haystack = [
+      record.id,
+      cleanDepartment(record.department),
+      record.author,
+      record.location,
+      record.process,
+      record.type,
+      record.description,
+      record.action,
+      record.owner,
+      record.victim
+    ].join(" ").toLowerCase();
+    if (query && !haystack.includes(query)) return false;
+    if (department !== "all" && cleanDepartment(record.department) !== department) return false;
+    if (year !== "all" && getRecordYear(record) !== year) return false;
+    if (risk !== "all" && getRiskLevel(record) !== risk) return false;
+    return true;
+  });
+}
+
+function getDefaultRiskPickMonth(sourceRows) {
+  const currentMonth = getCurrentReportMonth();
+  if (sourceRows.some((row) => getRecordReportMonth(row) === currentMonth)) return currentMonth;
+  const months = Array.from(new Set(sourceRows.map(getRecordReportMonth).filter(Boolean)))
+    .sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, "")));
+  return months[0] || currentMonth;
+}
+
 function isLate(record) {
   if (!record.dueDate || record.status === K.done) return false;
   return record.dueDate < today();
@@ -3973,6 +4070,52 @@ function renderActions() {
   }).join("");
 }
 
+function renderRiskPicks() {
+  const list = $("#riskPickList");
+  const caption = $("#riskPickCaption");
+  if (!list || !caption) return;
+
+  const selectedMonth = safeText($("#monthFilter")?.value || "all");
+  const sourceRows = riskPickFilteredRows();
+  const targetMonth = selectedMonth === "all" ? getDefaultRiskPickMonth(sourceRows) : selectedMonth;
+  const picks = getMonthlyRiskAssessmentPicks(sourceRows, 2, targetMonth);
+  const monthHint = picks.sourceCount
+    ? `${picks.month} 제출 기준 ${picks.sourceCount}건 중 별도 등록 추천`
+    : `${picks.month} 제출 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
+  caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
+
+  if (!picks.items.length) {
+    list.innerHTML = `<div class="risk-pick-empty">추천할 위험성평가 대상이 없습니다.</div>`;
+    return;
+  }
+
+  list.innerHTML = picks.items.map(({ row, score, reasons }, index) => {
+    const assessed = assessRisk(row);
+    const riskScore = assessed.likelihood * assessed.severity;
+    const reasonChips = (reasons.length ? reasons : ["월별 위험성평가 등록 후보"])
+      .map((reason) => `<span>${escapeHtml(reason)}</span>`)
+      .join("");
+    return `
+      <article class="risk-pick-card rank-${index + 1}">
+        <div class="risk-pick-head">
+          <span class="risk-pick-rank">${index + 1}</span>
+          <div>
+            <strong>${escapeHtml(cleanDepartment(row.department))} · ${escapeHtml(normalizeAccidentType(row.type) || "기타")}</strong>
+            <p>${escapeHtml(row.location || row.process || "-")}</p>
+          </div>
+          ${badge(`${getRiskLevel(row)} ${riskScore}`)}
+        </div>
+        <p class="risk-pick-desc">${escapeHtml(row.description || row.action || "-")}</p>
+        <div class="risk-pick-reasons">${reasonChips}</div>
+        <div class="risk-pick-foot">
+          <span>추천점수 ${escapeHtml(score)} · 제출월 ${escapeHtml(getRecordReportMonth(row) || "-")}</span>
+          <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderRisk() {
   const rows = filteredRecords();
   $("#riskSummary").innerHTML = [
@@ -3982,6 +4125,7 @@ function renderRisk() {
     [K.medium, rows.filter((row) => getRiskLevel(row) === K.medium).length],
     [K.low, rows.filter((row) => getRiskLevel(row) === K.low).length]
   ].map(([label, value]) => `<span class="mini-summary-item">${label} <strong>${value}</strong></span>`).join("");
+  renderRiskPicks();
   $("#riskRows").innerHTML = rows.map((row, index) => {
     const assessed = assessRisk(row);
     const score = assessed.likelihood * assessed.severity;
