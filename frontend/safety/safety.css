@@ -1517,6 +1517,32 @@ body.admin-mode #nearMissFormView.submission-preview-open .submission-preview-he
   gap: 10px;
 }
 
+.risk-pick-controls {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.risk-pick-controls label {
+  display: grid;
+  gap: 4px;
+  color: #38516c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.risk-pick-controls select {
+  min-width: 96px;
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 0 10px;
+  font-weight: 800;
+}
+
 .risk-pick-card {
   display: grid;
   gap: 8px;
