@@ -754,7 +754,7 @@ th {
 
 .qc-meta-bar {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
   background: #fff;
 }
@@ -810,6 +810,35 @@ th {
 .qc-status-badge.late { background: #fff0f0; color: #c23b3b; }
 .qc-status-badge.hold { background: #f3f0ff; color: #5b4bb2; }
 .qc-status-badge.none { background: #eef2f7; color: #64748b; }
+
+.qc-validity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.qc-validity-badge.fit {
+  background: #e9f8f1;
+  color: #16804c;
+}
+
+.qc-validity-badge.need {
+  background: #fff0f0;
+  color: #c23b3b;
+}
+
+.qc-validity-badge.next {
+  background: #edf6ff;
+  color: #205aa8;
+}
 
 .qc-progress {
   height: 8px;

@@ -283,6 +283,7 @@ const CATEGORY_OPTIONS = ["안전", "환경", "에너지"];
 const APPLICABILITY_OPTIONS = ["해당", "해당무"];
 const QC_STATUS_OPTIONS = ["미착수", "진행중", "완료", "보류", "해당없음"];
 const QC_FILTERS = ["전체", "진행중", "완료", "지연", "증빙누락"];
+const QC_VALIDITY_OPTIONS = ["보완필요", "차기확인", "적합"];
 
 function markedOptionValue(options, selected) {
   return options.map((option) => `${option === selected ? "■" : "□"}${option}`).join(" ");
@@ -421,6 +422,28 @@ function renderQcStatusOptions(value) {
   `;
 }
 
+function qcValidity(value) {
+  return QC_VALIDITY_OPTIONS.includes(value) ? value : "차기확인";
+}
+
+function qcValidityClass(value) {
+  const status = qcValidity(value);
+  if (status === "적합") return "fit";
+  if (status === "보완필요") return "need";
+  return "next";
+}
+
+function renderQcValidityOptions(value) {
+  const selected = qcValidity(value);
+  return `
+    <label>유효성평가
+      <select name="qcValidity">
+        ${QC_VALIDITY_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${selected === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
 function renderDashboard() {
   const records = state.data.records || [];
   const changes = pendingChanges();
@@ -516,6 +539,7 @@ function renderDetailSheets() {
           <label>작성자<input name="author" value="${inputValue(card.author)}"></label>
           ${renderApplicabilityChecks(card.applicability)}
           ${renderQcStatusOptions(card.qcStatus)}
+          ${renderQcValidityOptions(card.qcValidity)}
           <label>담당자<input name="qcOwner" value="${inputValue(card.qcOwner)}" placeholder="예: 김호형"></label>
           <label>예정일<input name="qcDueDate" value="${inputValue(card.qcDueDate ? formatLawDate(card.qcDueDate) : "")}" placeholder="2026. 7. 1"></label>
           <label>완료일<input name="qcDoneDate" value="${inputValue(card.qcDoneDate ? formatLawDate(card.qcDoneDate) : "")}" placeholder="완료 시 입력"></label>
@@ -569,6 +593,10 @@ function renderDetailSheets() {
           <div class="qc-meta-item">
             <span>관리상태</span>
             <strong><em class="qc-status-badge ${qcStatusClass(qcStatus)}">${escapeHtml(qcStatus)}</em></strong>
+          </div>
+          <div class="qc-meta-item">
+            <span>유효성평가</span>
+            <strong><em class="qc-validity-badge ${qcValidityClass(card.qcValidity)}">${escapeHtml(qcValidity(card.qcValidity))}</em></strong>
           </div>
           ${metaItem("담당자", card.qcOwner)}
           ${metaItem("예정일", formatLawDate(card.qcDueDate))}
@@ -998,6 +1026,7 @@ function getDetailFormPayload(form) {
     mainContent: String(formData.get("mainContent") || "").trim(),
     companyAction: String(formData.get("companyAction") || "").trim(),
     qcStatus: String(formData.get("qcStatus") || "").trim(),
+    qcValidity: String(formData.get("qcValidity") || "").trim(),
     qcOwner: String(formData.get("qcOwner") || "").trim(),
     qcDueDate: String(formData.get("qcDueDate") || "").trim(),
     qcDoneDate: String(formData.get("qcDoneDate") || "").trim(),

@@ -1289,6 +1289,7 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
     mainContent: preserveText(pickInputValue(input, existing, "mainContent")),
     companyAction: preserveText(pickInputValue(input, existing, "companyAction")),
     qcStatus: compactText(pick("qcStatus", "미착수")),
+    qcValidity: compactText(pick("qcValidity", "차기확인")),
     qcOwner: compactText(pick("qcOwner")),
     qcDueDate: displayLawDate(pick("qcDueDate")),
     qcDoneDate: displayLawDate(pick("qcDoneDate")),
@@ -1306,7 +1307,7 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
     ["", "조항", "법규 적용내용"],
     ["", card.mainContent],
     ["당사해당 유무", card.applicability, `당사 적용사항\n${card.companyAction}`],
-    ["정도관리", card.qcStatus, `담당자 ${card.qcOwner}`, `예정일 ${card.qcDueDate}`, `완료일 ${card.qcDoneDate}`, `증빙 ${card.qcEvidence}`, card.qcMemo]
+    ["정도관리", card.qcStatus, `유효성평가 ${card.qcValidity}`, `담당자 ${card.qcOwner}`, `예정일 ${card.qcDueDate}`, `완료일 ${card.qcDoneDate}`, `증빙 ${card.qcEvidence}`, card.qcMemo]
   ];
   return card;
 }
