@@ -946,7 +946,7 @@ async function savePdfMetaItem(meta, item) {
 }
 
 app.get("/", (_req, res) => {
-  res.redirect(302, "/safety");
+  res.redirect(302, "/legal-registry");
 });
 
 app.get("/test", (_req, res) => {
@@ -954,7 +954,7 @@ app.get("/test", (_req, res) => {
 });
 
 app.get("/app", (_req, res) => {
-  res.redirect(302, "/safety");
+  res.redirect(302, "/legal-registry");
 });
 
 app.get("/safety", (_req, res) => {
