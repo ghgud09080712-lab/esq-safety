@@ -541,21 +541,37 @@ th {
   font-weight: 900;
 }
 
+.detail-register-title {
+  min-width: 0;
+}
+
 .detail-register-title h3 {
   font-size: 20px;
   color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-register-actions {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 88px 112px 14px;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  justify-items: center;
+  gap: 10px;
+  flex: 0 0 236px;
+  min-width: 236px;
 }
 
 .detail-register-actions span {
   color: #dbeafe;
   font-weight: 900;
+}
+
+.detail-register-actions > span:not(.qc-status-badge) {
+  width: 112px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .detail-register-actions i {
@@ -778,6 +794,7 @@ th {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 88px;
   min-height: 26px;
   border-radius: 999px;
   padding: 0 10px;
@@ -1937,10 +1954,19 @@ body.is-refreshing #topRefreshBtn {
   .detail-register-title h3 {
     font-size: 17px;
     line-height: 1.35;
+    white-space: normal;
   }
   .detail-register-actions {
-    align-items: flex-end;
-    min-width: auto;
+    grid-template-columns: 78px 96px 12px;
+    gap: 7px;
+    flex-basis: 190px;
+    min-width: 190px;
+  }
+  .detail-register-actions > span:not(.qc-status-badge) {
+    width: 96px;
+  }
+  .detail-register-actions .qc-status-badge {
+    width: 78px;
   }
   .detail-meta-bar,
   .qc-meta-bar {
