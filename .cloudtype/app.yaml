@@ -8,6 +8,10 @@ options:
       value: "4173"
     - name: DATA_DIR
       value: "/data"
+    - name: LEGAL_REGISTRY_STORE
+      value: firebase
+    - name: LEGAL_REGISTRY_FIRESTORE_DOC
+      value: shared/legal-registry
     - name: FIREBASE_DEPLOY_ENABLED
       value: "false"
   install: npm ci --omit=dev

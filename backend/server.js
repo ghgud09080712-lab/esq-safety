@@ -2,9 +2,12 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
+const zlib = require("zlib");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
 const XLSX = require("xlsx");
+const { initializeApp } = require("firebase/app");
+const { getFirestore, doc: firestoreDoc, getDoc, setDoc } = require("firebase/firestore");
 
 const app = express();
 const execFileAsync = promisify(execFile);
@@ -31,6 +34,8 @@ const legalRegistryHtmlPath = path.join(rootDir, "frontend", "legal-registry", "
 const firebaseConfigPath = path.join(rootDir, "firebase-config.js");
 const legalRegistryDataPath = path.join(dataDir, "legal-registry.json");
 const legalRegistryDataSeedPath = path.join(seedDir, "legal-registry.seed.json");
+const legalRegistryFirestoreDocPath = process.env.LEGAL_REGISTRY_FIRESTORE_DOC || "shared/legal-registry";
+const legalRegistryStore = String(process.env.LEGAL_REGISTRY_STORE || "firebase").toLowerCase();
 const publicOyoungDir = path.join(rootDir, "public-oyoung");
 const publicLegalRegistryFileName = "legal-registry.html";
 const firebaseProjectId = "esq-aiproject";
@@ -98,6 +103,90 @@ async function writeJson(filePath, value) {
   const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
   await fs.writeFile(tempPath, JSON.stringify(value, null, 2), "utf8");
   await fs.rename(tempPath, filePath);
+}
+
+let legalRegistryFirebaseApp = null;
+let legalRegistryFirestore = null;
+
+async function readFirebaseBrowserConfig() {
+  const inlineConfig = {
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID
+  };
+  if (inlineConfig.apiKey && inlineConfig.projectId) return inlineConfig;
+  try {
+    const source = await fs.readFile(firebaseConfigPath, "utf8");
+    const pick = (key) => source.match(new RegExp(`${key}:\\s*"([^"]+)"`))?.[1] || "";
+    return {
+      apiKey: pick("apiKey"),
+      authDomain: pick("authDomain"),
+      projectId: pick("projectId"),
+      storageBucket: pick("storageBucket"),
+      messagingSenderId: pick("messagingSenderId"),
+      appId: pick("appId")
+    };
+  } catch {
+    return inlineConfig;
+  }
+}
+
+async function getLegalRegistryFirestoreRef() {
+  if (legalRegistryStore === "file") return null;
+  const config = await readFirebaseBrowserConfig();
+  if (!config.apiKey || !config.projectId) return null;
+  if (!legalRegistryFirebaseApp) {
+    legalRegistryFirebaseApp = initializeApp(config, "legal-registry-server");
+    legalRegistryFirestore = getFirestore(legalRegistryFirebaseApp);
+  }
+  const segments = legalRegistryFirestoreDocPath.split("/").map((item) => item.trim()).filter(Boolean);
+  if (segments.length < 2 || segments.length % 2 !== 0) {
+    throw new Error("LEGAL_REGISTRY_FIRESTORE_DOC 경로는 collection/document 형식이어야 합니다.");
+  }
+  return firestoreDoc(legalRegistryFirestore, ...segments);
+}
+
+function encodeLegalRegistryPayload(payload) {
+  return zlib.gzipSync(Buffer.from(JSON.stringify(payload || {}), "utf8")).toString("base64");
+}
+
+function decodeLegalRegistryPayload(base64) {
+  if (!base64) return null;
+  return JSON.parse(zlib.gunzipSync(Buffer.from(base64, "base64")).toString("utf8"));
+}
+
+async function readLegalRegistryFromFirestore() {
+  const ref = await getLegalRegistryFirestoreRef();
+  if (!ref) return null;
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const payload = decodeLegalRegistryPayload(snap.data()?.payloadGzipBase64);
+  return payload?.records ? payload : null;
+}
+
+async function writeLegalRegistryToFirestore(payload) {
+  const ref = await getLegalRegistryFirestoreRef();
+  if (!ref) return false;
+  await setDoc(ref, {
+    payloadGzipBase64: encodeLegalRegistryPayload(payload),
+    updatedAt: payload?.updatedAt || new Date().toISOString(),
+    savedAt: new Date().toISOString(),
+    schemaVersion: 1
+  });
+  return true;
+}
+
+async function writeLegalRegistry(payload) {
+  await writeJson(legalRegistryDataPath, payload);
+  if (legalRegistryStore === "file") return;
+  try {
+    await writeLegalRegistryToFirestore(payload);
+  } catch (error) {
+    throw new Error(`Firestore 저장 실패: ${error.message}`);
+  }
 }
 
 async function backupJsonFile(filePath) {
@@ -253,8 +342,26 @@ function parseLegalRegistryWorkbook(filePath) {
 }
 
 async function readLegalRegistry() {
+  if (legalRegistryStore !== "file") {
+    try {
+      const remote = await readLegalRegistryFromFirestore();
+      if (remote?.records) {
+        await writeJson(legalRegistryDataPath, remote).catch(() => {});
+        return remote;
+      }
+    } catch (error) {
+      console.warn("legal registry firestore read failed:", error.message);
+    }
+  }
   const current = await readJson(legalRegistryDataPath, null);
-  if (current?.records) return current;
+  if (current?.records) {
+    if (legalRegistryStore !== "file") {
+      await writeLegalRegistryToFirestore(current).catch((error) => {
+        console.warn("legal registry firestore migration failed:", error.message);
+      });
+    }
+    return current;
+  }
   const seed = await readJson(legalRegistryDataSeedPath, null);
   if (seed?.records) {
     const payload = {
@@ -265,7 +372,7 @@ async function readLegalRegistry() {
       createdAt: seed.createdAt || new Date().toISOString(),
       updatedAt: seed.updatedAt || new Date().toISOString()
     };
-    await writeJson(legalRegistryDataPath, payload);
+    await writeLegalRegistry(payload);
     return payload;
   }
   try {
@@ -279,7 +386,7 @@ async function readLegalRegistry() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await writeJson(legalRegistryDataPath, payload);
+    await writeLegalRegistry(payload);
     return payload;
   } catch (error) {
     return {
@@ -1154,7 +1261,7 @@ app.post("/api/legal-registry/import-source", async (req, res) => {
       detailCards: [...detailCards, ...userAddedCards],
       updatedAt: new Date().toISOString()
     };
-    await writeJson(legalRegistryDataPath, payload);
+    await writeLegalRegistry(payload);
     res.json({ ok: true, records: payload.records.length, detailCards: payload.detailCards.length, data: payload });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message || "법규등록부 원본을 불러오지 못했습니다." });
@@ -1215,7 +1322,7 @@ app.post("/api/legal-registry/detail-cards", async (req, res) => {
       detailCards: [...detailCards, card],
       updatedAt: new Date().toISOString()
     };
-    await writeJson(legalRegistryDataPath, payload);
+    await writeLegalRegistry(payload);
     res.json({ ok: true, card, detailCards: payload.detailCards, updatedAt: payload.updatedAt });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message || "상세 법규를 추가하지 못했습니다." });
@@ -1237,7 +1344,7 @@ app.put("/api/legal-registry/detail-cards/:id", async (req, res) => {
       detailCards: nextCards,
       updatedAt: new Date().toISOString()
     };
-    await writeJson(legalRegistryDataPath, payload);
+    await writeLegalRegistry(payload);
     res.json({ ok: true, card, detailCards: payload.detailCards, updatedAt: payload.updatedAt });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message || "상세 법규를 수정하지 못했습니다." });
@@ -1320,7 +1427,7 @@ app.post("/api/legal-registry/refresh", async (req, res) => {
       refreshLogs: [log, ...(Array.isArray(data.refreshLogs) ? data.refreshLogs : [])].slice(0, 20),
       updatedAt: log.at
     };
-    await writeJson(legalRegistryDataPath, payload);
+    await writeLegalRegistry(payload);
     res.json({ ok: true, log, records, changes, checked, errors, updatedAt: payload.updatedAt });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message || "법규 새로고침에 실패했습니다." });
@@ -1347,7 +1454,7 @@ app.post("/api/legal-registry/changes/:id/apply", async (req, res) => {
   change.status = "applied";
   change.appliedAt = new Date().toISOString();
   const payload = { ...data, records, changes, updatedAt: change.appliedAt };
-  await writeJson(legalRegistryDataPath, payload);
+  await writeLegalRegistry(payload);
   res.json({ ok: true, change, records, changes });
 });
 
@@ -1401,7 +1508,7 @@ app.get("/api/legal-registry/change-content/:id", async (req, res) => {
     change.articleDiffs = articleDiffs;
     change.mst = change.mst || content.mst;
     change.lawId = change.lawId || content.lawId;
-    await writeJson(legalRegistryDataPath, { ...data, updatedAt: change.contentCheckedAt });
+    await writeLegalRegistry({ ...data, updatedAt: change.contentCheckedAt });
     res.json({ ok: true, change, content });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message || "변경 내용을 불러오지 못했습니다." });
