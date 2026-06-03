@@ -1272,6 +1272,16 @@ function bindFloatingAiDrag() {
   restoreFloatingAiPosition();
 }
 
+function resetFloatingAiPosition() {
+  localStorage.removeItem(FLOATING_AI_POSITION_KEY);
+  const floating = $("#floatingAi");
+  if (!floating) return;
+  floating.style.left = "";
+  floating.style.top = "";
+  floating.style.right = "";
+  floating.style.bottom = "";
+}
+
 function setFloatingAiOpen(isOpen) {
   const panel = $("#floatingAiPanel");
   const toggle = $("#floatingAiToggle");
@@ -1327,7 +1337,10 @@ function bindEvents() {
     if (floatingAiDrag.suppressClick) return;
     setFloatingAiOpen($("#floatingAiPanel")?.hidden);
   });
-  $("#floatingAiClose")?.addEventListener("click", () => setFloatingAiOpen(false));
+  $("#floatingAiClose")?.addEventListener("click", () => {
+    resetFloatingAiPosition();
+    setFloatingAiOpen(false);
+  });
   $("#floatingAiLawSearchBtn")?.addEventListener("click", () => submitAiQuestion("#floatingAiLawQuery", "floating"));
   $("#floatingAiLawQuery")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
