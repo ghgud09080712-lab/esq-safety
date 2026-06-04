@@ -8,6 +8,16 @@ options:
       value: "4173"
     - name: DATA_DIR
       value: "/data"
+    - name: SAFETY_DATA_STORE
+      value: firebase
+    - name: SAFETY_DATA_FIRESTORE_DOC
+      value: shared/safety-data
+    - name: SAFETY_USERS_FIRESTORE_DOC
+      value: shared/safety-users
+    - name: SAFETY_SETTINGS_FIRESTORE_DOC
+      value: shared/safety-settings
+    - name: SAFETY_FORM_SUBMISSIONS_FIRESTORE_DOC
+      value: shared/safety-form-submissions
     - name: LEGAL_REGISTRY_STORE
       value: firebase
     - name: LEGAL_REGISTRY_FIRESTORE_DOC

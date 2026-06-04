@@ -27,6 +27,11 @@ const sharedGridDataSeedPath = path.join(seedDir, "shared-grid-data.seed.json");
 const safetyUsersPath = path.join(dataDir, "safety-users.json");
 const safetySettingsPath = path.join(dataDir, "safety-settings.json");
 const safetyFormSubmissionsPath = path.join(dataDir, "safety-form-submissions.json");
+const safetyDataStore = String(process.env.SAFETY_DATA_STORE || "firebase").toLowerCase();
+const safetyDataFirestoreDocPath = process.env.SAFETY_DATA_FIRESTORE_DOC || "shared/safety-data";
+const safetyUsersFirestoreDocPath = process.env.SAFETY_USERS_FIRESTORE_DOC || "shared/safety-users";
+const safetySettingsFirestoreDocPath = process.env.SAFETY_SETTINGS_FIRESTORE_DOC || "shared/safety-settings";
+const safetyFormSubmissionsFirestoreDocPath = process.env.SAFETY_FORM_SUBMISSIONS_FIRESTORE_DOC || "shared/safety-form-submissions";
 const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
@@ -107,6 +112,8 @@ async function writeJson(filePath, value) {
 
 let legalRegistryFirebaseApp = null;
 let legalRegistryFirestore = null;
+let safetyFirebaseApp = null;
+let safetyFirestore = null;
 
 async function readFirebaseBrowserConfig() {
   const inlineConfig = {
@@ -187,6 +194,112 @@ async function writeLegalRegistry(payload) {
   } catch (error) {
     throw new Error(`Firestore 저장 실패: ${error.message}`);
   }
+}
+
+async function getSafetyFirestoreRef(docPath) {
+  if (safetyDataStore === "file") return null;
+  const config = await readFirebaseBrowserConfig();
+  if (!config.apiKey || !config.projectId) return null;
+  if (!safetyFirebaseApp) {
+    safetyFirebaseApp = initializeApp(config, "safety-data-server");
+    safetyFirestore = getFirestore(safetyFirebaseApp);
+  }
+  const segments = String(docPath || "").split("/").map((item) => item.trim()).filter(Boolean);
+  if (segments.length < 2 || segments.length % 2 !== 0) {
+    throw new Error("Firestore 문서 경로는 collection/document 형식이어야 합니다.");
+  }
+  return firestoreDoc(safetyFirestore, ...segments);
+}
+
+async function getSafetyFirestoreChunkRef(docPath, index) {
+  const config = await readFirebaseBrowserConfig();
+  if (!config.apiKey || !config.projectId) return null;
+  if (!safetyFirebaseApp) {
+    safetyFirebaseApp = initializeApp(config, "safety-data-server");
+    safetyFirestore = getFirestore(safetyFirebaseApp);
+  }
+  const segments = String(docPath || "").split("/").map((item) => item.trim()).filter(Boolean);
+  return firestoreDoc(safetyFirestore, ...segments, "chunks", `chunk-${String(index).padStart(4, "0")}`);
+}
+
+function encodeSafetyPayload(payload) {
+  return zlib.gzipSync(Buffer.from(JSON.stringify(payload || {}), "utf8")).toString("base64");
+}
+
+function decodeSafetyPayload(base64) {
+  if (!base64) return null;
+  return JSON.parse(zlib.gunzipSync(Buffer.from(base64, "base64")).toString("utf8"));
+}
+
+async function readSafetyPayloadFromFirestore(docPath) {
+  const ref = await getSafetyFirestoreRef(docPath);
+  if (!ref) return null;
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const meta = snap.data() || {};
+  if (meta.payloadGzipBase64) return decodeSafetyPayload(meta.payloadGzipBase64);
+  const chunkCount = Number(meta.chunkCount || 0);
+  if (!chunkCount) return null;
+  const chunks = [];
+  for (let index = 0; index < chunkCount; index += 1) {
+    const chunkRef = await getSafetyFirestoreChunkRef(docPath, index);
+    const chunkSnap = await getDoc(chunkRef);
+    if (!chunkSnap.exists()) throw new Error(`Firestore 조각 데이터 누락: ${index + 1}/${chunkCount}`);
+    chunks.push(String(chunkSnap.data()?.data || ""));
+  }
+  return decodeSafetyPayload(chunks.join(""));
+}
+
+async function writeSafetyPayloadToFirestore(docPath, payload) {
+  const ref = await getSafetyFirestoreRef(docPath);
+  if (!ref) return false;
+  const encoded = encodeSafetyPayload(payload);
+  const chunkSize = 700000;
+  const chunks = encoded.match(new RegExp(`.{1,${chunkSize}}`, "g")) || [""];
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunkRef = await getSafetyFirestoreChunkRef(docPath, index);
+    await setDoc(chunkRef, { index, data: chunks[index], savedAt: new Date().toISOString() });
+  }
+  await setDoc(ref, {
+    updatedAt: payload?.updatedAt || new Date().toISOString(),
+    savedAt: new Date().toISOString(),
+    schemaVersion: 2,
+    encoding: "gzip-base64-chunks",
+    chunkCount: chunks.length,
+    payloadBytes: Buffer.byteLength(JSON.stringify(payload || {}), "utf8")
+  });
+  return true;
+}
+
+async function readSafetySyncedJson(filePath, firestoreDocPath, fallback) {
+  if (safetyDataStore !== "file") {
+    try {
+      const remote = await readSafetyPayloadFromFirestore(firestoreDocPath);
+      if (remote && typeof remote === "object") {
+        await writeJson(filePath, remote).catch(() => {});
+        return remote;
+      }
+    } catch (error) {
+      console.warn("safety firestore read failed:", firestoreDocPath, error.message);
+    }
+  }
+  const local = await readJson(filePath, null);
+  if (local && typeof local === "object") {
+    if (safetyDataStore !== "file") {
+      await writeSafetyPayloadToFirestore(firestoreDocPath, local).catch((error) => {
+        console.warn("safety firestore migration failed:", firestoreDocPath, error.message);
+      });
+    }
+    return local;
+  }
+  return fallback;
+}
+
+async function writeSafetySyncedJson(filePath, firestoreDocPath, payload) {
+  await writeJson(filePath, payload);
+  if (safetyDataStore === "file") return false;
+  await writeSafetyPayloadToFirestore(firestoreDocPath, payload);
+  return true;
 }
 
 async function backupJsonFile(filePath) {
@@ -581,6 +694,19 @@ async function readRuntimeJsonWithSeed(filePath, seedPath, fallback) {
   return fallback;
 }
 
+async function readSafetyDataPayload() {
+  const data = await readSafetySyncedJson(safetyDataPath, safetyDataFirestoreDocPath, null);
+  if (data?.records) return data;
+  const seed = await readJson(safetyDataSeedPath, null);
+  if (seed?.records) {
+    await writeSafetySyncedJson(safetyDataPath, safetyDataFirestoreDocPath, seed).catch((error) => {
+      console.warn("safety seed sync failed:", error.message);
+    });
+    return seed;
+  }
+  return { records: [], updatedAt: null };
+}
+
 async function readSafetyConfig() {
   return readJson(safetyConfigPath, {});
 }
@@ -595,7 +721,7 @@ function defaultSafetyUsers() {
 }
 
 async function readSafetyUsers() {
-  const data = await readJson(safetyUsersPath, null);
+  const data = await readSafetySyncedJson(safetyUsersPath, safetyUsersFirestoreDocPath, null);
   const users = Array.isArray(data?.users) ? data.users : null;
   const fallback = defaultSafetyUsers();
   if (users && users.length) {
@@ -611,10 +737,18 @@ async function readSafetyUsers() {
         merged.push(user);
       }
     }
-    await writeJson(safetyUsersPath, { users: merged, updatedAt: new Date().toISOString() });
+    const payload = { users: merged, updatedAt: new Date().toISOString() };
+    await writeSafetySyncedJson(safetyUsersPath, safetyUsersFirestoreDocPath, payload).catch(async (error) => {
+      console.warn("safety users remote save failed:", error.message);
+      await writeJson(safetyUsersPath, payload);
+    });
     return merged;
   }
-  await writeJson(safetyUsersPath, { users: fallback, updatedAt: new Date().toISOString() });
+  const payload = { users: fallback, updatedAt: new Date().toISOString() };
+  await writeSafetySyncedJson(safetyUsersPath, safetyUsersFirestoreDocPath, payload).catch(async (error) => {
+    console.warn("safety users remote save failed:", error.message);
+    await writeJson(safetyUsersPath, payload);
+  });
   return fallback;
 }
 
@@ -1946,7 +2080,7 @@ app.put("/api/shared-data", async (req, res) => {
 });
 
 app.get("/api/safety-data", async (_req, res) => {
-  const data = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+  const data = await readSafetyDataPayload();
   res.json(data);
 });
 
@@ -1956,7 +2090,7 @@ app.get("/api/safety-data/status", async (_req, res) => {
     const probePath = path.join(dataDir, `.write-check-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.tmp`);
     await fs.writeFile(probePath, "ok", "utf8");
     await fs.unlink(probePath);
-    const data = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+    const data = await readSafetyDataPayload();
     let stat = null;
     try {
       stat = await fs.stat(safetyDataPath);
@@ -1967,6 +2101,8 @@ app.get("/api/safety-data/status", async (_req, res) => {
       ok: true,
       dataDir,
       safetyDataPath,
+      safetyDataStore,
+      safetyDataFirestoreDocPath,
       writable: true,
       records: Array.isArray(data.records) ? data.records.length : 0,
       updatedAt: data.updatedAt || null,
@@ -1978,6 +2114,8 @@ app.get("/api/safety-data/status", async (_req, res) => {
       ok: false,
       dataDir,
       safetyDataPath,
+      safetyDataStore,
+      safetyDataFirestoreDocPath,
       writable: false,
       message: error.message || "safety data status failed"
     });
@@ -1985,7 +2123,7 @@ app.get("/api/safety-data/status", async (_req, res) => {
 });
 
 app.get("/api/safety-settings", async (_req, res) => {
-  const data = await readJson(safetySettingsPath, { departmentStamps: {}, updatedAt: null });
+  const data = await readSafetySyncedJson(safetySettingsPath, safetySettingsFirestoreDocPath, { departmentStamps: {}, updatedAt: null });
   res.json(data);
 });
 
@@ -1994,17 +2132,17 @@ app.put("/api/safety-settings", async (req, res) => {
     departmentStamps: req.body?.departmentStamps && typeof req.body.departmentStamps === "object" ? req.body.departmentStamps : {},
     updatedAt: new Date().toISOString()
   };
-  await writeJson(safetySettingsPath, payload);
-  res.json({ ok: true, departments: Object.keys(payload.departmentStamps).length, updatedAt: payload.updatedAt });
+  const remoteSaved = await writeSafetySyncedJson(safetySettingsPath, safetySettingsFirestoreDocPath, payload);
+  res.json({ ok: true, departments: Object.keys(payload.departmentStamps).length, updatedAt: payload.updatedAt, remoteSaved });
 });
 
 app.get("/api/safety-form-submissions", async (_req, res) => {
-  const data = await readJson(safetyFormSubmissionsPath, { submissions: [], updatedAt: null });
+  const data = await readSafetySyncedJson(safetyFormSubmissionsPath, safetyFormSubmissionsFirestoreDocPath, { submissions: [], updatedAt: null });
   res.json(data);
 });
 
 app.post("/api/safety-form-submissions", async (req, res) => {
-  const current = await readJson(safetyFormSubmissionsPath, { submissions: [], updatedAt: null });
+  const current = await readSafetySyncedJson(safetyFormSubmissionsPath, safetyFormSubmissionsFirestoreDocPath, { submissions: [], updatedAt: null });
   const draft = req.body?.draft && typeof req.body.draft === "object" ? req.body.draft : {};
   const user = req.body?.user && typeof req.body.user === "object" ? req.body.user : {};
   const submittedAt = new Date().toISOString();
@@ -2023,30 +2161,30 @@ app.post("/api/safety-form-submissions", async (req, res) => {
   const submissions = Array.isArray(current.submissions) ? current.submissions : [];
   submissions.unshift(submission);
   const payload = { submissions, updatedAt: submittedAt };
-  await writeJson(safetyFormSubmissionsPath, payload);
+  await writeSafetySyncedJson(safetyFormSubmissionsPath, safetyFormSubmissionsFirestoreDocPath, payload);
   res.json({ ok: true, submission });
 });
 
 app.put("/api/safety-form-submissions/:id/status", async (req, res) => {
-  const current = await readJson(safetyFormSubmissionsPath, { submissions: [], updatedAt: null });
+  const current = await readSafetySyncedJson(safetyFormSubmissionsPath, safetyFormSubmissionsFirestoreDocPath, { submissions: [], updatedAt: null });
   const submissions = Array.isArray(current.submissions) ? current.submissions : [];
   const item = submissions.find((entry) => entry.id === req.params.id);
   if (!item) return res.status(404).json({ ok: false, message: "제출 데이터를 찾지 못했습니다." });
   item.status = String(req.body?.status || item.status || "submitted");
   item.reviewedAt = new Date().toISOString();
   const payload = { submissions, updatedAt: item.reviewedAt };
-  await writeJson(safetyFormSubmissionsPath, payload);
+  await writeSafetySyncedJson(safetyFormSubmissionsPath, safetyFormSubmissionsFirestoreDocPath, payload);
   res.json({ ok: true, submission: item });
 });
 
 app.put("/api/safety-data", async (req, res) => {
-  const previous = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+  const previous = await readSafetyDataPayload();
   const backupPath = await backupJsonFile(safetyDataPath);
   const payload = {
     records: Array.isArray(req.body?.records) ? req.body.records : [],
     updatedAt: new Date().toISOString()
   };
-  await writeJson(safetyDataPath, payload);
+  const remoteSaved = await writeSafetySyncedJson(safetyDataPath, safetyDataFirestoreDocPath, payload);
   res.json({
     ok: true,
     records: payload.records.length,
@@ -2054,18 +2192,21 @@ app.put("/api/safety-data", async (req, res) => {
     updatedAt: payload.updatedAt,
     dataDir,
     safetyDataPath,
+    safetyDataStore,
+    safetyDataFirestoreDocPath,
+    remoteSaved,
     backupPath
   });
 });
 
 app.post("/api/safety-data", async (req, res) => {
-  const previous = await readRuntimeJsonWithSeed(safetyDataPath, safetyDataSeedPath, { records: [], updatedAt: null });
+  const previous = await readSafetyDataPayload();
   const backupPath = await backupJsonFile(safetyDataPath);
   const payload = {
     records: Array.isArray(req.body?.records) ? req.body.records : [],
     updatedAt: new Date().toISOString()
   };
-  await writeJson(safetyDataPath, payload);
+  const remoteSaved = await writeSafetySyncedJson(safetyDataPath, safetyDataFirestoreDocPath, payload);
   res.json({
     ok: true,
     records: payload.records.length,
@@ -2073,6 +2214,9 @@ app.post("/api/safety-data", async (req, res) => {
     updatedAt: payload.updatedAt,
     dataDir,
     safetyDataPath,
+    safetyDataStore,
+    safetyDataFirestoreDocPath,
+    remoteSaved,
     backupPath
   });
 });
