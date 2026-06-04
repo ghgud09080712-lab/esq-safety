@@ -1572,20 +1572,44 @@ function buildRefreshUpdateAiAnswer(refreshChanges, lastRefreshLog) {
   };
 }
 
-function buildLocalLegalAiAnswer(question, candidates, registryRecords, reason = "") {
+function buildLegalAiDetailIndex(detailCards) {
+  return (Array.isArray(detailCards) ? detailCards : []).slice(0, 80).map((card) => ({
+    lawName: compactText(card.lawName),
+    category: compactText(card.category),
+    revisionDate: compactText(card.revisionDate),
+    registeredDate: compactText(card.registeredDate),
+    applicability: compactText(card.applicability),
+    mainContent: compactText(card.mainContent).slice(0, 600),
+    companyAction: compactText(card.companyAction).slice(0, 600),
+    qcStatus: compactText(card.qcStatus),
+    qcValidity: compactText(card.qcValidity),
+    qcMemo: compactText(card.qcMemo).slice(0, 300)
+  })).filter((card) => card.lawName || card.mainContent || card.companyAction);
+}
+
+function buildLocalLegalAiAnswer(question, candidates, registryRecords, detailCards = [], reason = "") {
   const normalizedQuestion = compactText(question).toLowerCase();
   const fallbackKeywords = [
     { words: ["분진", "먼지", "분말", "호흡", "마스크", "노출"], laws: ["산업안전보건법", "화학물질관리법"] },
     { words: ["폐수", "방류", "색도", "수질"], laws: ["물환경보전법", "하수도법"] },
     { words: ["대기", "배출", "방지시설", "집진", "먼지", "voc", "악취"], laws: ["대기환경보전법", "악취방지법"] },
-    { words: ["화학", "유해화학", "msds", "누출", "보관", "취급"], laws: ["화학물질관리법", "화학물질의 등록 및 평가 등에 관한 법률", "산업안전보건법"] },
+    { words: ["화학", "유해화학", "msds", "ghs", "경고표지", "누출", "보관", "취급", "표시", "화학물질확인"], laws: ["화학물질관리법", "화학물질의 등록 및 평가 등에 관한 법률", "산업안전보건법"] },
     { words: ["위험물", "인화", "화재", "폭발", "소방"], laws: ["위험물안전관리법", "소방시설 설치 및 관리에 관한 법률"] },
     { words: ["폐기물", "지정폐기물", "보관", "처리"], laws: ["폐기물관리법", "자원의 절약과 재활용촉진에 관한 법률"] },
     { words: ["연구실", "실험실", "시약"], laws: ["연구실 안전환경 조성에 관한 법률"] },
     { words: ["소음", "진동", "청력"], laws: ["산업안전보건법", "소음ㆍ진동관리법"] },
-    { words: ["온열", "폭염", "더위", "열사병"], laws: ["산업안전보건법"] }
+    { words: ["온열", "폭염", "더위", "열사병"], laws: ["산업안전보건법"] },
+    { words: ["지게차", "하역", "운반", "충돌", "끼임"], laws: ["산업안전보건법", "산업안전보건기준에 관한 규칙"] },
+    { words: ["국소배기", "환기", "후드", "집진기", "작업환경측정", "특수건강진단", "보호구"], laws: ["산업안전보건법", "대기환경보전법"] },
+    { words: ["보일러", "압력", "고압", "가스", "용기"], laws: ["고압가스 안전관리법", "산업안전보건법"] },
+    { words: ["전기", "감전", "분전반", "정전기"], laws: ["산업안전보건법", "전기안전관리법"] },
+    { words: ["교육", "훈련", "작업표준", "절차", "비상", "대응", "훈련"], laws: ["산업안전보건법", "화학물질관리법"] },
+    { words: ["허가", "신고", "변경허가", "영업허가", "화학사고예방관리계획서", "취급시설", "설치검사", "정기검사"], laws: ["화학물질관리법", "대기환경보전법", "물환경보전법"] },
+    { words: ["도급", "외주", "협력업체", "공사", "정비"], laws: ["산업안전보건법", "중대재해 처벌 등에 관한 법률"] },
+    { words: ["밀폐", "산소", "질식", "탱크", "맨홀"], laws: ["산업안전보건법", "산업안전보건기준에 관한 규칙"] }
   ];
   const records = Array.isArray(registryRecords) ? registryRecords : [];
+  const details = buildLegalAiDetailIndex(detailCards);
   const candidateLaws = Array.isArray(candidates) ? candidates : [];
   const pickedNames = [];
 
@@ -1601,27 +1625,40 @@ function buildLocalLegalAiAnswer(question, candidates, registryRecords, reason =
   for (const lawName of Array.from(new Set(pickedNames.filter(Boolean)))) {
     const matchedRecord = records.find((record) => normalizeLawName(record.lawName).includes(normalizeLawName(lawName)))
       || records.find((record) => normalizeLawName(lawName).includes(normalizeLawName(record.lawName)));
+    const matchedDetail = details.find((card) => normalizeLawName(card.lawName).includes(normalizeLawName(lawName)))
+      || details.find((card) => normalizeLawName(lawName).includes(normalizeLawName(card.lawName)));
     if (!matchedRecord && !lawName) continue;
     recommended.push({
       lawName: matchedRecord?.lawName || lawName,
-      reason: "(주)오영 염료 제조업 현장 질문과 관련성이 높아 우선 확인할 법규입니다."
+      reason: matchedDetail?.companyAction
+        ? `등록부 당사 적용사항과 연결됩니다: ${matchedDetail.companyAction.slice(0, 120)}`
+        : "(주)오영 염료 제조업 현장 질문과 관련성이 높아 우선 확인할 법규입니다."
     });
     if (recommended.length >= 6) break;
+  }
+  if (!recommended.length) {
+    for (const lawName of ["산업안전보건법", "화학물질관리법", "대기환경보전법", "물환경보전법", "폐기물관리법"]) {
+      recommended.push({
+        lawName: `${lawName} (등록부 외 추가 확인 가능)`,
+        reason: "질문이 특정 법령명과 직접 매칭되지는 않지만 오영 염료 제조업의 공정ㆍ물질ㆍ환경영향 관점에서 먼저 검토할 분야입니다."
+      });
+    }
   }
 
   return {
     ok: true,
     model: "local-fallback",
-    answer: `오영 법규등록부 기준으로 답변합니다. "${question}"은 (주)오영의 염료 제조, 화학물질 취급, 작업환경 또는 환경 배출 관리와 연결될 수 있으므로 아래 법규와 현장 조치를 우선 확인하세요.`,
+    answer: `오영 법규등록부와 염료 제조업 현장 기준으로 해석했습니다. "${question}"은 법령명 키워드가 정확히 없어도 공정, 물질, 설비, 노출, 배출, 인허가 관점으로 나눠 검토해야 합니다. 아래 법규 후보와 현장 조치를 우선 확인하세요.`,
     recommendedLaws: recommended,
     siteRisks: [
       "염료 분말, 화학물질, 용제, 폐수, 대기배출시설 등 현장 위험요인과 연결되는지 확인",
       "작업 장소, 취급 물질, 배출 또는 노출 경로를 기준으로 적용 법규 분류"
     ],
     actionPlan: [
-      "관련 작업의 MSDS, 작업표준, 보호구, 교육기록을 먼저 확인",
-      "해당 설비 또는 공정의 점검기록, 측정기록, 인허가 조건과 법규등록부 적용사항을 대조",
-      "법규 원문과 시행규칙 세부 기준을 확인한 뒤 당사 적용사항에 반영"
+      "질문한 상황을 작업공정, 취급물질, 설비, 배출/노출 경로, 인허가 여부로 나눠 정리",
+      "관련 작업의 MSDS, 작업표준, 보호구, 교육기록, 점검기록, 측정기록을 먼저 확인",
+      "해당 설비 또는 공정의 인허가 조건과 법규등록부의 법규 적용내용ㆍ당사 적용사항을 대조",
+      "추가 확인이 필요한 법 분야는 법규검토에 등록하고 유효성평가와 정도관리 상태를 남김"
     ],
     checkpoints: [
       "질문한 작업이 어떤 공정인지: 계량, 혼합, 반응, 건조, 포장, 보관, 폐수처리, 방지시설",
@@ -1646,6 +1683,7 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
 
     const requestedCandidates = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
     const registryRecords = Array.isArray(registry.records) ? registry.records : [];
+    const detailIndex = buildLegalAiDetailIndex(registry.detailCards);
     const candidates = requestedCandidates.length
       ? requestedCandidates
       : registryRecords.slice(0, 80).map((record) => ({
@@ -1664,17 +1702,17 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
     const config = await readSafetyConfig();
     const apiKey = getSafetyGeminiApiKey(config);
     if (!apiKey) {
-      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "AI API 키가 서버에 설정되지 않았습니다."));
+      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, registry.detailCards, "AI API 키가 서버에 설정되지 않았습니다."));
     }
 
     const prompt = [
       "당신은 제조업 사업장의 법규등록부를 도와주는 한국어 법규 상담형 검색 보조자입니다.",
       "아래 회사 프로필을 항상 기준으로 삼아 답하세요.",
       JSON.stringify(legalRegistryCompanyProfile, null, 2),
-      "사용자 질문의 표현이 등록부 키워드와 정확히 일치하지 않아도, 작업 상황ㆍ위험요인ㆍ설비ㆍ물질ㆍ환경영향을 추론해 관련 법규 분야를 넓게 찾아주세요.",
-      "후보 법령은 참고자료입니다. 후보가 부족하면 등록부 전체 목록과 회사 프로필을 바탕으로 가능한 관련 법령을 추천하되, 확정이 필요한 부분은 원문 확인 필요로 표시하세요.",
-      "등록부에 없는 법령명을 새로 만들지 마세요. 다만 질문상 확인해야 할 법 분야는 answer/caution에 설명할 수 있습니다.",
-      "답변은 (주)오영의 염료 제조공정에서 실제로 확인할 조치 중심으로 작성하세요.",
+      "사용자 질문을 먼저 현장 상황으로 해석하세요. 법령명 키워드가 없어도 공정, 물질, 설비, 사람 노출, 환경 배출, 인허가, 기록관리 관점으로 나눠 관련성을 넓게 판단하세요.",
+      "후보 법령은 검색 힌트일 뿐입니다. 후보가 부족하면 등록부 전체 목록, 세부 카드, 회사 프로필을 바탕으로 관련 가능성이 높은 법규와 추가 확인 분야를 제시하세요.",
+      "등록부에 있는 법규는 recommendedLaws에 우선 넣고, 등록부에 없지만 확인이 필요한 분야는 법령명 뒤에 '(등록부 외 추가 확인)'이라고 표시하세요.",
+      "답변은 (주)오영의 염료 제조공정에서 실제로 확인할 조치, 필요한 기록/증빙, 법규검토에 남길 정도관리 포인트 중심으로 작성하세요.",
       "법률 자문이 아니라 내부 준수 검토용 안내입니다.",
       "반드시 JSON으로만 답하세요. 형식: {\"answer\":\"...\", \"recommendedLaws\":[{\"lawName\":\"...\",\"reason\":\"...\"}], \"siteRisks\":[\"...\"], \"actionPlan\":[\"...\"], \"checkpoints\":[\"...\"], \"caution\":\"...\"}",
       "",
@@ -1684,12 +1722,15 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
       JSON.stringify(candidates.slice(0, 20), null, 2),
       "",
       "등록부 전체 목록:",
-      JSON.stringify(registryIndex, null, 2)
+      JSON.stringify(registryIndex, null, 2),
+      "",
+      "등록부 세부 카드(법규 적용내용, 당사 적용사항, 정도관리):",
+      JSON.stringify(detailIndex, null, 2)
     ].join("\n");
 
     const result = await requestSafetyGeminiText(apiKey, prompt).catch((error) => null);
     if (!result) {
-      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, "AI 답변 생성에 실패했습니다."));
+      return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, registry.detailCards, "AI 답변 생성에 실패했습니다."));
     }
     let parsed = null;
     try {
