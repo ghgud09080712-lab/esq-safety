@@ -1091,6 +1091,15 @@ app.get("/app", (_req, res) => {
   res.redirect(302, "/safety");
 });
 
+app.use((req, res, next) => {
+  const normalizedPath = req.path.replace(/\/+$/, "") || "/";
+  if (normalizedPath.toLowerCase() === "/legal-registry" && normalizedPath !== "/legal-registry") {
+    res.redirect(302, "/safety");
+    return;
+  }
+  next();
+});
+
 app.get("/safety", (_req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.sendFile(safetyHtmlPath);
