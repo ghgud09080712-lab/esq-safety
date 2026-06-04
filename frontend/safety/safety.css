@@ -3537,23 +3537,55 @@ table {
   table-layout: fixed;
 }
 
+.table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.table-sort-btn span {
+  display: inline-block;
+  min-width: 14px;
+  color: var(--accent);
+}
+
+.table-sort-btn .sort-equals {
+  min-width: 10px;
+  color: #6b7f95;
+  font-weight: 900;
+}
+
 .incident-table {
   table-layout: fixed;
 }
 
 .near-miss-table th:nth-child(1),
 .near-miss-table td:nth-child(1) {
-  width: 48px;
+  width: 64px;
+  text-align: center;
 }
 
 .near-miss-table th:nth-child(2),
 .near-miss-table td:nth-child(2) {
-  width: 66px;
+  width: 88px;
+  text-align: center;
 }
 
 .near-miss-table th:nth-child(3),
 .near-miss-table td:nth-child(3) {
-  width: 104px;
+  width: 112px;
+  text-align: center;
 }
 
 .near-miss-table th:nth-child(4),

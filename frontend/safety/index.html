@@ -6,7 +6,7 @@
   <title>ESQ 안전사고 관리</title>
   <script src="/vendor/xlsx/dist/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/safety/safety.css?v=20260507-login-title">
+  <link rel="stylesheet" href="/frontend/safety/safety.css?v=20260604-occurrence-sort-align">
 </head>
 <body class="sidebar-collapsed">
   <div class="safety-login" id="safetyLogin" role="dialog" aria-modal="true" aria-labelledby="safetyLoginTitle">
@@ -293,9 +293,9 @@
           <table class="near-miss-table">
             <thead>
               <tr>
-                <th>NO.</th>
-                <th>발생월</th>
-                <th>발생일</th>
+                <th><button class="table-sort-btn" data-occurrence-sort="no" type="button">NO. <span class="sort-equals">=</span><span id="noSortMark"></span></button></th>
+                <th><button class="table-sort-btn" data-occurrence-sort="month" type="button">발생월 <span class="sort-equals">=</span><span id="monthSortMark"></span></button></th>
+                <th><button class="table-sort-btn" data-occurrence-sort="day" type="button">발생일 <span class="sort-equals">=</span><span id="daySortMark"></span></button></th>
                 <th>발생부서</th>
                 <th>발굴자</th>
                 <th>장소/설비</th>
@@ -723,6 +723,6 @@
     </div>
   </div>
 
-  <script src="/frontend/safety/safety-app.js?v=20260507-login-role-only"></script>
+  <script src="/frontend/safety/safety-app.js?v=20260604-occurrence-sort-align"></script>
 </body>
 </html>

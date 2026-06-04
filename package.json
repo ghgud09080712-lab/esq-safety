@@ -7,7 +7,9 @@
     "dev": "node backend/server.js",
     "start": "node backend/server.js",
     "backend": "node backend/server.js",
-    "open": "node backend/open.js"
+    "open": "node backend/open.js safety",
+    "open:safety": "node backend/open.js safety",
+    "open:legal": "node backend/open.js legal"
   },
   "dependencies": {
     "ag-grid-community": "^31.3.2",

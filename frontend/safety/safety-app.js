@@ -108,6 +108,8 @@ let activeSupervisorActionPickerKey = "";
 let activeSheetField = "";
 let currentSafetyUser = null;
 let appToastTimer = null;
+let occurrenceSortField = "day";
+let occurrenceSortOrder = "desc";
 
 function $(selector) {
   return document.querySelector(selector);
@@ -1845,6 +1847,26 @@ function getRecordMonth(record) {
   return month >= 1 && month <= 12 ? `${month}\uC6D4` : "";
 }
 
+function getRecordMonthNumber(record) {
+  return Number(getRecordMonth(record).replace(/\D/g, "")) || 0;
+}
+
+function getRecordDateValue(record) {
+  const text = safeText(record.date);
+  const match = text.match(/((?:19|20)\d{2})\D*(\d{1,2})\D*(\d{1,2})/);
+  if (!match) return 0;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || !month || !day) return 0;
+  return year * 10000 + month * 100 + day;
+}
+
+function getRecordSourceOrder(record) {
+  const index = records.findIndex((item) => item === record || (record.id && item.id === record.id));
+  return index >= 0 ? index + 1 : 0;
+}
+
 function getRecordReportMonth(record) {
   return normalizeRecordMonth(record.reportMonth) || getRecordMonth(record);
 }
@@ -2439,6 +2461,33 @@ function filteredRecords() {
   });
 }
 
+function compareRecordsByOccurrenceDate(a, b) {
+  const direction = occurrenceSortOrder === "asc" ? 1 : -1;
+  const getPrimary = occurrenceSortField === "no"
+    ? getRecordSourceOrder
+    : occurrenceSortField === "month"
+      ? getRecordMonthNumber
+      : getRecordDateValue;
+  const primary = getPrimary(a) - getPrimary(b);
+  const secondary = getRecordDateValue(a) - getRecordDateValue(b);
+  const idCompare = safeText(a.id).localeCompare(safeText(b.id), "ko");
+  return (primary || secondary || idCompare) * direction;
+}
+
+function sortRecordsByOccurrenceDate(items) {
+  return items.slice().sort(compareRecordsByOccurrenceDate);
+}
+
+function updateDateSortMarks() {
+  const mark = occurrenceSortOrder === "asc" ? "▲" : "▼";
+  const noMark = $("#noSortMark");
+  const monthMark = $("#monthSortMark");
+  const dayMark = $("#daySortMark");
+  if (noMark) noMark.textContent = occurrenceSortField === "no" ? mark : "";
+  if (monthMark) monthMark.textContent = occurrenceSortField === "month" ? mark : "";
+  if (dayMark) dayMark.textContent = occurrenceSortField === "day" ? mark : "";
+}
+
 function countBy(items, getter) {
   return items.reduce((map, item) => {
     const key = getter(item) || K.unclassified;
@@ -2772,7 +2821,7 @@ function renderNearMissRiskPicks(sourceRows) {
 function renderNearMiss() {
   const allNearMissRows = records.filter((row) => row.kind === "nearMiss");
   const filteredNearMissRows = filteredRecords().filter((row) => row.kind === "nearMiss");
-  const rows = filteredNearMissRows.filter((row) => nearMissCompanyFilter === "all" || companyKey(row) === nearMissCompanyFilter);
+  const rows = sortRecordsByOccurrenceDate(filteredNearMissRows.filter((row) => nearMissCompanyFilter === "all" || companyKey(row) === nearMissCompanyFilter));
   $("#nearMissSummary").innerHTML = [
     [K.all, allNearMissRows.length],
     [K.oyoung, allNearMissRows.filter((row) => companyKey(row) === "oyoung").length],
@@ -2780,6 +2829,7 @@ function renderNearMiss() {
     ["\uD604\uC7AC \uD45C\uC2DC", rows.length],
     ["\uAC80\uC0C9/\uD544\uD130 \uACB0\uACFC", filteredNearMissRows.length]
   ].map(([label, value]) => `<span class="mini-summary-item">${label} <strong>${value}</strong></span>`).join("");
+  updateDateSortMarks();
   renderNearMissRiskPicks(riskPickFilteredRows().filter((row) => row.kind === "nearMiss" && (nearMissCompanyFilter === "all" || companyKey(row) === nearMissCompanyFilter)));
   $("#nearMissRows").innerHTML = rows.map((row, index) => `
     <tr class="openable-row" data-edit="${row.id}" title="\uB354\uBE14\uD074\uB9AD\uD574\uC11C \uBCF4\uAE30">
@@ -2799,7 +2849,7 @@ function renderNearMiss() {
 function renderIncident() {
   const allIncidentRows = records.filter((row) => row.kind === "incident");
   const filteredIncidentRows = filteredRecords().filter((row) => row.kind === "incident");
-  const rows = filteredIncidentRows.filter((row) => incidentCompanyFilter === "all" || companyKey(row) === incidentCompanyFilter);
+  const rows = sortRecordsByOccurrenceDate(filteredIncidentRows.filter((row) => incidentCompanyFilter === "all" || companyKey(row) === incidentCompanyFilter));
   const dateCounters = new Map();
   $("#incidentSummary").innerHTML = [
     [K.all, allIncidentRows.length],
@@ -4666,6 +4716,9 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
     .bar-fill { height:100%; border-radius:999px; background:#0f766e; }
     .bar-count { text-align:right; font-size:13px; font-weight:800; }
     .empty { padding:36px; text-align:center; color:var(--muted); }
+    .table-sort-btn { display:inline-flex; align-items:center; justify-content:center; gap:2px; width:100%; border:0; background:transparent; color:inherit; font:inherit; font-weight:800; cursor:pointer; padding:0; white-space:nowrap; line-height:1.2; }
+    .table-sort-btn span { display:inline-block; min-width:14px; color:var(--accent); }
+    .table-sort-btn .sort-equals { min-width:10px; color:#6b7f95; font-weight:900; }
     @media (max-width:900px) { .section-head { padding-right:0; } .share-actions { position:static; justify-content:flex-start; margin:8px 0 10px; } .toolbar { grid-template-columns:1fr 1fr; } main { padding:12px; } }
   </style>
 </head>
@@ -4706,9 +4759,9 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
       <table>
         <thead>
           <tr>
-            <th>NO.</th>
-            <th>발생월</th>
-            <th>발생일</th>
+            <th><button class="table-sort-btn" data-occurrence-sort="no" type="button">NO. <span class="sort-equals">=</span><span id="noSortMark"></span></button></th>
+            <th><button class="table-sort-btn" data-occurrence-sort="month" type="button">발생월 <span class="sort-equals">=</span><span id="monthSortMark"></span></button></th>
+            <th><button class="table-sort-btn" data-occurrence-sort="day" type="button">발생일 <span class="sort-equals">=</span><span id="daySortMark"></span></button></th>
             <th>발생부서</th>
             <th>발굴자</th>
             <th>장소/설비</th>
@@ -4787,20 +4840,37 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
       return monthOf(row);
     };
     const dateParts = (row) => {
-      const match = String(row.date || "").match(/(19|20)\\d{2}[-./년\\s]*(\\d{1,2})?[-./월\\s]*(\\d{1,2})?/);
+      const match = String(row.date || "").match(/((?:19|20)\\d{2})\\D*(\\d{1,2})?\\D*(\\d{1,2})?/);
       return {
-        year: Number(match && match[0].match(/(19|20)\\d{2}/)?.[0]) || 0,
+        year: Number(match && match[1]) || 0,
         month: Number(match && match[2]) || 0,
         day: Number(match && match[3]) || 0
       };
     };
+    const dateValue = (row) => {
+      const parts = dateParts(row);
+      return parts.year * 10000 + parts.month * 100 + parts.day;
+    };
+    const monthValue = (row) => dateParts(row).month || 0;
+    const sourceOrder = (row) => {
+      const index = rows.findIndex((item) => item === row || (row.id && item.id === row.id));
+      return index >= 0 ? index + 1 : 0;
+    };
     const compareSharedRows = (a, b) => {
-      const left = dateParts(a);
-      const right = dateParts(b);
-      if (right.year !== left.year) return right.year - left.year;
-      if (right.month !== left.month) return right.month - left.month;
-      if (left.day !== right.day) return left.day - right.day;
-      return cleanDept(a.department).localeCompare(cleanDept(b.department), "ko");
+      const direction = dateSortOrder === "asc" ? 1 : -1;
+      const primary = dateSortField === "no"
+        ? sourceOrder(a) - sourceOrder(b)
+        : dateSortField === "month"
+          ? monthValue(a) - monthValue(b)
+          : dateValue(a) - dateValue(b);
+      const secondary = dateValue(a) - dateValue(b);
+      const deptCompare = cleanDept(a.department).localeCompare(cleanDept(b.department), "ko");
+      return (primary || secondary || deptCompare) * direction;
+    };
+    const updateSortMarks = () => {
+      document.getElementById("noSortMark").textContent = dateSortField === "no" ? (dateSortOrder === "asc" ? "▲" : "▼") : "";
+      document.getElementById("monthSortMark").textContent = dateSortField === "month" ? (dateSortOrder === "asc" ? "▲" : "▼") : "";
+      document.getElementById("daySortMark").textContent = dateSortField === "day" ? (dateSortOrder === "asc" ? "▲" : "▼") : "";
     };
     const cleanDept = (value) => String(value || "").trim().replace(/^[a-zA-Z]\\s+/, "").replace(/^[a-zA-Z][.)-]\\s*/, "");
     const companyOf = (row) => {
@@ -4813,6 +4883,8 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
     let activeStatsMode = "type";
     let statsYear = "all";
     let statsMonth = "all";
+    let dateSortField = "day";
+    let dateSortOrder = "desc";
     const typeOrder = ["깔림", "끼임", "넘어짐", "누전", "떨어짐", "맞음", "베임", "찔림", "부딪힘", "불균형 및 무리한", "이상온도 접촉", "화학물질 누출", "화학물질 접촉", "화재 폭발", "기타"];
     const fillYears = () => {
       const years = [...new Set(rows.map(yearOf).filter(Boolean))].sort((a, b) => b.localeCompare(a));
@@ -4853,6 +4925,7 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
         return true;
       });
       const sorted = filtered.slice().sort(compareSharedRows);
+      updateSortMarks();
       document.getElementById("totalCount").textContent = rows.length;
       document.getElementById("oyoungCount").textContent = rows.filter((row) => companyOf(row) === "오영").length;
       document.getElementById("semCount").textContent = rows.filter((row) => companyOf(row) === "SEM").length;
@@ -5020,6 +5093,17 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
       closeDetailModal();
     });
     ["searchInput","departmentFilter","yearFilter","monthFilter"].forEach((id) => document.getElementById(id).addEventListener("input", render));
+    document.querySelectorAll("[data-occurrence-sort]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const field = button.dataset.occurrenceSort || "day";
+        if (dateSortField === field) dateSortOrder = dateSortOrder === "asc" ? "desc" : "asc";
+        else {
+          dateSortField = field;
+          dateSortOrder = "desc";
+        }
+        render();
+      });
+    });
     render();
   <\/script>
 </body>
@@ -5592,6 +5676,19 @@ function bindUiHandlers() {
     if (!el) return;
     el.addEventListener("input", renderAll);
     el.addEventListener("change", renderAll);
+  });
+
+  $$("[data-occurrence-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextField = button.dataset.occurrenceSort || "day";
+      if (occurrenceSortField === nextField) {
+        occurrenceSortOrder = occurrenceSortOrder === "asc" ? "desc" : "asc";
+      } else {
+        occurrenceSortField = nextField;
+        occurrenceSortOrder = "desc";
+      }
+      renderAll();
+    });
   });
 
   $("#nearMissRiskPickMonthSelect")?.addEventListener("change", (event) => {
