@@ -94,10 +94,10 @@ let deptReportMonthFilter = "all";
 let typeReportCompanyFilter = "all";
 let typeReportYearFilter = "all";
 let typeReportMonthFilter = "all";
-let nearMissRiskPickYear = "";
-let nearMissRiskPickMonth = "";
-let nearMissRiskPickCount = 2;
-let nearMissRiskPickVisible = false;
+let riskPickYear = "";
+let riskPickMonth = "";
+let riskPickCount = 2;
+let riskPickVisible = false;
 let nearMissFormMode = "form";
 let nearMissFormDraft = null;
 let safetySettings = { departmentStamps: {} };
@@ -2732,92 +2732,6 @@ function renderReports() {
   renderBars($("#reportTypeBars"), countFixedAccidentTypes(getReportRows(typeReportCompanyFilter, typeReportYearFilter, typeReportMonthFilter)));
 }
 
-function renderNearMissRiskPicks(sourceRows) {
-  const list = $("#nearMissRiskPickList");
-  const caption = $("#nearMissRiskPickCaption");
-  const yearSelect = $("#nearMissRiskPickYearSelect");
-  const monthSelect = $("#nearMissRiskPickMonthSelect");
-  const countSelect = $("#nearMissRiskPickCountSelect");
-  if (!list || !caption) return;
-
-  const nearMissSourceRows = sourceRows.filter((row) => row.kind === "nearMiss");
-  const yearOptions = getRiskPickYearOptions(nearMissSourceRows);
-  const defaultPeriod = getDefaultRiskPickPeriod(nearMissSourceRows);
-  const selectedYear = nearMissRiskPickYear && yearOptions.includes(nearMissRiskPickYear)
-    ? nearMissRiskPickYear
-    : defaultPeriod.year;
-  const monthOptions = getRiskPickMonthOptions(nearMissSourceRows, selectedYear);
-  const selectedMonth = nearMissRiskPickMonth && monthOptions.includes(nearMissRiskPickMonth)
-    ? nearMissRiskPickMonth
-    : (monthOptions.includes(defaultPeriod.month) ? defaultPeriod.month : monthOptions[0] || defaultPeriod.month);
-  const pickCount = Math.max(1, Math.min(5, Number(nearMissRiskPickCount) || 2));
-
-  if (yearSelect) {
-    yearSelect.innerHTML = [
-      `<option value="">자동</option>`,
-      ...yearOptions.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}년</option>`)
-    ].join("");
-    yearSelect.value = nearMissRiskPickYear && yearOptions.includes(nearMissRiskPickYear)
-      ? nearMissRiskPickYear
-      : "";
-  }
-  if (monthSelect) {
-    monthSelect.innerHTML = [
-      `<option value="">자동</option>`,
-      ...monthOptions.map((month) => `<option value="${escapeHtml(month)}">${escapeHtml(month)}</option>`)
-    ].join("");
-    monthSelect.value = nearMissRiskPickMonth && monthOptions.includes(nearMissRiskPickMonth)
-      ? nearMissRiskPickMonth
-      : "";
-  }
-  if (countSelect) countSelect.value = String(pickCount);
-
-  if (!nearMissRiskPickVisible) {
-    caption.textContent = "발생연도, 발생월, 갯수를 선택한 뒤 추천보기를 누르세요.";
-    list.innerHTML = `<div class="risk-pick-empty">조건을 선택하고 추천보기를 누르면 별도 위험성평가 등록 추천 항목이 표시됩니다.</div>`;
-    return;
-  }
-
-  const picks = getMonthlyRiskAssessmentPicks(nearMissSourceRows, pickCount, selectedMonth, selectedYear, false);
-  const monthHint = picks.sourceCount
-    ? `${picks.year}년 ${picks.month} 발생 기준 ${picks.sourceCount}건 중 별도 위험성평가 추천`
-    : `${picks.year}년 ${picks.month} 발생 자료가 없습니다`;
-  caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
-
-  if (!picks.items.length) {
-    list.innerHTML = `<div class="risk-pick-empty">추천할 위험성평가 대상이 없습니다.</div>`;
-    return;
-  }
-
-  list.innerHTML = picks.items.map(({ row, score, reasons }, index) => {
-    const riskScore = getRiskScore(row);
-    const reasonChips = (reasons.length ? reasons : ["월별 위험성평가 등록 후보"])
-      .map((reason) => `<span>${escapeHtml(reason)}</span>`)
-      .join("");
-    return `
-      <article class="risk-pick-card rank-${index + 1}">
-        <div class="risk-pick-head">
-          <span class="risk-pick-rank">${index + 1}</span>
-          <div>
-            <strong>${escapeHtml(cleanDepartment(row.department))} · ${escapeHtml(normalizeAccidentType(row.type) || "기타")}</strong>
-            <p>${escapeHtml(row.location || row.process || "-")}</p>
-          </div>
-          ${badge(`${getRiskLevel(row)} ${riskScore}`)}
-        </div>
-        <p class="risk-pick-desc">${escapeHtml(row.description || row.action || "-")}</p>
-        <div class="risk-pick-reasons">${reasonChips}</div>
-        <div class="risk-pick-foot">
-          <span>추천점수 ${escapeHtml(score)} · 발생 ${escapeHtml(getRecordYear(row) || "-")}년 ${escapeHtml(getRecordMonth(row) || "-")}</span>
-          <div class="risk-pick-actions">
-            <button class="btn small ghost" type="button" data-edit="${escapeHtml(row.id)}">아차사고 보기</button>
-            <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
-          </div>
-        </div>
-      </article>
-    `;
-  }).join("");
-}
-
 function renderNearMiss() {
   const allNearMissRows = records.filter((row) => row.kind === "nearMiss");
   const filteredNearMissRows = filteredRecords().filter((row) => row.kind === "nearMiss");
@@ -2830,7 +2744,6 @@ function renderNearMiss() {
     ["\uAC80\uC0C9/\uD544\uD130 \uACB0\uACFC", filteredNearMissRows.length]
   ].map(([label, value]) => `<span class="mini-summary-item">${label} <strong>${value}</strong></span>`).join("");
   updateDateSortMarks();
-  renderNearMissRiskPicks(riskPickFilteredRows().filter((row) => row.kind === "nearMiss" && (nearMissCompanyFilter === "all" || companyKey(row) === nearMissCompanyFilter)));
   $("#nearMissRows").innerHTML = rows.map((row, index) => `
     <tr class="openable-row" data-edit="${row.id}" title="\uB354\uBE14\uD074\uB9AD\uD574\uC11C \uBCF4\uAE30">
       <td>${index + 1}</td>
@@ -4255,16 +4168,49 @@ function renderActions() {
 function renderRiskPicks() {
   const list = $("#riskPickList");
   const caption = $("#riskPickCaption");
+  const yearSelect = $("#riskPickYearSelect");
+  const monthSelect = $("#riskPickMonthSelect");
+  const countSelect = $("#riskPickCountSelect");
   if (!list || !caption) return;
 
-  const selectedMonth = safeText($("#monthFilter")?.value || "all");
   const sourceRows = riskPickFilteredRows();
+  const yearOptions = getRiskPickYearOptions(sourceRows);
   const defaultPeriod = getDefaultRiskPickPeriod(sourceRows);
-  const targetMonth = selectedMonth === "all" ? defaultPeriod.month : selectedMonth;
-  const picks = getMonthlyRiskAssessmentPicks(sourceRows, 2, targetMonth, defaultPeriod.year);
+  const selectedYear = riskPickYear && yearOptions.includes(riskPickYear)
+    ? riskPickYear
+    : defaultPeriod.year;
+  const monthOptions = getRiskPickMonthOptions(sourceRows, selectedYear);
+  const selectedMonth = riskPickMonth && monthOptions.includes(riskPickMonth)
+    ? riskPickMonth
+    : (monthOptions.includes(defaultPeriod.month) ? defaultPeriod.month : monthOptions[0] || defaultPeriod.month);
+  const pickCount = Math.max(1, Math.min(5, Number(riskPickCount) || 2));
+
+  if (yearSelect) {
+    yearSelect.innerHTML = [
+      `<option value="">자동</option>`,
+      ...yearOptions.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}년</option>`)
+    ].join("");
+    yearSelect.value = riskPickYear && yearOptions.includes(riskPickYear) ? riskPickYear : "";
+  }
+  if (monthSelect) {
+    monthSelect.innerHTML = [
+      `<option value="">자동</option>`,
+      ...monthOptions.map((month) => `<option value="${escapeHtml(month)}">${escapeHtml(month)}</option>`)
+    ].join("");
+    monthSelect.value = riskPickMonth && monthOptions.includes(riskPickMonth) ? riskPickMonth : "";
+  }
+  if (countSelect) countSelect.value = String(pickCount);
+
+  if (!riskPickVisible) {
+    caption.textContent = "발생연도, 발생월, 갯수를 선택한 뒤 추천보기를 누르세요.";
+    list.innerHTML = `<div class="risk-pick-empty">조건을 선택하고 추천보기를 누르면 별도 위험성평가 등록 추천 항목이 표시됩니다.</div>`;
+    return;
+  }
+
+  const picks = getMonthlyRiskAssessmentPicks(sourceRows, pickCount, selectedMonth, selectedYear, false);
   const monthHint = picks.sourceCount
     ? `${picks.year}년 ${picks.month} 발생 기준 ${picks.sourceCount}건 중 별도 등록 추천`
-    : `${picks.year}년 ${picks.month} 발생 자료가 없어 현재 조건의 고위험 항목 기준으로 추천`;
+    : `${picks.year}년 ${picks.month} 발생 자료가 없습니다`;
   caption.textContent = `${monthHint} · 상위 ${picks.items.length}건`;
 
   if (!picks.items.length) {
@@ -4292,7 +4238,10 @@ function renderRiskPicks() {
         <div class="risk-pick-reasons">${reasonChips}</div>
         <div class="risk-pick-foot">
           <span>추천점수 ${escapeHtml(score)} · 발생 ${escapeHtml(getRecordYear(row) || "-")}년 ${escapeHtml(getRecordMonth(row) || "-")}</span>
-          <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
+          <div class="risk-pick-actions">
+            <button class="btn small ghost" type="button" data-edit="${escapeHtml(row.id)}">아차사고 보기</button>
+            <button class="btn small" type="button" data-risk-target="${escapeHtml(row.id)}">위험성평가 보기</button>
+          </div>
         </div>
       </article>
     `;
@@ -5691,31 +5640,31 @@ function bindUiHandlers() {
     });
   });
 
-  $("#nearMissRiskPickMonthSelect")?.addEventListener("change", (event) => {
-    nearMissRiskPickMonth = event.target.value || "";
-    nearMissRiskPickVisible = false;
-    renderNearMiss();
+  $("#riskPickMonthSelect")?.addEventListener("change", (event) => {
+    riskPickMonth = event.target.value || "";
+    riskPickVisible = false;
+    renderRisk();
   });
 
-  $("#nearMissRiskPickYearSelect")?.addEventListener("change", (event) => {
-    nearMissRiskPickYear = event.target.value || "";
-    nearMissRiskPickMonth = "";
-    nearMissRiskPickVisible = false;
-    renderNearMiss();
+  $("#riskPickYearSelect")?.addEventListener("change", (event) => {
+    riskPickYear = event.target.value || "";
+    riskPickMonth = "";
+    riskPickVisible = false;
+    renderRisk();
   });
 
-  $("#nearMissRiskPickCountSelect")?.addEventListener("change", (event) => {
-    nearMissRiskPickCount = Math.max(1, Math.min(5, Number(event.target.value) || 2));
-    nearMissRiskPickVisible = false;
-    renderNearMiss();
+  $("#riskPickCountSelect")?.addEventListener("change", (event) => {
+    riskPickCount = Math.max(1, Math.min(5, Number(event.target.value) || 2));
+    riskPickVisible = false;
+    renderRisk();
   });
 
-  $("#nearMissRiskPickShowBtn")?.addEventListener("click", () => {
-    nearMissRiskPickYear = $("#nearMissRiskPickYearSelect")?.value || "";
-    nearMissRiskPickMonth = $("#nearMissRiskPickMonthSelect")?.value || "";
-    nearMissRiskPickCount = Math.max(1, Math.min(5, Number($("#nearMissRiskPickCountSelect")?.value) || 2));
-    nearMissRiskPickVisible = true;
-    renderNearMiss();
+  $("#riskPickShowBtn")?.addEventListener("click", () => {
+    riskPickYear = $("#riskPickYearSelect")?.value || "";
+    riskPickMonth = $("#riskPickMonthSelect")?.value || "";
+    riskPickCount = Math.max(1, Math.min(5, Number($("#riskPickCountSelect")?.value) || 2));
+    riskPickVisible = true;
+    renderRisk();
   });
 
   const dashboardYearSelect = $("#dashboardYearSelect");
