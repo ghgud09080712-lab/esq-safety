@@ -1791,7 +1791,7 @@ function inferLegalAiQuestionFrame(question) {
 function buildContextualLegalActionPlan(frame) {
   const risks = new Set(frame.likelyRisks || []);
   const actions = [
-    "질문한 상황을 작업공정, 취급물질, 설비, 배출/노출 경로, 인허가 여부로 나눠 정리"
+    "현장에서 실제로 발생한 위치, 시간대, 작업 내용, 사용 물질, 작업자 증상을 먼저 확인"
   ];
   if (risks.has("악취/휘발성 물질") || risks.has("VOC/대기배출") || risks.has("환기/국소배기")) {
     actions.push("냄새 발생 위치, 시간대, 취급 물질, 건조/배기 조건을 확인하고 국소배기ㆍ집진ㆍ방지시설 가동 상태를 점검");
@@ -1807,7 +1807,7 @@ function buildContextualLegalActionPlan(frame) {
     actions.push("인화성 물질 사용 여부, 점화원, 정전기, 소화설비, 위험물 저장ㆍ취급 기준을 확인");
   }
   actions.push("관련 작업의 MSDS, 작업표준, 보호구, 교육기록, 점검기록, 측정기록을 먼저 확인");
-  actions.push("해당 설비 또는 공정의 인허가 조건과 법규등록부의 법규 적용내용ㆍ당사 적용사항을 대조");
+  actions.push("법규등록부의 법규 적용내용ㆍ당사 적용사항과 현재 관리기록이 맞는지 대조");
   actions.push("추가 확인이 필요한 법 분야는 법규검토에 등록하고 유효성평가와 정도관리 상태를 남김");
   return Array.from(new Set(actions)).slice(0, 6);
 }
@@ -1866,28 +1866,28 @@ function buildLocalLegalAiAnswer(question, candidates, registryRecords, detailCa
     for (const lawName of ["산업안전보건법", "화학물질관리법", "대기환경보전법", "물환경보전법", "폐기물관리법"]) {
       recommended.push({
         lawName: `${lawName} (등록부 외 추가 확인 가능)`,
-        reason: "질문이 특정 법령명과 직접 매칭되지는 않지만 오영 염료 제조업의 공정ㆍ물질ㆍ환경영향 관점에서 먼저 검토할 분야입니다."
+        reason: "질문이 특정 법령명과 직접 매칭되지는 않지만 오영 염료 제조업에서 함께 확인할 가능성이 높은 분야입니다."
       });
     }
   }
 
   const frame = inferLegalAiQuestionFrame(question);
-  const processText = frame.likelyProcesses.length ? frame.likelyProcesses.join(", ") : "질문과 연결되는 현장 공정";
-  const riskText = frame.likelyRisks.length ? frame.likelyRisks.join(", ") : "사람 노출, 환경 배출, 인허가, 기록관리";
+  const contextParts = [...frame.likelyProcesses, ...frame.likelyRisks].slice(0, 5);
+  const contextText = contextParts.length ? ` 특히 ${contextParts.join(", ")}와 연결해서 보면 좋습니다.` : "";
 
   return {
     ok: true,
     model: "local-fallback",
-    answer: `질문을 먼저 현장 상황으로 풀어보면, "${question}"은 ${processText}에서 ${riskText}을 확인해야 하는 건으로 보입니다. 법령명 키워드가 정확히 없어도 오영 염료 제조업 기준으로 관련 가능성이 높은 법규, 필요한 증빙, 현장 조치 순서로 검토하면 됩니다.`,
+    answer: `"${question}"에 대해서는 오영 염료 제조업 현장에서 실제로 어떤 일이 벌어졌는지부터 잡고, 관련 법규와 관리기록을 같이 확인하면 됩니다.${contextText} 아래 내용은 우선 확인할 법규와 바로 볼 만한 현장 조치입니다.`,
     recommendedLaws: recommended,
     siteRisks: [
-      `${processText}에서 작업자 노출, 누출, 화재, 배출, 폐수/폐기물 발생 여부 확인`,
-      `${riskText} 관점으로 허가/신고, 점검, 교육, 측정, 기록 보존 의무가 있는지 확인`
+      "작업자 건강 이상, 냄새ㆍ분진ㆍ누출 같은 현장 이상 징후가 반복되는지 확인",
+      "현재 관리 중인 점검, 교육, 측정, 허가ㆍ신고, 보관 기록과 연결되는지 확인"
     ],
     actionPlan: buildContextualLegalActionPlan(frame),
     checkpoints: [
-      "질문한 작업이 어떤 공정인지: 계량, 혼합, 반응, 건조, 포장, 보관, 폐수처리, 방지시설",
-      "사람 노출인지, 환경 배출인지, 인허가/신고 사항인지 구분",
+      "현장 담당자가 바로 확인할 수 있는 기록: MSDS, 작업표준, 점검표, 교육자료, 측정결과",
+      "법규등록부의 법규 적용내용과 당사 적용사항에 수정 또는 추가가 필요한지 확인",
       "최근 새로고침으로 시행일 변경이 잡혔는지 확인"
     ],
     caution: reason
@@ -1928,11 +1928,11 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
     const questionFrame = inferLegalAiQuestionFrame(question);
     const prompt = [
       "당신은 (주)오영의 법규등록부를 같이 관리하는 한국어 AI 법규 도우미입니다.",
-      "역할은 단순 키워드 검색이 아닙니다. 사용자가 어떤 식으로 질문해도 의도를 먼저 해석하고, 오영의 염료 제조업 현장에 맞는 답을 만들어야 합니다.",
-      "법령명이 질문에 없어도 괜찮습니다. 공정, 물질, 설비, 작업자 노출, 환경 배출, 인허가, 교육, 점검, 기록관리 관점으로 자유롭게 추론하세요.",
-      "다만 답변 근거는 아래 회사 프로필, 법규등록부 전체 목록, 세부 카드에 최대한 연결하세요. 후보 법령은 참고 힌트일 뿐이며 후보에 갇히지 마세요.",
+      "역할은 단순 키워드 검색이 아닙니다. 사용자가 어떤 식으로 질문해도 의도를 자연스럽게 이해하고, 오영의 염료 제조업 현장에 맞는 실무 답변을 만들어야 합니다.",
+      "법령명이 질문에 없어도 괜찮습니다. 사용자의 말투와 상황을 따라가면서 필요한 법규, 현장 확인사항, 기록/증빙을 유연하게 제시하세요.",
+      "답변 근거는 아래 회사 프로필, 법규등록부 전체 목록, 세부 카드에 최대한 연결하세요. 후보 법령은 참고 힌트일 뿐이며 후보에 갇히지 마세요.",
       "등록부 안에 있는 법규는 recommendedLaws에 우선 제시하고, 필요하지만 등록부에서 확인되지 않는 분야는 법령명 뒤에 '(등록부 외 추가 확인)'이라고 표시하세요.",
-      "답변 톤은 현장 실무자가 바로 이해하게 자연스럽게 쓰세요. 너무 짧게 법령명만 나열하지 말고, 왜 관련되는지와 당장 무엇을 보면 되는지 설명하세요.",
+      "답변 톤은 현장 실무자가 바로 이해하게 자연스럽게 쓰세요. 정해진 분류표처럼 딱딱하게 나누지 말고 질문에 바로 답하세요.",
       "사용자가 추상적으로 물으면 질문을 현장 상황으로 가정해 답하고, 마지막에 확인해야 할 전제만 짧게 남기세요.",
       "법률 자문처럼 단정하지 말고 내부 준수 검토용 안내로 답하세요.",
       "UI가 JSON을 읽으므로 반드시 JSON 객체만 출력하세요. 마크다운 코드블록은 쓰지 마세요.",
