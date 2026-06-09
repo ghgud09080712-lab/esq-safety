@@ -1208,6 +1208,51 @@ th {
   line-height: 1.6;
 }
 
+.ai-message.conversational {
+  max-width: min(820px, 92%);
+  padding: 16px 18px;
+  border-color: #d5e3f3;
+  background: #ffffff;
+}
+
+.ai-answer-main p {
+  margin: 0;
+  color: #10243e;
+  font-size: 15px;
+  line-height: 1.82;
+  font-weight: 750;
+}
+
+.ai-answer-references {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.ai-reference {
+  border: 1px solid #d5e3f3;
+  border-radius: 8px;
+  background: #f7fbff;
+  padding: 9px 11px;
+}
+
+.ai-reference summary {
+  cursor: pointer;
+  color: #123863;
+  font-weight: 900;
+}
+
+.ai-reference ul {
+  margin-top: 8px;
+}
+
+.ai-answer-note {
+  margin-top: 11px;
+  color: #6b7f95;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .ai-message .ai-law-mini-list {
   display: grid;
   gap: 6px;

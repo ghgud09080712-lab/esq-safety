@@ -843,6 +843,43 @@ function renderLawMiniList(matches) {
   `;
 }
 
+function formatAiAnswerText(text) {
+  return escapeHtml(text || "")
+    .replace(/\r?\n{2,}/g, "</p><p>")
+    .replace(/\r?\n/g, "<br>");
+}
+
+function renderAiReferenceList(title, items, renderItem) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return `
+    <details class="ai-reference">
+      <summary>${escapeHtml(title)}</summary>
+      <ul>${items.map(renderItem).join("")}</ul>
+    </details>
+  `;
+}
+
+function renderConversationalAiAnswer(payload, matches) {
+  const answer = payload.answer || "답변을 생성하지 못했습니다.";
+  const recommended = Array.isArray(payload.recommendedLaws) ? payload.recommendedLaws : [];
+  const siteRisks = Array.isArray(payload.siteRisks) ? payload.siteRisks : [];
+  const actionPlan = Array.isArray(payload.actionPlan) ? payload.actionPlan : [];
+  const checkpoints = Array.isArray(payload.checkpoints) ? payload.checkpoints : [];
+  const references = [
+    renderAiReferenceList("관련 법규", recommended, (item) => `<li><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</li>`),
+    renderAiReferenceList("참고 확인사항", [...siteRisks, ...actionPlan, ...checkpoints], (item) => `<li>${escapeHtml(item)}</li>`)
+  ].join("");
+  const fallback = !recommended.length && !references ? renderLawMiniList(matches) : "";
+
+  return `
+    <div class="ai-answer-main">
+      <p>${formatAiAnswerText(answer)}</p>
+    </div>
+    ${references || fallback ? `<div class="ai-answer-references">${references || fallback}</div>` : ""}
+    ${payload.caution ? `<p class="ai-answer-note">${escapeHtml(payload.caution)}</p>` : ""}
+  `;
+}
+
 async function renderAiSearchResults(query, options = {}) {
   const surfaceOptions = { surface: options.surface };
   const resultsSelector = aiSurfaceSelector(options, "results");
@@ -936,15 +973,8 @@ async function renderAiSearchResults(query, options = {}) {
       })
     });
     loading.classList.remove("loading");
-    loading.innerHTML = `
-      <strong>오영 법규 답변</strong>
-      <p>${escapeHtml(payload.answer || "답변을 생성하지 못했습니다.")}</p>
-      ${(payload.recommendedLaws || []).length ? `<p><b>관련 법령</b></p><ul>${(payload.recommendedLaws || []).map((item) => `<li>${escapeHtml(item.lawName || "")}${item.reason ? `: ${escapeHtml(item.reason)}` : ""}</li>`).join("")}</ul>` : renderLawMiniList(matches)}
-      ${(payload.siteRisks || []).length ? `<p><b>오영 염료 제조업 기준 위험요인</b></p><ul>${(payload.siteRisks || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-      ${(payload.actionPlan || []).length ? `<p><b>현장 조치</b></p><ul>${(payload.actionPlan || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-      ${(payload.checkpoints || []).length ? `<p><b>확인 포인트</b></p><ul>${(payload.checkpoints || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-      ${payload.caution ? `<p><b>주의:</b> ${escapeHtml(payload.caution)}</p>` : ""}
-    `;
+    loading.classList.add("conversational");
+    loading.innerHTML = renderConversationalAiAnswer(payload, matches);
   } catch (error) {
     loading.classList.remove("loading");
     loading.innerHTML = `
