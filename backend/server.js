@@ -872,7 +872,7 @@ async function requestSafetyGeminiPdf(apiKey, base64, prompt) {
   throw lastError || new Error("Gemini PDF 분석 실패");
 }
 
-async function requestSafetyGeminiText(apiKey, prompt) {
+async function requestSafetyGeminiText(apiKey, prompt, options = {}) {
   let lastError;
   let available = [];
   try {
@@ -896,7 +896,10 @@ async function requestSafetyGeminiText(apiKey, prompt) {
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.15, response_mime_type: "application/json" }
+          generationConfig: {
+            temperature: Number.isFinite(Number(options.temperature)) ? Number(options.temperature) : 0.15,
+            response_mime_type: options.responseMimeType || "application/json"
+          }
         })
       });
       const payload = await response.json().catch(() => ({}));
@@ -1730,12 +1733,92 @@ function buildLegalAiDetailIndex(detailCards) {
   })).filter((card) => card.lawName || card.mainContent || card.companyAction);
 }
 
+function inferLegalAiQuestionFrame(question) {
+  const text = compactText(question).toLowerCase();
+  const processHints = [
+    ["계량", "원료 계량/투입"],
+    ["혼합", "혼합/배합"],
+    ["반응", "반응 공정"],
+    ["건조", "건조/분말화"],
+    ["분쇄", "분쇄/분급"],
+    ["포장", "제품 포장"],
+    ["창고", "보관창고"],
+    ["보관", "원료/제품 보관"],
+    ["폐수", "폐수처리"],
+    ["방지시설", "대기방지시설"],
+    ["집진", "집진/국소배기"],
+    ["연구", "연구소/실험실"],
+    ["실험", "연구소/실험실"],
+    ["지게차", "물류/운반"],
+    ["탱크", "탱크/저장설비"]
+  ];
+  const riskHints = [
+    ["화학", "화학물질 취급"],
+    ["유해화학", "유해화학물질"],
+    ["msds", "MSDS/GHS"],
+    ["분진", "분진 노출"],
+    ["먼지", "분진 노출"],
+    ["voc", "VOC/대기배출"],
+    ["악취", "악취"],
+    ["냄새", "악취/휘발성 물질"],
+    ["두통", "작업자 건강 이상 호소"],
+    ["머리", "작업자 건강 이상 호소"],
+    ["어지러움", "작업자 건강 이상 호소"],
+    ["환기", "환기/국소배기"],
+    ["후드", "환기/국소배기"],
+    ["폐수", "수질/폐수"],
+    ["위험물", "위험물/화재"],
+    ["화재", "화재"],
+    ["폭발", "폭발"],
+    ["누출", "누출/비상대응"],
+    ["온열", "온열질환"],
+    ["소음", "소음"],
+    ["보호구", "보호구"],
+    ["허가", "인허가"],
+    ["신고", "신고/변경관리"],
+    ["검사", "검사/점검"],
+    ["교육", "교육/훈련"],
+    ["기록", "기록관리"]
+  ];
+  const pick = (items) => items.filter(([keyword]) => text.includes(keyword)).map(([, label]) => label);
+  return {
+    situation: compactText(question),
+    likelyProcesses: Array.from(new Set(pick(processHints))).slice(0, 5),
+    likelyRisks: Array.from(new Set(pick(riskHints))).slice(0, 8)
+  };
+}
+
+function buildContextualLegalActionPlan(frame) {
+  const risks = new Set(frame.likelyRisks || []);
+  const actions = [
+    "질문한 상황을 작업공정, 취급물질, 설비, 배출/노출 경로, 인허가 여부로 나눠 정리"
+  ];
+  if (risks.has("악취/휘발성 물질") || risks.has("VOC/대기배출") || risks.has("환기/국소배기")) {
+    actions.push("냄새 발생 위치, 시간대, 취급 물질, 건조/배기 조건을 확인하고 국소배기ㆍ집진ㆍ방지시설 가동 상태를 점검");
+    actions.push("작업자가 두통이나 어지러움을 호소하면 즉시 환기, 노출 작업 중지, 보호구 착용 상태, MSDS 유해성, 작업환경측정 필요성을 확인");
+  }
+  if (risks.has("화학물질 취급") || risks.has("유해화학물질") || risks.has("MSDS/GHS")) {
+    actions.push("해당 원료/제품의 MSDS, 경고표지, 보관 기준, 혼합금지, 누출 대응 절차를 확인");
+  }
+  if (risks.has("수질/폐수")) {
+    actions.push("폐수 유입 여부, pH/색도/오염물질 관리 기준, 방류 기록과 폐수처리장 운전기록을 확인");
+  }
+  if (risks.has("위험물/화재") || risks.has("화재") || risks.has("폭발")) {
+    actions.push("인화성 물질 사용 여부, 점화원, 정전기, 소화설비, 위험물 저장ㆍ취급 기준을 확인");
+  }
+  actions.push("관련 작업의 MSDS, 작업표준, 보호구, 교육기록, 점검기록, 측정기록을 먼저 확인");
+  actions.push("해당 설비 또는 공정의 인허가 조건과 법규등록부의 법규 적용내용ㆍ당사 적용사항을 대조");
+  actions.push("추가 확인이 필요한 법 분야는 법규검토에 등록하고 유효성평가와 정도관리 상태를 남김");
+  return Array.from(new Set(actions)).slice(0, 6);
+}
+
 function buildLocalLegalAiAnswer(question, candidates, registryRecords, detailCards = [], reason = "") {
   const normalizedQuestion = compactText(question).toLowerCase();
   const fallbackKeywords = [
     { words: ["분진", "먼지", "분말", "호흡", "마스크", "노출"], laws: ["산업안전보건법", "화학물질관리법"] },
     { words: ["폐수", "방류", "색도", "수질"], laws: ["물환경보전법", "하수도법"] },
     { words: ["대기", "배출", "방지시설", "집진", "먼지", "voc", "악취"], laws: ["대기환경보전법", "악취방지법"] },
+    { words: ["냄새", "악취", "두통", "머리", "어지러움", "환기", "후드", "국소배기", "건조실"], laws: ["산업안전보건법", "대기환경보전법", "악취방지법", "화학물질관리법"] },
     { words: ["화학", "유해화학", "msds", "ghs", "경고표지", "누출", "보관", "취급", "표시", "화학물질확인"], laws: ["화학물질관리법", "화학물질의 등록 및 평가 등에 관한 법률", "산업안전보건법"] },
     { words: ["위험물", "인화", "화재", "폭발", "소방"], laws: ["위험물안전관리법", "소방시설 설치 및 관리에 관한 법률"] },
     { words: ["폐기물", "지정폐기물", "보관", "처리"], laws: ["폐기물관리법", "자원의 절약과 재활용촉진에 관한 법률"] },
@@ -1788,27 +1871,28 @@ function buildLocalLegalAiAnswer(question, candidates, registryRecords, detailCa
     }
   }
 
+  const frame = inferLegalAiQuestionFrame(question);
+  const processText = frame.likelyProcesses.length ? frame.likelyProcesses.join(", ") : "질문과 연결되는 현장 공정";
+  const riskText = frame.likelyRisks.length ? frame.likelyRisks.join(", ") : "사람 노출, 환경 배출, 인허가, 기록관리";
+
   return {
     ok: true,
     model: "local-fallback",
-    answer: `오영 법규등록부와 염료 제조업 현장 기준으로 해석했습니다. "${question}"은 법령명 키워드가 정확히 없어도 공정, 물질, 설비, 노출, 배출, 인허가 관점으로 나눠 검토해야 합니다. 아래 법규 후보와 현장 조치를 우선 확인하세요.`,
+    answer: `질문을 먼저 현장 상황으로 풀어보면, "${question}"은 ${processText}에서 ${riskText}을 확인해야 하는 건으로 보입니다. 법령명 키워드가 정확히 없어도 오영 염료 제조업 기준으로 관련 가능성이 높은 법규, 필요한 증빙, 현장 조치 순서로 검토하면 됩니다.`,
     recommendedLaws: recommended,
     siteRisks: [
-      "염료 분말, 화학물질, 용제, 폐수, 대기배출시설 등 현장 위험요인과 연결되는지 확인",
-      "작업 장소, 취급 물질, 배출 또는 노출 경로를 기준으로 적용 법규 분류"
+      `${processText}에서 작업자 노출, 누출, 화재, 배출, 폐수/폐기물 발생 여부 확인`,
+      `${riskText} 관점으로 허가/신고, 점검, 교육, 측정, 기록 보존 의무가 있는지 확인`
     ],
-    actionPlan: [
-      "질문한 상황을 작업공정, 취급물질, 설비, 배출/노출 경로, 인허가 여부로 나눠 정리",
-      "관련 작업의 MSDS, 작업표준, 보호구, 교육기록, 점검기록, 측정기록을 먼저 확인",
-      "해당 설비 또는 공정의 인허가 조건과 법규등록부의 법규 적용내용ㆍ당사 적용사항을 대조",
-      "추가 확인이 필요한 법 분야는 법규검토에 등록하고 유효성평가와 정도관리 상태를 남김"
-    ],
+    actionPlan: buildContextualLegalActionPlan(frame),
     checkpoints: [
       "질문한 작업이 어떤 공정인지: 계량, 혼합, 반응, 건조, 포장, 보관, 폐수처리, 방지시설",
       "사람 노출인지, 환경 배출인지, 인허가/신고 사항인지 구분",
       "최근 새로고침으로 시행일 변경이 잡혔는지 확인"
     ],
-    caution: reason ? `오영 기본 답변을 표시했습니다. 사유: ${reason}` : "AI API 키가 없어서 오영 기본 답변을 표시했습니다."
+    caution: reason
+      ? "오영 법규등록부 자료와 회사 프로필을 기준으로 기본 분석을 표시했습니다."
+      : "오영 법규등록부 자료와 회사 프로필을 기준으로 답변했습니다."
   };
 }
 
@@ -1827,14 +1911,7 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
     const requestedCandidates = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
     const registryRecords = Array.isArray(registry.records) ? registry.records : [];
     const detailIndex = buildLegalAiDetailIndex(registry.detailCards);
-    const candidates = requestedCandidates.length
-      ? requestedCandidates
-      : registryRecords.slice(0, 80).map((record) => ({
-          lawName: record.lawName,
-          group: record.group,
-          no: record.no,
-          effectiveDate: record.officialEffectiveDate || record.registeredEffectiveDate
-        }));
+    const candidates = requestedCandidates.length ? requestedCandidates : [];
     const registryIndex = registryRecords.slice(0, 120).map((record) => ({
       lawName: record.lawName,
       group: record.group,
@@ -1848,18 +1925,25 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
       return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, registry.detailCards, "AI API 키가 서버에 설정되지 않았습니다."));
     }
 
+    const questionFrame = inferLegalAiQuestionFrame(question);
     const prompt = [
-      "당신은 제조업 사업장의 법규등록부를 도와주는 한국어 법규 상담형 검색 보조자입니다.",
-      "아래 회사 프로필을 항상 기준으로 삼아 답하세요.",
+      "당신은 (주)오영의 법규등록부를 같이 관리하는 한국어 AI 법규 도우미입니다.",
+      "역할은 단순 키워드 검색이 아닙니다. 사용자가 어떤 식으로 질문해도 의도를 먼저 해석하고, 오영의 염료 제조업 현장에 맞는 답을 만들어야 합니다.",
+      "법령명이 질문에 없어도 괜찮습니다. 공정, 물질, 설비, 작업자 노출, 환경 배출, 인허가, 교육, 점검, 기록관리 관점으로 자유롭게 추론하세요.",
+      "다만 답변 근거는 아래 회사 프로필, 법규등록부 전체 목록, 세부 카드에 최대한 연결하세요. 후보 법령은 참고 힌트일 뿐이며 후보에 갇히지 마세요.",
+      "등록부 안에 있는 법규는 recommendedLaws에 우선 제시하고, 필요하지만 등록부에서 확인되지 않는 분야는 법령명 뒤에 '(등록부 외 추가 확인)'이라고 표시하세요.",
+      "답변 톤은 현장 실무자가 바로 이해하게 자연스럽게 쓰세요. 너무 짧게 법령명만 나열하지 말고, 왜 관련되는지와 당장 무엇을 보면 되는지 설명하세요.",
+      "사용자가 추상적으로 물으면 질문을 현장 상황으로 가정해 답하고, 마지막에 확인해야 할 전제만 짧게 남기세요.",
+      "법률 자문처럼 단정하지 말고 내부 준수 검토용 안내로 답하세요.",
+      "UI가 JSON을 읽으므로 반드시 JSON 객체만 출력하세요. 마크다운 코드블록은 쓰지 마세요.",
+      "JSON 형식: {\"answer\":\"2~5문장 자연어 답변\", \"recommendedLaws\":[{\"lawName\":\"...\",\"reason\":\"...\"}], \"siteRisks\":[\"...\"], \"actionPlan\":[\"...\"], \"checkpoints\":[\"...\"], \"caution\":\"...\"}",
+      "",
+      "회사 프로필:",
       JSON.stringify(legalRegistryCompanyProfile, null, 2),
-      "사용자 질문을 먼저 현장 상황으로 해석하세요. 법령명 키워드가 없어도 공정, 물질, 설비, 사람 노출, 환경 배출, 인허가, 기록관리 관점으로 나눠 관련성을 넓게 판단하세요.",
-      "후보 법령은 검색 힌트일 뿐입니다. 후보가 부족하면 등록부 전체 목록, 세부 카드, 회사 프로필을 바탕으로 관련 가능성이 높은 법규와 추가 확인 분야를 제시하세요.",
-      "등록부에 있는 법규는 recommendedLaws에 우선 넣고, 등록부에 없지만 확인이 필요한 분야는 법령명 뒤에 '(등록부 외 추가 확인)'이라고 표시하세요.",
-      "답변은 (주)오영의 염료 제조공정에서 실제로 확인할 조치, 필요한 기록/증빙, 법규검토에 남길 정도관리 포인트 중심으로 작성하세요.",
-      "법률 자문이 아니라 내부 준수 검토용 안내입니다.",
-      "반드시 JSON으로만 답하세요. 형식: {\"answer\":\"...\", \"recommendedLaws\":[{\"lawName\":\"...\",\"reason\":\"...\"}], \"siteRisks\":[\"...\"], \"actionPlan\":[\"...\"], \"checkpoints\":[\"...\"], \"caution\":\"...\"}",
       "",
       `질문: ${question}`,
+      "서버가 추론한 질문 프레임:",
+      JSON.stringify(questionFrame, null, 2),
       "",
       "후보 법령:",
       JSON.stringify(candidates.slice(0, 20), null, 2),
@@ -1871,13 +1955,14 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
       JSON.stringify(detailIndex, null, 2)
     ].join("\n");
 
-    const result = await requestSafetyGeminiText(apiKey, prompt).catch((error) => null);
+    const result = await requestSafetyGeminiText(apiKey, prompt, { temperature: 0.75, responseMimeType: "application/json" }).catch((error) => null);
     if (!result) {
       return res.json(buildLocalLegalAiAnswer(question, candidates, registryRecords, registry.detailCards, "AI 답변 생성에 실패했습니다."));
     }
     let parsed = null;
     try {
-      parsed = JSON.parse(result.text || "{}");
+      const jsonText = String(result.text || "{}").replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+      parsed = JSON.parse(jsonText || "{}");
     } catch {
       parsed = { answer: result.text || "", recommendedLaws: [], checkpoints: [], caution: "AI 응답을 JSON으로 해석하지 못했습니다." };
     }
