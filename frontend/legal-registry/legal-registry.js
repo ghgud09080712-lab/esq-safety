@@ -270,8 +270,16 @@ function lawUrl(lawName) {
   return `https://www.law.go.kr/법령/${encodeURIComponent(name)}`;
 }
 
+function officialLawUrl(lawName) {
+  const name = String(lawName || "")
+    .replace(/\s*\((?:\uB4F1\uB85D\uBD80\s*\uC678\s*)?\uCD94\uAC00\s*\uD655\uC778(?:\s*\uAC00\uB2A5)?\)\s*$/u, "")
+    .trim();
+  if (!name) return "";
+  return `https://www.law.go.kr/${encodeURIComponent("\uBC95\uB839")}/${encodeURIComponent(name)}`;
+}
+
 function openLaw(lawName) {
-  const url = lawUrl(lawName);
+  const url = officialLawUrl(lawName);
   if (!url) return;
   window.open(url, "_blank", "noopener,noreferrer");
 }
