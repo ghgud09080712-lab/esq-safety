@@ -1609,11 +1609,42 @@ body.is-refreshing #topRefreshBtn {
 
 .modal-head h2 { margin-top: 8px; }
 
+.law-preview-modal {
+  overflow: hidden;
+}
+
+.law-preview-modal .modal-head,
+.law-preview-modal .modal-actions {
+  flex: 0 0 auto;
+}
+
 .law-preview-content {
   display: grid;
+  grid-auto-rows: max-content;
   gap: 14px;
+  flex: 1 1 auto;
+  height: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.law-preview-content::-webkit-scrollbar {
+  width: 11px;
+}
+
+.law-preview-content::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #edf2f8;
+}
+
+.law-preview-content::-webkit-scrollbar-thumb {
+  border: 2px solid #edf2f8;
+  border-radius: 999px;
+  background: #7893b5;
 }
 
 .law-preview-section {
@@ -1902,6 +1933,7 @@ body.is-refreshing #topRefreshBtn {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
 }
@@ -1931,6 +1963,10 @@ body.is-refreshing #topRefreshBtn {
   .change-detail-grid { grid-template-columns: 96px minmax(0, 1fr); }
   .diff-block { grid-template-columns: 1fr; }
   .modal { width: calc(100vw - 20px); height: calc(100vh - 20px); }
+  .law-preview-modal { padding: 12px; }
+  .law-preview-content { padding-right: 5px; }
+  .law-preview-modal .modal-actions { justify-content: stretch; }
+  .law-preview-modal .modal-actions .btn { flex: 1 1 140px; }
 }
 
 @media (max-width: 640px) {
