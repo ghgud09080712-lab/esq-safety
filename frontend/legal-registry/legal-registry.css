@@ -1221,6 +1221,26 @@ th {
   font-size: 15px;
   line-height: 1.82;
   font-weight: 750;
+  white-space: pre-wrap;
+}
+
+.ai-typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: #205aa8;
+  animation: ai-cursor-blink .75s steps(1) infinite;
+}
+
+@keyframes ai-cursor-blink {
+  0%, 48% { opacity: 1; }
+  49%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-typing-cursor { animation: none; }
 }
 
 .ai-answer-references {

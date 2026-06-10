@@ -880,6 +880,51 @@ function renderConversationalAiAnswer(payload, matches) {
   `;
 }
 
+function renderAiAnswerSupportingContent(payload, matches) {
+  const recommended = Array.isArray(payload.recommendedLaws) ? payload.recommendedLaws : [];
+  const siteRisks = Array.isArray(payload.siteRisks) ? payload.siteRisks : [];
+  const actionPlan = Array.isArray(payload.actionPlan) ? payload.actionPlan : [];
+  const checkpoints = Array.isArray(payload.checkpoints) ? payload.checkpoints : [];
+  const references = [
+    renderAiReferenceList("관련 법규", recommended, (item) => `<li><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</li>`),
+    renderAiReferenceList("참고 확인사항", [...siteRisks, ...actionPlan, ...checkpoints], (item) => `<li>${escapeHtml(item)}</li>`)
+  ].join("");
+  const fallback = !recommended.length && !references ? renderLawMiniList(matches) : "";
+  return `
+    ${references || fallback ? `<div class="ai-answer-references">${references || fallback}</div>` : ""}
+    ${payload.caution ? `<p class="ai-answer-note">${escapeHtml(payload.caution)}</p>` : ""}
+  `;
+}
+
+async function typeConversationalAiAnswer(message, payload, matches, options = {}) {
+  const answer = String(payload.answer || "답변을 생성하지 못했습니다.");
+  message.innerHTML = `
+    <div class="ai-answer-main">
+      <p><span class="ai-typing-text"></span><span class="ai-typing-cursor" aria-hidden="true"></span></p>
+    </div>
+  `;
+  const target = message.querySelector(".ai-typing-text");
+  const cursor = message.querySelector(".ai-typing-cursor");
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const characters = Array.from(answer);
+
+  if (reducedMotion || characters.length > 1800) {
+    target.textContent = answer;
+  } else {
+    for (let index = 0; index < characters.length; index += 1) {
+      const character = characters[index];
+      target.textContent += character;
+      if (index % 4 === 0 || /[.!?。！？\n]/.test(character)) scrollAiChatToBottom(options);
+      const delay = /[.!?。！？]/.test(character) ? 85 : /[,，:;\n]/.test(character) ? 42 : 13;
+      await new Promise((resolve) => window.setTimeout(resolve, delay));
+    }
+  }
+
+  cursor?.remove();
+  message.insertAdjacentHTML("beforeend", renderAiAnswerSupportingContent(payload, matches));
+  scrollAiChatToBottom(options);
+}
+
 async function renderAiSearchResults(query, options = {}) {
   const surfaceOptions = { surface: options.surface };
   const resultsSelector = aiSurfaceSelector(options, "results");
@@ -974,7 +1019,7 @@ async function renderAiSearchResults(query, options = {}) {
     });
     loading.classList.remove("loading");
     loading.classList.add("conversational");
-    loading.innerHTML = renderConversationalAiAnswer(payload, matches);
+    await typeConversationalAiAnswer(loading, payload, matches, surfaceOptions);
   } catch (error) {
     loading.classList.remove("loading");
     loading.innerHTML = `
