@@ -1670,6 +1670,29 @@ function isRefreshUpdateQuestion(question) {
     && targetWords.some((word) => normalized.includes(normalizeLawName(word)));
 }
 
+function isLowInformationLegalQuestion(question) {
+  const text = compactText(question);
+  const compact = text.replace(/\s+/g, "");
+  if (!compact) return true;
+  if (/^[ㄱ-ㅎㅏ-ㅣ]+$/u.test(compact)) return true;
+  if (/^[\p{P}\p{S}]+$/u.test(compact)) return true;
+  if (compact.length <= 4 && Array.from(compact).every((character) => character === Array.from(compact)[0])) return true;
+  return false;
+}
+
+function buildLegalAiClarificationAnswer() {
+  return {
+    ok: true,
+    model: "input-clarification",
+    answer: "어떤 내용을 찾고 싶은지 조금만 더 구체적으로 적어주세요. 예를 들면 ‘건조실 냄새가 심할 때 확인할 법규’, ‘유해화학물질 창고 점검사항’, ‘오늘 변경된 법규’처럼 물어보면 바로 찾아드릴게요.",
+    recommendedLaws: [],
+    siteRisks: [],
+    actionPlan: [],
+    checkpoints: [],
+    caution: ""
+  };
+}
+
 function displayRefreshDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -1900,6 +1923,9 @@ app.post("/api/legal-registry/ai-answer", async (req, res) => {
   try {
     const question = compactText(req.body?.question);
     if (!question) return res.status(400).json({ ok: false, message: "질문을 입력하세요." });
+    if (isLowInformationLegalQuestion(question)) {
+      return res.json(buildLegalAiClarificationAnswer());
+    }
 
     const registry = await readLegalRegistry();
     const refreshChanges = Array.isArray(req.body?.refreshChanges) ? req.body.refreshChanges : [];
