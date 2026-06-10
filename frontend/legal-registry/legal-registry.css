@@ -1667,6 +1667,10 @@ body.is-refreshing #topRefreshBtn {
 .law-preview-original { min-height: 260px; }
 .ai-law-reference { margin-bottom: 10px; }
 .ai-law-reference-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.ai-law-action-list { display: grid; gap: 8px; margin-top: 14px; }
+.ai-law-action-card { border: 1px solid #d5e3f3; border-radius: 8px; background: #f7fbff; padding: 11px; }
+.ai-law-action-card strong { display: block; margin: 0; color: #123863; }
+.ai-law-action-card p { margin: 5px 0 0; color: #5b708a; font-size: 12px; line-height: 1.55; }
 
 .change-detail-grid {
   display: grid;

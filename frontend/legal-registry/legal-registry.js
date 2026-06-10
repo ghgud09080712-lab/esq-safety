@@ -971,12 +971,27 @@ function renderAiAnswerSupportingContent(payload, matches) {
   const siteRisks = Array.isArray(payload.siteRisks) ? payload.siteRisks : [];
   const actionPlan = Array.isArray(payload.actionPlan) ? payload.actionPlan : [];
   const checkpoints = Array.isArray(payload.checkpoints) ? payload.checkpoints : [];
-  const references = [
-    renderAiReferenceList("관련 법규", recommended, (item) => `<li><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</li>`),
-    renderAiReferenceList("참고 확인사항", [...siteRisks, ...actionPlan, ...checkpoints], (item) => `<li>${escapeHtml(item)}</li>`)
-  ].join("");
+  const lawActions = recommended.length ? `
+    <div class="ai-law-action-list">
+      ${recommended.map((item) => `
+        <article class="ai-law-action-card">
+          <div>
+            <strong>${escapeHtml(item.lawName || "")}</strong>
+            ${item.reason ? `<p>${escapeHtml(item.reason)}</p>` : ""}
+          </div>
+          <div class="ai-law-reference-actions">
+            <button class="btn primary small" data-ai-preview="${escapeHtml(item.lawName || "")}" type="button">\uC571\uC5D0\uC11C \uBCF4\uAE30</button>
+            <button class="btn small" data-ai-filter="${escapeHtml(item.lawName || "")}" type="button">\uB4F1\uB85D\uBD80\uC5D0\uC11C \uBCF4\uAE30</button>
+            <button class="btn small" data-ai-open="${escapeHtml(item.lawName || "")}" type="button">\uBC95\uC81C\uCC98 \uC6D0\uBB38</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  ` : "";
+  const references = renderAiReferenceList("\uCC38\uACE0 \uD655\uC778\uC0AC\uD56D", [...siteRisks, ...actionPlan, ...checkpoints], (item) => `<li>${escapeHtml(item)}</li>`);
   const fallback = !recommended.length && !references ? renderLawMiniList(matches) : "";
   return `
+    ${lawActions}
     ${references || fallback ? `<div class="ai-answer-references">${references || fallback}</div>` : ""}
     ${payload.caution ? `<p class="ai-answer-note">${escapeHtml(payload.caution)}</p>` : ""}
   `;
