@@ -9,7 +9,8 @@ const state = {
   expandedDetailIds: new Set(),
   currentRefreshChanged: 0,
   selectedChangeId: "",
-  selectedPreviewLaw: ""
+  selectedPreviewLaw: "",
+  lawPreviewArticles: []
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -288,6 +289,65 @@ function closeLawPreview() {
   const modal = $("#lawPreviewModal");
   if (modal) modal.hidden = true;
   state.selectedPreviewLaw = "";
+  state.lawPreviewArticles = [];
+}
+
+function highlightLawSearchText(value, query) {
+  const text = String(value || "");
+  const keyword = String(query || "").trim();
+  if (!keyword) return escapeHtml(text);
+  const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return escapeHtml(text).replace(new RegExp(pattern, "gi"), (match) => `<mark>${match}</mark>`);
+}
+
+function lawPreviewArticleResults(articles, keyword) {
+  const normalized = keyword.toLowerCase();
+  const filtered = normalized
+    ? articles.filter((article) => `${article.heading || ""} ${article.text || ""}`.toLowerCase().includes(normalized))
+    : articles;
+  const html = filtered.length ? `
+    <div class="law-article-list">
+      ${filtered.map((article) => `
+        <article class="law-article ${article.changed ? "changed" : ""}">
+          <h4>${highlightLawSearchText(article.heading || "\uC870\uBB38", keyword)}${article.changed ? `<span>\uBCC0\uACBD</span>` : ""}</h4>
+          <p>${highlightLawSearchText(article.text || "\uB0B4\uC6A9 \uC5C6\uC74C", keyword)}</p>
+        </article>
+      `).join("")}
+    </div>
+  ` : `<div class="empty">\uAC80\uC0C9\uC5B4\uAC00 \uD3EC\uD568\uB41C \uC870\uBB38\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</div>`;
+  return { filtered, html };
+}
+
+function renderLawPreviewArticles(query = "") {
+  const container = $("#lawPreviewOfficialContent");
+  if (!container) return;
+  const keyword = String(query || "").trim();
+  const articles = state.lawPreviewArticles || [];
+  const { filtered, html } = lawPreviewArticleResults(articles, keyword);
+  const resultLabel = keyword
+    ? `\uCD1D ${articles.length}\uAC1C \uC870\uBB38 \uC911 ${filtered.length}\uAC1C \uAC80\uC0C9`
+    : `\uCD1D ${articles.length}\uAC1C \uC870\uBB38`;
+
+  const results = $("#lawArticleSearchResults");
+  const count = $("#lawArticleSearchCount");
+  const clearButton = container.querySelector("[data-law-search-clear]");
+  if (results && count) {
+    results.innerHTML = html;
+    count.textContent = resultLabel;
+    if (clearButton) clearButton.disabled = !keyword;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="law-article-search">
+      <div class="law-article-search-row">
+        <input id="lawArticleSearchInput" type="search" placeholder="\uC870\uBB38 \uC81C\uBAA9\uC774\uB098 \uB0B4\uC6A9 \uAC80\uC0C9" autocomplete="off">
+        <button class="btn small" data-law-search-clear type="button" disabled>\uCD08\uAE30\uD654</button>
+      </div>
+      <span id="lawArticleSearchCount">${resultLabel}</span>
+    </div>
+    <div id="lawArticleSearchResults">${html}</div>
+  `;
 }
 
 async function loadLawPreviewContent(lawName) {
@@ -298,16 +358,9 @@ async function loadLawPreviewContent(lawName) {
     const payload = await requestJson(`/api/legal-registry/law-content?lawName=${encodeURIComponent(lawName)}`);
     const content = payload.content || {};
     const articles = Array.isArray(content.articles) ? content.articles : [];
-    container.innerHTML = articles.length ? `
-      <div class="law-article-list">
-        ${articles.map((article) => `
-          <article class="law-article ${article.changed ? "changed" : ""}">
-            <h4>${escapeHtml(article.heading || "조문")}${article.changed ? `<span>변경</span>` : ""}</h4>
-            <p>${escapeHtml(article.text || "내용 없음")}</p>
-          </article>
-        `).join("")}
-      </div>
-    ` : `<div class="empty">법제처에서 표시할 조문을 찾지 못했습니다.</div>`;
+    state.lawPreviewArticles = articles;
+    if (articles.length) renderLawPreviewArticles();
+    else container.innerHTML = `<div class="empty">\uBC95\uC81C\uCC98\uC5D0\uC11C \uD45C\uC2DC\uD560 \uC870\uBB38\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.</div>`;
   } catch (error) {
     container.innerHTML = `<div class="law-preview-error"><p>${escapeHtml(error.message || "법령 원문을 불러오지 못했습니다.")}</p><button class="btn small" data-law-preview-retry type="button">다시 불러오기</button></div>`;
   }
@@ -1614,6 +1667,14 @@ function bindEvents() {
       lawPreviewToggle.setAttribute("aria-expanded", String(!collapsed));
       return;
     }
+    const lawSearchClear = event.target.closest("[data-law-search-clear]");
+    if (lawSearchClear) {
+      const input = $("#lawArticleSearchInput");
+      if (input) input.value = "";
+      renderLawPreviewArticles("");
+      input?.focus();
+      return;
+    }
     const aiFilterButton = event.target.closest("[data-ai-filter]");
     if (aiFilterButton) {
       state.search = aiFilterButton.dataset.aiFilter || "";
@@ -1625,6 +1686,10 @@ function bindEvents() {
     if (lawNameTarget && window.matchMedia("(max-width: 700px)").matches) {
       openLaw(lawNameTarget.dataset.lawName);
     }
+  });
+  document.addEventListener("input", (event) => {
+    if (event.target.id !== "lawArticleSearchInput") return;
+    renderLawPreviewArticles(event.target.value);
   });
   $("#lawPreviewClose")?.addEventListener("click", closeLawPreview);
   $("#lawPreviewConfirmBtn")?.addEventListener("click", closeLawPreview);

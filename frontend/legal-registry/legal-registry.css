@@ -1721,12 +1721,18 @@ body.is-refreshing #topRefreshBtn {
 .law-preview-meta span { border-radius: 999px; background: #edf6ff; color: #205aa8; padding: 5px 8px; font-size: 12px; font-weight: 900; }
 .law-preview-loading,
 .law-preview-error { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 130px; padding: 18px; color: var(--text-dim); font-weight: 850; }
+.law-article-search { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--border); background: #fff; padding: 10px 12px; }
+.law-article-search-row { display: flex; align-items: center; gap: 7px; flex: 1 1 auto; }
+.law-article-search input { width: min(520px, 100%); min-height: 38px; border: 1px solid #b9cbe0; border-radius: 7px; background: #fff; padding: 8px 10px; color: var(--text); font: inherit; }
+.law-article-search input:focus { outline: 2px solid #b9d3f2; border-color: #709acb; }
+.law-article-search > span { flex: 0 0 auto; color: var(--text-dim); font-size: 12px; font-weight: 900; }
 .law-article-list { display: grid; }
 .law-article { padding: 14px 16px; }
 .law-article + .law-article { border-top: 1px solid var(--border); }
 .law-article h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; color: #123863; }
 .law-article h4 span { border-radius: 999px; background: #fff0ed; color: #b42318; padding: 3px 7px; font-size: 11px; }
 .law-article p { margin: 0; white-space: pre-wrap; line-height: 1.8; color: #243b57; }
+.law-article mark { border-radius: 3px; background: #ffe58f; color: #1d2939; padding: 0 1px; }
 .law-preview-original { min-height: 260px; }
 .ai-law-reference { margin-bottom: 10px; }
 .ai-law-reference-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
@@ -1999,6 +2005,8 @@ body.is-refreshing #topRefreshBtn {
   .law-preview-content { padding-right: 5px; }
   .law-preview-modal .modal-actions { justify-content: stretch; }
   .law-preview-modal .modal-actions .btn { flex: 1 1 140px; }
+  .law-article-search { align-items: stretch; flex-direction: column; }
+  .law-article-search > span { align-self: flex-start; }
 }
 
 @media (max-width: 640px) {
