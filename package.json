@@ -5,11 +5,13 @@
   "description": "ESQ safety incident and near-miss management app",
   "scripts": {
     "dev": "node backend/server.js",
+    "prestart": "npm run test:routes",
     "start": "node backend/server.js",
     "backend": "node backend/server.js",
     "open": "node backend/open.js safety",
     "open:safety": "node backend/open.js safety",
-    "open:legal": "node backend/open.js legal"
+    "open:legal": "node backend/open.js legal",
+    "test:routes": "node scripts/verify-app-routes.js"
   },
   "dependencies": {
     "ag-grid-community": "^31.3.2",

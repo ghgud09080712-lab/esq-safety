@@ -1082,27 +1082,44 @@ async function savePdfMetaItem(meta, item) {
   return record;
 }
 
-app.get("/", (_req, res) => {
-  res.redirect(302, "/safety");
+function defaultAppPath(req) {
+  const configuredTarget = String(process.env.APP_TARGET || "").trim().toLowerCase();
+  if (["legal", "legal-registry"].includes(configuredTarget)) return "/legal-registry";
+  if (configuredTarget === "safety") return "/safety";
+
+  const forwardedHost = String(req.headers["x-forwarded-host"] || "").split(",")[0].trim();
+  const hostname = String(forwardedHost || req.hostname || req.headers.host || "").toLowerCase();
+  if (hostname.includes("legal-registry") || hostname.includes("legalregistry")) return "/legal-registry";
+  return "/safety";
+}
+
+app.get("/", (req, res) => {
+  res.redirect(302, defaultAppPath(req));
 });
 
 app.get("/test", (_req, res) => {
   res.type("text/plain").send("OK - ESQ safety server is reachable");
 });
 
-app.get("/app", (_req, res) => {
-  res.redirect(302, "/safety");
+app.get("/app", (req, res) => {
+  res.redirect(302, defaultAppPath(req));
 });
+
+const canonicalAppPaths = new Map([
+  ["/safety", "/safety"],
+  ["/legal-registry", "/legal-registry"]
+]);
 
 app.use((req, res, next) => {
   const normalizedPath = req.path.replace(/\/+$/, "") || "/";
-  if (normalizedPath.toLowerCase() === "/legal-registry" && normalizedPath !== "/legal-registry") {
-    const queryIndex = req.originalUrl.indexOf("?");
-    const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
-    res.redirect(302, `/legal-registry${query}`);
+  const canonicalPath = canonicalAppPaths.get(normalizedPath.toLowerCase());
+  if (!canonicalPath || normalizedPath === canonicalPath) {
+    next();
     return;
   }
-  next();
+  const queryIndex = req.originalUrl.indexOf("?");
+  const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
+  res.redirect(302, `${canonicalPath}${query}`);
 });
 
 app.get("/safety", (_req, res) => {
@@ -2373,20 +2390,14 @@ app.use("/exports", express.static(publicOyoungDir, {
 }));
 app.use("/vendor", express.static(path.join(rootDir, "node_modules")));
 
-function listenOnPort(targetPort) {
-  const server = app.listen(targetPort, host, () => {
-    console.log(`ESQ safety app running at http://127.0.0.1:${targetPort}/safety`);
-  });
-
-  server.on("error", (error) => {
-    if (error?.code === "EADDRINUSE") {
-      console.warn(`Port ${targetPort} is already in use; skipping secondary listener.`);
-      return;
-    }
-    throw error;
+function startServer(targetPort = port) {
+  return app.listen(targetPort, host, () => {
+    const address = targetPort === 0 ? "assigned port" : targetPort;
+    console.log(`OHYOUNG apps running on ${address}: /safety and /legal-registry`);
   });
 }
 
-const listenPorts = [...new Set([port, 4173, 3000].filter((value) => Number.isFinite(value) && value > 0))];
-listenPorts.forEach(listenOnPort);
+if (require.main === module) startServer();
+
+module.exports = { app, startServer };
 
