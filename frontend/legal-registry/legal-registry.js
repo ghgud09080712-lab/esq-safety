@@ -1222,10 +1222,13 @@ async function refreshLaws() {
     state.currentRefreshChanged = Number(result.log?.changed || 0);
     state.data = { ...state.data, records: result.records, changes: result.changes, updatedAt: result.updatedAt, refreshLogs: [result.log, ...(state.data.refreshLogs || [])] };
     render();
-    const message = `새로고침 성공: 확인 ${result.log.checked}건 · 자동등록 ${result.log.changed}건 · 오류 ${result.log.errors.length}건`;
+    const errors = Array.isArray(result.log?.errors) ? result.log.errors : [];
+    const summary = `\uC0C8\uB85C\uACE0\uCE68 \uC644\uB8CC: \uD655\uC778 ${result.log.checked}\uAC74 \u00B7 \uC790\uB3D9\uB4F1\uB85D ${result.log.changed}\uAC74 \u00B7 \uC624\uB958 ${errors.length}\uAC74`;
+    const errorDetails = errors.map((item) => `- ${item.lawName}: ${item.message}`).join("\n");
+    const message = errorDetails ? `${summary}\n${errorDetails}` : summary;
     setStatus(message);
-    showResult(message, "success");
-    showToast(message, "success");
+    showResult(message, errors.length ? "error" : "success");
+    showToast(summary, errors.length ? "error" : "success");
   } catch (error) {
     setStatus(error.message);
     showResult(`새로고침 실패: ${error.message}`, "error");

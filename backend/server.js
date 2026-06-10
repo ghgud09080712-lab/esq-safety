@@ -523,7 +523,23 @@ async function searchOfficialLaw(lawName, oc) {
     search: "1",
     query: lawName
   });
-  const response = await fetch(`https://www.law.go.kr/DRF/lawSearch.do?${params}`);
+  const url = `https://www.law.go.kr/DRF/lawSearch.do?${params}`;
+  let response;
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (response.ok || (response.status < 500 && response.status !== 429)) break;
+      lastError = new Error(`\uBC95\uC81C\uCC98 HTTP ${response.status}`);
+    } catch (error) {
+      response = undefined;
+      lastError = error;
+    }
+    if (attempt < 3) await wait(attempt * 700);
+  }
+  if (!response) {
+    throw new Error(`\uBC95\uC81C\uCC98 \uC5F0\uACB0 \uC2E4\uD328(3\uD68C \uC7AC\uC2DC\uB3C4): ${lastError?.message || "\uC751\uB2F5 \uC5C6\uC74C"}`);
+  }
   const text = await response.text();
   let payload = {};
   try {
