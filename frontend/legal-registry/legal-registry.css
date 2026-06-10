@@ -1653,12 +1653,44 @@ body.is-refreshing #topRefreshBtn {
   overflow: hidden;
 }
 
-.law-preview-section > h3 {
-  margin: 0;
+.law-preview-section-toggle {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface-soft);
   padding: 12px 14px;
   color: #123863;
+  font: inherit;
+  font-weight: 950;
+  text-align: left;
+  cursor: pointer;
+}
+
+.law-preview-section-toggle i {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-right: 2px solid #205aa8;
+  border-bottom: 2px solid #205aa8;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .18s ease;
+}
+
+.law-preview-section.collapsed .law-preview-section-toggle {
+  border-bottom: 0;
+}
+
+.law-preview-section.collapsed .law-preview-section-toggle i {
+  transform: rotate(-45deg);
+}
+
+.law-preview-section.collapsed .law-preview-section-body {
+  display: none;
 }
 
 .law-preview-record,

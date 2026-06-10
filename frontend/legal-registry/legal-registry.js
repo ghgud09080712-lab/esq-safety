@@ -305,6 +305,18 @@ async function loadLawPreviewContent(lawName) {
   }
 }
 
+function renderLawPreviewSection(title, key, content) {
+  return `
+    <section class="law-preview-section" data-law-preview-section="${escapeHtml(key)}">
+      <button class="law-preview-section-toggle" data-law-preview-toggle="${escapeHtml(key)}" type="button" aria-expanded="true">
+        <span>${escapeHtml(title)}</span>
+        <i aria-hidden="true"></i>
+      </button>
+      <div class="law-preview-section-body">${content}</div>
+    </section>
+  `;
+}
+
 function openLawPreview(lawName) {
   const name = String(lawName || "").trim();
   if (!name) return;
@@ -352,11 +364,11 @@ function openLawPreview(lawName) {
     </article>
   `).join("") : `<div class="empty">법규검토에 등록된 상세 내용이 없습니다.</div>`;
 
-  $("#lawPreviewContent").innerHTML = `
-    <div class="law-preview-section"><h3>법규등록부</h3>${recordHtml}</div>
-    <div class="law-preview-section"><h3>법규검토</h3>${cardHtml}</div>
-    <div class="law-preview-section law-preview-original"><h3>법령 원문</h3><div id="lawPreviewOfficialContent"></div></div>
-  `;
+  $("#lawPreviewContent").innerHTML = [
+    renderLawPreviewSection("\uBC95\uADDC\uB4F1\uB85D\uBD80", "registry", recordHtml),
+    renderLawPreviewSection("\uBC95\uADDC\uAC80\uD1A0", "review", cardHtml),
+    renderLawPreviewSection("\uBC95\uB839 \uC6D0\uBB38", "original", '<div id="lawPreviewOfficialContent"></div>')
+  ].join("");
   $("#lawPreviewModal").hidden = false;
   loadLawPreviewContent(state.selectedPreviewLaw);
 }
@@ -1587,6 +1599,13 @@ function bindEvents() {
     if (aiPreviewButton) openLawPreview(aiPreviewButton.dataset.aiPreview);
     const lawPreviewRetry = event.target.closest("[data-law-preview-retry]");
     if (lawPreviewRetry) loadLawPreviewContent(state.selectedPreviewLaw);
+    const lawPreviewToggle = event.target.closest("[data-law-preview-toggle]");
+    if (lawPreviewToggle) {
+      const section = lawPreviewToggle.closest("[data-law-preview-section]");
+      const collapsed = section?.classList.toggle("collapsed");
+      lawPreviewToggle.setAttribute("aria-expanded", String(!collapsed));
+      return;
+    }
     const aiFilterButton = event.target.closest("[data-ai-filter]");
     if (aiFilterButton) {
       state.search = aiFilterButton.dataset.aiFilter || "";
