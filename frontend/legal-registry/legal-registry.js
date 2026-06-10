@@ -905,19 +905,14 @@ async function typeConversationalAiAnswer(message, payload, matches, options = {
   `;
   const target = message.querySelector(".ai-typing-text");
   const cursor = message.querySelector(".ai-typing-cursor");
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   const characters = Array.from(answer);
 
-  if (reducedMotion || characters.length > 1800) {
-    target.textContent = answer;
-  } else {
-    for (let index = 0; index < characters.length; index += 1) {
-      const character = characters[index];
-      target.textContent += character;
-      if (index % 4 === 0 || /[.!?。！？\n]/.test(character)) scrollAiChatToBottom(options);
-      const delay = /[.!?。！？]/.test(character) ? 85 : /[,，:;\n]/.test(character) ? 42 : 13;
-      await new Promise((resolve) => window.setTimeout(resolve, delay));
-    }
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
+    target.textContent += character;
+    if (index % 4 === 0 || /[.!?。！？\n]/.test(character)) scrollAiChatToBottom(options);
+    const delay = /[.!?。！？]/.test(character) ? 90 : /[,，:;\n]/.test(character) ? 45 : 16;
+    await new Promise((resolve) => window.setTimeout(resolve, delay));
   }
 
   cursor?.remove();
