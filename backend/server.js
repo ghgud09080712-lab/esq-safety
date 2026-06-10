@@ -1097,7 +1097,9 @@ app.get("/app", (_req, res) => {
 app.use((req, res, next) => {
   const normalizedPath = req.path.replace(/\/+$/, "") || "/";
   if (normalizedPath.toLowerCase() === "/legal-registry" && normalizedPath !== "/legal-registry") {
-    res.redirect(302, "/safety");
+    const queryIndex = req.originalUrl.indexOf("?");
+    const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
+    res.redirect(302, `/legal-registry${query}`);
     return;
   }
   next();
