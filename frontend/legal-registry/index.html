@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260610-ai-typewriter-v2">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260610-law-preview">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -111,6 +111,23 @@
 
     </main>
   </div>
+  <div class="modal-backdrop" id="lawPreviewModal" hidden>
+    <section class="modal law-preview-modal" role="dialog" aria-modal="true" aria-labelledby="lawPreviewTitle">
+      <div class="modal-head">
+        <div>
+          <span class="badge done">앱 내부 보기</span>
+          <h2 id="lawPreviewTitle">법규 상세</h2>
+        </div>
+        <button class="btn small" id="lawPreviewClose" type="button">닫기</button>
+      </div>
+      <div id="lawPreviewContent" class="law-preview-content"></div>
+      <div class="modal-actions">
+        <button class="btn" id="lawPreviewRegistryBtn" type="button">법규등록부에서 보기</button>
+        <button class="btn" id="lawPreviewOriginalBtn" type="button">법령 원문 열기</button>
+        <button class="btn primary" id="lawPreviewConfirmBtn" type="button">확인</button>
+      </div>
+    </section>
+  </div>
   <div class="modal-backdrop" id="changeModal" hidden>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="changeModalTitle">
       <div class="modal-head">
@@ -177,6 +194,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260610-ai-typewriter-v2"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260610-law-preview"></script>
 </body>
 </html>

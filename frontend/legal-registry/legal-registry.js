@@ -8,7 +8,8 @@ const state = {
   editingDetailId: "",
   expandedDetailIds: new Set(),
   currentRefreshChanged: 0,
-  selectedChangeId: ""
+  selectedChangeId: "",
+  selectedPreviewLaw: ""
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -273,6 +274,66 @@ function openLaw(lawName) {
   const url = lawUrl(lawName);
   if (!url) return;
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function closeLawPreview() {
+  const modal = $("#lawPreviewModal");
+  if (modal) modal.hidden = true;
+  state.selectedPreviewLaw = "";
+}
+
+function openLawPreview(lawName) {
+  const name = String(lawName || "").trim();
+  if (!name) return;
+  const normalized = normalizeSearchText(name);
+  const records = (state.data.records || []).filter((record) => {
+    const candidate = normalizeSearchText(record.lawName || "");
+    return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
+  });
+  const cards = (state.data.detailCards || []).filter((card) => {
+    const candidate = normalizeSearchText(card.lawName || card.sheetName || "");
+    return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
+  });
+  state.selectedPreviewLaw = records[0]?.lawName || cards[0]?.lawName || name;
+  $("#lawPreviewTitle").textContent = state.selectedPreviewLaw;
+
+  const recordHtml = records.length ? records.map((record) => `
+    <div class="law-preview-record">
+      <span>No ${escapeHtml(record.no || "-")}</span>
+      <strong>${escapeHtml(record.group || record.lawName || "-")}</strong>
+      <dl>
+        <dt>등록 시행일</dt><dd>${escapeHtml(formatLawDate(record.registeredEffectiveDate))}</dd>
+        <dt>최신 시행일</dt><dd>${escapeHtml(formatLawDate(record.officialEffectiveDate))}</dd>
+        <dt>상태</dt><dd>${escapeHtml(record.status || "-")}</dd>
+      </dl>
+    </div>
+  `).join("") : `<div class="empty">법규등록부 기본 행은 찾지 못했습니다.</div>`;
+
+  const cardHtml = cards.length ? cards.map((card) => `
+    <article class="law-preview-card">
+      <div class="law-preview-meta">
+        <span>${escapeHtml(card.category || "법규 검토")}</span>
+        <span>재개정일 ${escapeHtml(formatLawDate(card.revisionDate))}</span>
+        <span>등록일 ${escapeHtml(formatLawDate(card.registeredDate))}</span>
+        <span>${escapeHtml(card.qcStatus || "")}</span>
+      </div>
+      <section>
+        <h3>법규 적용내용</h3>
+        <p>${escapeHtml(card.mainContent || "등록된 내용이 없습니다.")}</p>
+      </section>
+      <section>
+        <h3>당사 적용사항</h3>
+        <p>${escapeHtml(card.companyAction || "등록된 내용이 없습니다.")}</p>
+      </section>
+      ${card.qcMemo || card.qcEvidence ? `<section><h3>정도관리</h3><p>${escapeHtml([card.qcMemo, card.qcEvidence].filter(Boolean).join("\n"))}</p></section>` : ""}
+    </article>
+  `).join("") : `<div class="empty">법규검토에 등록된 상세 내용이 없습니다.</div>`;
+
+  $("#lawPreviewContent").innerHTML = `
+    <div class="law-preview-section"><h3>법규등록부</h3>${recordHtml}</div>
+    <div class="law-preview-section"><h3>법규검토</h3>${cardHtml}</div>
+  `;
+  $("#lawPreviewModal").hidden = false;
 }
 
 function pendingChanges() {
@@ -866,7 +927,7 @@ function renderConversationalAiAnswer(payload, matches) {
   const actionPlan = Array.isArray(payload.actionPlan) ? payload.actionPlan : [];
   const checkpoints = Array.isArray(payload.checkpoints) ? payload.checkpoints : [];
   const references = [
-    renderAiReferenceList("관련 법규", recommended, (item) => `<li><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</li>`),
+    renderAiReferenceList("관련 법규", recommended, (item) => `<li class="ai-law-reference"><div><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</div><div class="ai-law-reference-actions"><button class="btn small" data-ai-preview="${escapeHtml(item.lawName || "")}" type="button">앱에서 보기</button><button class="btn small" data-ai-open="${escapeHtml(item.lawName || "")}" type="button">원문</button></div></li>`),
     renderAiReferenceList("참고 확인사항", [...siteRisks, ...actionPlan, ...checkpoints], (item) => `<li>${escapeHtml(item)}</li>`)
   ].join("");
   const fallback = !recommended.length && !references ? renderLawMiniList(matches) : "";
@@ -1482,6 +1543,8 @@ function bindEvents() {
     if (detailButton) openChangeDetail(detailButton.dataset.detail);
     const aiOpenButton = event.target.closest("[data-ai-open]");
     if (aiOpenButton) openLaw(aiOpenButton.dataset.aiOpen);
+    const aiPreviewButton = event.target.closest("[data-ai-preview]");
+    if (aiPreviewButton) openLawPreview(aiPreviewButton.dataset.aiPreview);
     const aiFilterButton = event.target.closest("[data-ai-filter]");
     if (aiFilterButton) {
       state.search = aiFilterButton.dataset.aiFilter || "";
@@ -1493,6 +1556,20 @@ function bindEvents() {
     if (lawNameTarget && window.matchMedia("(max-width: 700px)").matches) {
       openLaw(lawNameTarget.dataset.lawName);
     }
+  });
+  $("#lawPreviewClose")?.addEventListener("click", closeLawPreview);
+  $("#lawPreviewConfirmBtn")?.addEventListener("click", closeLawPreview);
+  $("#lawPreviewOriginalBtn")?.addEventListener("click", () => openLaw(state.selectedPreviewLaw));
+  $("#lawPreviewRegistryBtn")?.addEventListener("click", () => {
+    const lawName = state.selectedPreviewLaw;
+    closeLawPreview();
+    state.search = lawName;
+    $("#registrySearch").value = lawName;
+    switchView("registry");
+    renderRegistry();
+  });
+  $("#lawPreviewModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "lawPreviewModal") closeLawPreview();
   });
   document.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-detail-form]");
