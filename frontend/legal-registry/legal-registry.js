@@ -282,6 +282,29 @@ function closeLawPreview() {
   state.selectedPreviewLaw = "";
 }
 
+async function loadLawPreviewContent(lawName) {
+  const container = $("#lawPreviewOfficialContent");
+  if (!container) return;
+  container.innerHTML = `<div class="law-preview-loading"><span class="refresh-spinner" aria-hidden="true"></span><p>법제처 최신 법령 원문을 불러오고 있습니다.</p></div>`;
+  try {
+    const payload = await requestJson(`/api/legal-registry/law-content?lawName=${encodeURIComponent(lawName)}`);
+    const content = payload.content || {};
+    const articles = Array.isArray(content.articles) ? content.articles : [];
+    container.innerHTML = articles.length ? `
+      <div class="law-article-list">
+        ${articles.map((article) => `
+          <article class="law-article ${article.changed ? "changed" : ""}">
+            <h4>${escapeHtml(article.heading || "조문")}${article.changed ? `<span>변경</span>` : ""}</h4>
+            <p>${escapeHtml(article.text || "내용 없음")}</p>
+          </article>
+        `).join("")}
+      </div>
+    ` : `<div class="empty">법제처에서 표시할 조문을 찾지 못했습니다.</div>`;
+  } catch (error) {
+    container.innerHTML = `<div class="law-preview-error"><p>${escapeHtml(error.message || "법령 원문을 불러오지 못했습니다.")}</p><button class="btn small" data-law-preview-retry type="button">다시 불러오기</button></div>`;
+  }
+}
+
 function openLawPreview(lawName) {
   const name = String(lawName || "").trim();
   if (!name) return;
@@ -332,8 +355,10 @@ function openLawPreview(lawName) {
   $("#lawPreviewContent").innerHTML = `
     <div class="law-preview-section"><h3>법규등록부</h3>${recordHtml}</div>
     <div class="law-preview-section"><h3>법규검토</h3>${cardHtml}</div>
+    <div class="law-preview-section law-preview-original"><h3>법령 원문</h3><div id="lawPreviewOfficialContent"></div></div>
   `;
   $("#lawPreviewModal").hidden = false;
+  loadLawPreviewContent(state.selectedPreviewLaw);
 }
 
 function pendingChanges() {
@@ -1545,6 +1570,8 @@ function bindEvents() {
     if (aiOpenButton) openLaw(aiOpenButton.dataset.aiOpen);
     const aiPreviewButton = event.target.closest("[data-ai-preview]");
     if (aiPreviewButton) openLawPreview(aiPreviewButton.dataset.aiPreview);
+    const lawPreviewRetry = event.target.closest("[data-law-preview-retry]");
+    if (lawPreviewRetry) loadLawPreviewContent(state.selectedPreviewLaw);
     const aiFilterButton = event.target.closest("[data-ai-filter]");
     if (aiFilterButton) {
       state.search = aiFilterButton.dataset.aiFilter || "";

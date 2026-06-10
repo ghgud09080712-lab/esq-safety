@@ -1656,6 +1656,15 @@ body.is-refreshing #topRefreshBtn {
 .law-preview-card section p { margin: 0; white-space: pre-wrap; line-height: 1.75; }
 .law-preview-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .law-preview-meta span { border-radius: 999px; background: #edf6ff; color: #205aa8; padding: 5px 8px; font-size: 12px; font-weight: 900; }
+.law-preview-loading,
+.law-preview-error { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 130px; padding: 18px; color: var(--text-dim); font-weight: 850; }
+.law-article-list { display: grid; }
+.law-article { padding: 14px 16px; }
+.law-article + .law-article { border-top: 1px solid var(--border); }
+.law-article h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; color: #123863; }
+.law-article h4 span { border-radius: 999px; background: #fff0ed; color: #b42318; padding: 3px 7px; font-size: 11px; }
+.law-article p { margin: 0; white-space: pre-wrap; line-height: 1.8; color: #243b57; }
+.law-preview-original { min-height: 260px; }
 .ai-law-reference { margin-bottom: 10px; }
 .ai-law-reference-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 

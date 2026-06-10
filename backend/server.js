@@ -1662,6 +1662,25 @@ app.get("/api/legal-registry/change-content/:id", async (req, res) => {
   }
 });
 
+app.get("/api/legal-registry/law-content", async (req, res) => {
+  try {
+    const lawName = compactText(req.query?.lawName);
+    if (!lawName) return res.status(400).json({ ok: false, message: "법령명을 입력하세요." });
+    const data = await readLegalRegistry();
+    const record = (data.records || []).find((item) => makeLawKey(item.lawName) === makeLawKey(lawName))
+      || (data.records || []).find((item) => makeLawKey(item.lawName).includes(makeLawKey(lawName)));
+    const content = await fetchOfficialLawContent({
+      lawName: record?.lawName || lawName,
+      lawId: record?.lawId,
+      oc: compactText(req.query?.oc || defaultLawOpenApiOc),
+      effectiveDate: record?.officialEffectiveDate || ""
+    });
+    res.json({ ok: true, content });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "법령 원문을 불러오지 못했습니다." });
+  }
+});
+
 function isRefreshUpdateQuestion(question) {
   const normalized = normalizeLawName(question);
   const refreshWords = ["새로고침", "업데이트", "오늘", "방금", "이번", "최근", "현재", "수정", "변경", "바뀐", "변경이력"];
