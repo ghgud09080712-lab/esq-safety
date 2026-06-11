@@ -1219,9 +1219,9 @@ th {
 .ai-answer-main p {
   margin: 0;
   color: #10243e;
-  font-size: 15px;
-  line-height: 1.82;
-  font-weight: 750;
+  font-size: inherit;
+  line-height: 1.7;
+  font-weight: 400;
   white-space: pre-wrap;
 }
 
