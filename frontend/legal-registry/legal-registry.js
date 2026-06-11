@@ -45,6 +45,12 @@ function tokenizeDiffText(value) {
     .filter((token) => token !== "");
 }
 
+function mergeInlineDiffHighlights(parts, className) {
+  const html = parts.join("");
+  const boundary = new RegExp(`</span>([ \\t\\u00a0]*)<span class="${className}">`, "g");
+  return html.replace(boundary, "$1");
+}
+
 function buildInlineDiff(before, after) {
   const a = tokenizeDiffText(before);
   const b = tokenizeDiffText(after);
@@ -88,8 +94,8 @@ function buildInlineDiff(before, after) {
     j += 1;
   }
   return {
-    beforeHtml: beforeParts.join(""),
-    afterHtml: afterParts.join("")
+    beforeHtml: mergeInlineDiffHighlights(beforeParts, "diff-removed"),
+    afterHtml: mergeInlineDiffHighlights(afterParts, "diff-added")
   };
 }
 
