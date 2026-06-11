@@ -1893,10 +1893,10 @@ body.is-refreshing #topRefreshBtn {
 .diff-removed {
   border-radius: 0;
   color: #7a0c05;
-  background: #ffb8b1;
+  background: #ffd2ce;
   text-decoration-line: underline line-through;
-  text-decoration-thickness: 3px;
-  text-decoration-color: #c9180d;
+  text-decoration-thickness: 2px;
+  text-decoration-color: #d45148;
   padding: 1px 0;
   font-weight: 900;
 }
