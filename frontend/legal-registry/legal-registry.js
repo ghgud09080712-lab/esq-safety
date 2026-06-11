@@ -10,7 +10,8 @@ const state = {
   currentRefreshChanged: 0,
   selectedChangeId: "",
   selectedPreviewLaw: "",
-  lawPreviewArticles: []
+  lawPreviewArticles: [],
+  lawPreviewQuery: ""
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -296,6 +297,42 @@ function closeLawPreview() {
   if (modal) modal.hidden = true;
   state.selectedPreviewLaw = "";
   state.lawPreviewArticles = [];
+  state.lawPreviewQuery = "";
+}
+
+function lawPreviewQueryCandidates(query) {
+  const text = String(query || "").trim();
+  if (!text) return [];
+  const aliases = [
+    { pattern: /\uC548\uC804\uB760|\uC548\uC804\uBCA8\uD2B8|\uD558\uB124\uC2A4/u, terms: ["\uC548\uC804\uB300", "\uCD94\uB77D"] },
+    { pattern: /\uBCF4\uD638\uAD6C|\uC548\uC804\uBAA8/u, terms: ["\uBCF4\uD638\uAD6C", "\uC548\uC804\uBAA8"] },
+    { pattern: /\uC628\uC5F4\uC9C8\uD658|\uD3ED\uC5FC/u, terms: ["\uC628\uC5F4\uC9C8\uD658", "\uD3ED\uC5FC"] },
+    { pattern: /\uD654\uD559\uBB3C\uC9C8|\uC720\uD574\uD654\uD559/u, terms: ["\uC720\uD574\uD654\uD559\uBB3C\uC9C8", "\uD654\uD559\uBB3C\uC9C8"] }
+  ];
+  const stopWords = new Set(["\uAD00\uD55C", "\uAD00\uB828", "\uBC95\uADDC", "\uBC95\uB839", "\uC9C8\uBB38", "\uBB50\uC57C", "\uBB34\uC5C7", "\uC5B4\uB5A4", "\uC54C\uB824\uC918", "\uBCF4\uACE0\uC2F6\uC5B4"]);
+  const terms = [];
+  aliases.forEach((alias) => {
+    if (alias.pattern.test(text)) terms.push(...alias.terms);
+  });
+  terms.push(...text.split(/[^0-9A-Za-z\uAC00-\uD7A3]+/u)
+    .map((item) => item.replace(/(?:\uC5D0|\uC5D0\uC11C|\uC740|\uB294|\uC774|\uAC00|\uC744|\uB97C|\uC640|\uACFC|\uC758)$/u, ""))
+    .filter((item) => item.length >= 2 && !stopWords.has(item)));
+  return [...new Set(terms)];
+}
+
+function bestLawPreviewQuery(query, articles) {
+  const candidates = lawPreviewQueryCandidates(query);
+  let best = "";
+  let bestCount = 0;
+  candidates.forEach((candidate) => {
+    const normalized = candidate.toLowerCase();
+    const count = articles.filter((article) => `${article.heading || ""} ${article.text || ""}`.toLowerCase().includes(normalized)).length;
+    if (count > bestCount) {
+      best = candidate;
+      bestCount = count;
+    }
+  });
+  return best;
 }
 
 function highlightLawSearchText(value, query) {
@@ -347,8 +384,8 @@ function renderLawPreviewArticles(query = "") {
   container.innerHTML = `
     <div class="law-article-search">
       <div class="law-article-search-row">
-        <input id="lawArticleSearchInput" type="search" placeholder="\uC870\uBB38 \uC81C\uBAA9\uC774\uB098 \uB0B4\uC6A9 \uAC80\uC0C9" autocomplete="off">
-        <button class="btn small" data-law-search-clear type="button" disabled>\uCD08\uAE30\uD654</button>
+        <input id="lawArticleSearchInput" type="search" value="${escapeHtml(keyword)}" placeholder="\uC870\uBB38 \uC81C\uBAA9\uC774\uB098 \uB0B4\uC6A9 \uAC80\uC0C9" autocomplete="off">
+        <button class="btn small" data-law-search-clear type="button" ${keyword ? "" : "disabled"}>\uCD08\uAE30\uD654</button>
       </div>
       <span id="lawArticleSearchCount">${resultLabel}</span>
     </div>
@@ -365,7 +402,21 @@ async function loadLawPreviewContent(lawName) {
     const content = payload.content || {};
     const articles = Array.isArray(content.articles) ? content.articles : [];
     state.lawPreviewArticles = articles;
-    if (articles.length) renderLawPreviewArticles();
+    if (articles.length) {
+      const keyword = bestLawPreviewQuery(state.lawPreviewQuery, articles);
+      renderLawPreviewArticles(keyword);
+      if (keyword) {
+        ["registry", "review"].forEach((key) => {
+          const section = document.querySelector(`[data-law-preview-section="${key}"]`);
+          section?.classList.add("collapsed");
+          section?.querySelector("[data-law-preview-toggle]")?.setAttribute("aria-expanded", "false");
+        });
+        const originalSection = document.querySelector('[data-law-preview-section="original"]');
+        originalSection?.classList.remove("collapsed");
+        originalSection?.querySelector("[data-law-preview-toggle]")?.setAttribute("aria-expanded", "true");
+        originalSection?.scrollIntoView({ block: "start" });
+      }
+    }
     else container.innerHTML = `<div class="empty">\uBC95\uC81C\uCC98\uC5D0\uC11C \uD45C\uC2DC\uD560 \uC870\uBB38\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.</div>`;
   } catch (error) {
     container.innerHTML = `<div class="law-preview-error"><p>${escapeHtml(error.message || "법령 원문을 불러오지 못했습니다.")}</p><button class="btn small" data-law-preview-retry type="button">다시 불러오기</button></div>`;
@@ -384,7 +435,7 @@ function renderLawPreviewSection(title, key, content) {
   `;
 }
 
-function openLawPreview(lawName) {
+function openLawPreview(lawName, query = "") {
   const name = String(lawName || "").trim();
   if (!name) return;
   const normalized = normalizeSearchText(name);
@@ -397,6 +448,7 @@ function openLawPreview(lawName) {
     return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
   });
   state.selectedPreviewLaw = records[0]?.lawName || cards[0]?.lawName || name;
+  state.lawPreviewQuery = String(query || "").trim();
   $("#lawPreviewTitle").textContent = state.selectedPreviewLaw;
 
   const recordHtml = records.length ? records.map((record) => `
@@ -1024,14 +1076,14 @@ function renderAiReferenceList(title, items, renderItem) {
   `;
 }
 
-function renderConversationalAiAnswer(payload, matches) {
+function renderConversationalAiAnswer(payload, matches, query = "") {
   const answer = payload.answer || "답변을 생성하지 못했습니다.";
   const recommended = Array.isArray(payload.recommendedLaws) ? payload.recommendedLaws : [];
   const siteRisks = Array.isArray(payload.siteRisks) ? payload.siteRisks : [];
   const actionPlan = Array.isArray(payload.actionPlan) ? payload.actionPlan : [];
   const checkpoints = Array.isArray(payload.checkpoints) ? payload.checkpoints : [];
   const references = [
-    renderAiReferenceList("관련 법규", recommended, (item) => `<li class="ai-law-reference"><div><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</div><div class="ai-law-reference-actions"><button class="btn small" data-ai-preview="${escapeHtml(item.lawName || "")}" type="button">앱에서 보기</button><button class="btn small" data-ai-open="${escapeHtml(item.lawName || "")}" type="button">원문</button></div></li>`),
+    renderAiReferenceList("관련 법규", recommended, (item) => `<li class="ai-law-reference"><div><b>${escapeHtml(item.lawName || "")}</b>${item.reason ? ` - ${escapeHtml(item.reason)}` : ""}</div><div class="ai-law-reference-actions"><button class="btn small" data-ai-preview="${escapeHtml(item.lawName || "")}" data-ai-query="${escapeHtml(query)}" type="button">앱에서 보기</button><button class="btn small" data-ai-open="${escapeHtml(item.lawName || "")}" type="button">원문</button></div></li>`),
     renderAiReferenceList("참고 확인사항", [...siteRisks, ...actionPlan, ...checkpoints], (item) => `<li>${escapeHtml(item)}</li>`)
   ].join("");
   const fallback = !recommended.length && !references ? renderLawMiniList(matches) : "";
@@ -1045,7 +1097,7 @@ function renderConversationalAiAnswer(payload, matches) {
   `;
 }
 
-function renderAiAnswerSupportingContent(payload, matches) {
+function renderAiAnswerSupportingContent(payload, matches, query = "") {
   const recommended = Array.isArray(payload.recommendedLaws) ? payload.recommendedLaws : [];
   const siteRisks = Array.isArray(payload.siteRisks) ? payload.siteRisks : [];
   const actionPlan = Array.isArray(payload.actionPlan) ? payload.actionPlan : [];
@@ -1059,7 +1111,7 @@ function renderAiAnswerSupportingContent(payload, matches) {
             ${item.reason ? `<p>${escapeHtml(item.reason)}</p>` : ""}
           </div>
           <div class="ai-law-reference-actions">
-            <button class="btn primary small" data-ai-preview="${escapeHtml(item.lawName || "")}" type="button">\uC571\uC5D0\uC11C \uBCF4\uAE30</button>
+            <button class="btn primary small" data-ai-preview="${escapeHtml(item.lawName || "")}" data-ai-query="${escapeHtml(query)}" type="button">\uC571\uC5D0\uC11C \uBCF4\uAE30</button>
             <button class="btn small" data-ai-filter="${escapeHtml(item.lawName || "")}" type="button">\uB4F1\uB85D\uBD80\uC5D0\uC11C \uBCF4\uAE30</button>
             <button class="btn small" data-ai-open="${escapeHtml(item.lawName || "")}" type="button">\uBC95\uC81C\uCC98 \uC6D0\uBB38</button>
           </div>
@@ -1076,7 +1128,7 @@ function renderAiAnswerSupportingContent(payload, matches) {
   `;
 }
 
-async function typeConversationalAiAnswer(message, payload, matches, options = {}) {
+async function typeConversationalAiAnswer(message, payload, matches, query = "", options = {}) {
   const answer = String(payload.answer || "답변을 생성하지 못했습니다.");
   message.innerHTML = `
     <div class="ai-answer-main">
@@ -1096,7 +1148,7 @@ async function typeConversationalAiAnswer(message, payload, matches, options = {
   }
 
   cursor?.remove();
-  message.insertAdjacentHTML("beforeend", renderAiAnswerSupportingContent(payload, matches));
+  message.insertAdjacentHTML("beforeend", renderAiAnswerSupportingContent(payload, matches, query));
   scrollAiChatToBottom(options);
 }
 
@@ -1194,7 +1246,7 @@ async function renderAiSearchResults(query, options = {}) {
     });
     loading.classList.remove("loading");
     loading.classList.add("conversational");
-    await typeConversationalAiAnswer(loading, payload, matches, surfaceOptions);
+    await typeConversationalAiAnswer(loading, payload, matches, cleanQuery, surfaceOptions);
   } catch (error) {
     loading.classList.remove("loading");
     loading.innerHTML = `
@@ -1666,7 +1718,7 @@ function bindEvents() {
     const aiOpenButton = event.target.closest("[data-ai-open]");
     if (aiOpenButton) openLaw(aiOpenButton.dataset.aiOpen);
     const aiPreviewButton = event.target.closest("[data-ai-preview]");
-    if (aiPreviewButton) openLawPreview(aiPreviewButton.dataset.aiPreview);
+    if (aiPreviewButton) openLawPreview(aiPreviewButton.dataset.aiPreview, aiPreviewButton.dataset.aiQuery || "");
     const lawPreviewRetry = event.target.closest("[data-law-preview-retry]");
     if (lawPreviewRetry) loadLawPreviewContent(state.selectedPreviewLaw);
     const lawPreviewToggle = event.target.closest("[data-law-preview-toggle]");
