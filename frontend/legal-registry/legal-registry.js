@@ -305,34 +305,30 @@ function lawPreviewQueryCandidates(query) {
   if (!text) return [];
   const aliases = [
     { pattern: /\uC548\uC804\uB760|\uC548\uC804\uBCA8\uD2B8|\uD558\uB124\uC2A4/u, terms: ["\uC548\uC804\uB300", "\uCD94\uB77D"] },
+    { pattern: /\uC5FC\uC0B0|\uC5FC\uD654\uC218\uC18C|HCL/u, terms: ["\uC5FC\uC0B0", "\uC5FC\uD654\uC218\uC18C", "\uC720\uD574\uD654\uD559\uBB3C\uC9C8"] },
     { pattern: /\uBCF4\uD638\uAD6C|\uC548\uC804\uBAA8/u, terms: ["\uBCF4\uD638\uAD6C", "\uC548\uC804\uBAA8"] },
     { pattern: /\uC628\uC5F4\uC9C8\uD658|\uD3ED\uC5FC/u, terms: ["\uC628\uC5F4\uC9C8\uD658", "\uD3ED\uC5FC"] },
     { pattern: /\uD654\uD559\uBB3C\uC9C8|\uC720\uD574\uD654\uD559/u, terms: ["\uC720\uD574\uD654\uD559\uBB3C\uC9C8", "\uD654\uD559\uBB3C\uC9C8"] }
   ];
-  const stopWords = new Set(["\uAD00\uD55C", "\uAD00\uB828", "\uBC95\uADDC", "\uBC95\uB839", "\uC9C8\uBB38", "\uBB50\uC57C", "\uBB34\uC5C7", "\uC5B4\uB5A4", "\uC54C\uB824\uC918", "\uBCF4\uACE0\uC2F6\uC5B4"]);
+  const stopWords = new Set(["\uAD00\uD55C", "\uAD00\uB828", "\uAD00\uB828\uB41C", "\uAD00\uB828\uD574\uC11C", "\uBC95\uADDC", "\uBC95\uB839", "\uC9C8\uBB38", "\uBB50\uC57C", "\uBB34\uC5C7", "\uC5B4\uB5A4", "\uC54C\uB824\uC918", "\uBCF4\uACE0\uC2F6\uC5B4"]);
   const terms = [];
   aliases.forEach((alias) => {
     if (alias.pattern.test(text)) terms.push(...alias.terms);
   });
   terms.push(...text.split(/[^0-9A-Za-z\uAC00-\uD7A3]+/u)
     .map((item) => item.replace(/(?:\uC5D0|\uC5D0\uC11C|\uC740|\uB294|\uC774|\uAC00|\uC744|\uB97C|\uC640|\uACFC|\uC758)$/u, ""))
-    .filter((item) => item.length >= 2 && !stopWords.has(item)));
+    .filter((item) => item.length >= 2 && !stopWords.has(item) && !/^\uAD00\uB828/u.test(item)));
   return [...new Set(terms)];
 }
 
 function bestLawPreviewQuery(query, articles) {
   const candidates = lawPreviewQueryCandidates(query);
-  let best = "";
-  let bestCount = 0;
-  candidates.forEach((candidate) => {
+  for (const candidate of candidates) {
     const normalized = candidate.toLowerCase();
     const count = articles.filter((article) => `${article.heading || ""} ${article.text || ""}`.toLowerCase().includes(normalized)).length;
-    if (count > bestCount) {
-      best = candidate;
-      bestCount = count;
-    }
-  });
-  return best;
+    if (count > 0) return candidate;
+  }
+  return "";
 }
 
 function highlightLawSearchText(value, query) {
@@ -368,7 +364,7 @@ function renderLawPreviewArticles(query = "") {
   const articles = state.lawPreviewArticles || [];
   const { filtered, html } = lawPreviewArticleResults(articles, keyword);
   const resultLabel = keyword
-    ? `\uCD1D ${articles.length}\uAC1C \uC870\uBB38 \uC911 ${filtered.length}\uAC1C \uAC80\uC0C9`
+    ? `${state.lawPreviewQuery ? `AI \uC9C8\uBB38 \uAE30\uC900 \u00B7 ` : ""}\"${keyword}\" ${filtered.length}\uAC1C \uC870\uBB38`
     : `\uCD1D ${articles.length}\uAC1C \uC870\uBB38`;
 
   const results = $("#lawArticleSearchResults");
