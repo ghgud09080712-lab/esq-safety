@@ -515,6 +515,11 @@ function openLawPreview(lawName, query = "") {
     renderLawPreviewSection("\uBC95\uADDC\uAC80\uD1A0", "review", cardHtml),
     renderLawPreviewSection("\uBC95\uB839 \uC6D0\uBB38", "original", '<div id="lawPreviewOfficialContent"></div>')
   ].join("");
+  ["registry", "review"].forEach((key) => {
+    const section = document.querySelector(`[data-law-preview-section="${key}"]`);
+    section?.classList.add("collapsed");
+    section?.querySelector("[data-law-preview-toggle]")?.setAttribute("aria-expanded", "false");
+  });
   $("#lawPreviewModal").hidden = false;
   loadLawPreviewContent(state.selectedPreviewLaw);
 }
