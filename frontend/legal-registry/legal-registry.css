@@ -1611,6 +1611,8 @@ body.is-refreshing #topRefreshBtn {
 .modal-head h2 { margin-top: 8px; }
 
 .law-preview-modal {
+  width: min(1540px, calc(100vw - 24px));
+  height: min(980px, calc(100vh - 24px));
   overflow: hidden;
 }
 
@@ -2011,7 +2013,7 @@ body.is-refreshing #topRefreshBtn {
   .change-detail-grid { grid-template-columns: 96px minmax(0, 1fr); }
   .diff-block { grid-template-columns: 1fr; }
   .modal { width: calc(100vw - 20px); height: calc(100vh - 20px); }
-  .law-preview-modal { padding: 12px; }
+  .law-preview-modal { width: calc(100vw - 12px); height: calc(100vh - 12px); padding: 12px; }
   .law-preview-content { padding-right: 5px; }
   .law-preview-modal .modal-actions { justify-content: stretch; }
   .law-preview-modal .modal-actions .btn { flex: 1 1 140px; }
