@@ -1901,9 +1901,9 @@ body.is-refreshing #topRefreshBtn {
 
 .diff-added {
   border-radius: 3px;
-  background: #ffe066;
-  color: #5c3300;
-  box-shadow: inset 0 -2px 0 #e67e00;
+  background: #e4dcff;
+  color: #3f2a78;
+  box-shadow: inset 0 -2px 0 #7357b8;
   padding: 0 2px;
   font-weight: 900;
 }
