@@ -1742,7 +1742,7 @@ body.is-refreshing #topRefreshBtn {
 .law-article + .law-article { border-top: 1px solid #ccd8e5; }
 .law-article h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; border-bottom: 1px solid #e3eaf2; padding-bottom: 9px; color: #123863; font-size: 15px; }
 .law-article h4 span { border-radius: 999px; background: #fff0ed; color: #b42318; padding: 3px 7px; font-size: 11px; }
-.law-article p { max-width: 1040px; margin: 0 auto; white-space: pre-wrap; line-height: 1.95; color: #243b57; font-size: 14px; }
+.law-article p { margin: 0; white-space: pre-wrap; line-height: 1.95; color: #243b57; font-size: 14px; }
 .law-article mark { border-radius: 3px; background: #ffe58f; color: #1d2939; padding: 0 1px; }
 .law-preview-original { min-height: 260px; }
 .ai-law-reference { margin-bottom: 10px; }
