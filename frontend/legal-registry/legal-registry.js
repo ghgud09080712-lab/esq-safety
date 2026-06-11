@@ -1476,16 +1476,16 @@ function renderChangeContent(change) {
   const articleDiffs = Array.isArray(change?.articleDiffs) ? change.articleDiffs : [];
   if (articleDiffs.length) {
     const visibleDiffs = articleDiffs.filter((diff) => diff.before || diff.after || diff.notice);
-    $("#detailContentRows").innerHTML = visibleDiffs.map((diff) => {
+    $("#detailContentRows").innerHTML = visibleDiffs.map((diff, index) => {
       const typeLabel = diff.type === "added" ? "추가" : diff.type === "removed" ? "삭제" : diff.type === "current-only" ? "최신 조문" : "수정";
       const inline = diff.before && diff.after ? buildInlineDiff(diff.before, diff.after) : null;
       return `
-        <section class="plain-diff-card">
-          <strong class="plain-diff-title">[${escapeHtml(typeLabel)}] ${escapeHtml(diff.heading || "변경 조문")}</strong>
+        <details class="plain-diff-card" open>
+          <summary class="plain-diff-title"><span>${escapeHtml(typeLabel)}</span>${escapeHtml(diff.heading || "변경 조문")}</summary>
           ${diff.notice ? `<div class="diff-notice">${escapeHtml(diff.notice)}</div>` : ""}
-          ${diff.before ? `<div class="plain-before">변경 전\n${inline ? inline.beforeHtml : escapeHtml(diff.before)}</div>` : ""}
-          ${diff.after ? `<div class="plain-after">변경 후\n${inline ? inline.afterHtml : escapeHtml(diff.after)}</div>` : ""}
-        </section>
+          ${diff.before ? `<div class="plain-before"><strong class="mobile-diff-label before">\uBCC0\uACBD \uC804</strong>${inline ? inline.beforeHtml : escapeHtml(diff.before)}</div>` : ""}
+          ${diff.after ? `<div class="plain-after"><strong class="mobile-diff-label after">\uBCC0\uACBD \uD6C4</strong>${inline ? inline.afterHtml : escapeHtml(diff.after)}</div>` : ""}
+        </details>
         <article class="article-diff ${escapeHtml(diff.type || "changed")}" hidden>
           <h4><span>${escapeHtml(typeLabel)}</span>${escapeHtml(diff.heading || "변경 조문")}</h4>
           <div class="diff-block ${diff.before && diff.after ? "" : "single"}">
@@ -1496,6 +1496,9 @@ function renderChangeContent(change) {
         </article>
       `;
     }).join("") || "표시할 변경 문장이 없습니다.";
+    if (window.matchMedia("(max-width: 640px)").matches) {
+      $$("#detailContentRows .plain-diff-card").forEach((card, index) => { card.open = index === 0; });
+    }
     return;
   }
   const amendmentLines = Array.isArray(change?.amendmentLines) ? change.amendmentLines : [];

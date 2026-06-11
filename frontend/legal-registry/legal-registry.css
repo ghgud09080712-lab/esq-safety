@@ -1922,11 +1922,20 @@ body.is-refreshing #topRefreshBtn {
 }
 
 .plain-diff-title {
-  display: block;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
   color: #172539 !important;
   font-weight: 900;
 }
+
+.plain-diff-title::-webkit-details-marker { display: none; }
+.plain-diff-title::after { content: ""; width: 9px; height: 9px; margin-left: auto; border-right: 2px solid #48709e; border-bottom: 2px solid #48709e; transform: rotate(45deg); transition: transform .18s ease; }
+.plain-diff-card[open] .plain-diff-title { margin-bottom: 8px; }
+.plain-diff-card[open] .plain-diff-title::after { transform: rotate(225deg); }
+.plain-diff-title span { flex: 0 0 auto; border-radius: 999px; background: #eaf3ff; color: #205aa8; padding: 3px 7px; font-size: 11px; }
 
 .plain-before,
 .plain-after {
@@ -1950,6 +1959,10 @@ body.is-refreshing #topRefreshBtn {
   border: 1px solid #9fc5f4;
   border-left: 5px solid #1769c2;
 }
+
+.mobile-diff-label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 950; }
+.mobile-diff-label.before { color: #b42318; }
+.mobile-diff-label.after { color: #1769c2; }
 
 .diff-notice {
   grid-column: 1 / -1;
@@ -2362,4 +2375,26 @@ body #registryView > .table-panel thead th {
   position: sticky !important;
   top: 0;
   z-index: 20;
+}
+
+@media (max-width: 640px) {
+  #changeModal { padding: 4px; }
+  #changeModal .modal { width: calc(100vw - 8px); height: calc(100vh - 8px); padding: 10px; }
+  #changeModal .modal-head { position: sticky; top: -10px; z-index: 5; margin: -10px -10px 10px; border-bottom: 1px solid var(--border); background: #fff; padding: 10px; }
+  #changeModal .modal-head h2 { font-size: 18px; }
+  #changeModal .change-detail-grid { grid-template-columns: 82px minmax(0, 1fr); font-size: 12px; }
+  #changeModal .change-detail-grid dt,
+  #changeModal .change-detail-grid dd { min-height: 36px; padding: 8px; }
+  #changeModal .detail-note { margin-top: 8px; padding: 9px 10px; font-size: 12px; }
+  #changeModal .content-diff { margin-top: 8px; padding: 8px; }
+  #changeModal .content-lines { min-height: 0; overflow: visible; }
+  #changeModal .panel-head { position: sticky; top: 52px; z-index: 4; margin: -8px -8px 8px; border-bottom: 1px solid var(--border); background: #fff; padding: 8px; }
+  #changeModal .plain-diff-card { margin-bottom: 8px; padding: 0; overflow: hidden; }
+  #changeModal .plain-diff-title { min-height: 48px; padding: 10px 12px; background: #f4f8fd; font-size: 14px; line-height: 1.45; }
+  #changeModal .plain-diff-card[open] .plain-diff-title { margin-bottom: 0; border-bottom: 1px solid var(--border); }
+  #changeModal .plain-before,
+  #changeModal .plain-after { margin: 8px; padding: 12px; font-size: 15px; line-height: 1.75; word-break: normal; overflow-wrap: anywhere; }
+  #changeModal .diff-removed,
+  #changeModal .diff-added { font-weight: 950; }
+  #changeModal .modal-actions { position: sticky; bottom: -10px; z-index: 5; margin: 10px -10px -10px; border-top: 1px solid var(--border); background: #fff; padding: 8px 10px; }
 }
