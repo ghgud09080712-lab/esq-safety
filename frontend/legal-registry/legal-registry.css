@@ -1616,6 +1616,11 @@ body.is-refreshing #topRefreshBtn {
   overflow: hidden;
 }
 
+#changeModal .modal {
+  width: min(1540px, calc(100vw - 24px));
+  height: min(980px, calc(100vh - 24px));
+}
+
 .law-preview-modal .modal-head,
 .law-preview-modal .modal-actions {
   flex: 0 0 auto;
