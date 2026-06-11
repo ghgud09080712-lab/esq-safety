@@ -1889,11 +1889,13 @@ body.is-refreshing #topRefreshBtn {
 }
 
 .diff-removed {
-  color: #b42318;
-  background: #ffd8d2;
+  border-radius: 3px;
+  color: #173b67;
+  background: #cfe8ff;
   text-decoration-line: underline line-through;
   text-decoration-thickness: 2px;
-  text-decoration-color: #b42318;
+  text-decoration-color: #2f6fb2;
+  padding: 0 2px;
   font-weight: 900;
 }
 
