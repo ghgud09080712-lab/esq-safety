@@ -1891,23 +1891,22 @@ body.is-refreshing #topRefreshBtn {
 }
 
 .diff-removed {
-  border-radius: 3px;
+  border-radius: 0;
   color: #7a0c05;
   background: #ffb8b1;
   text-decoration-line: underline line-through;
   text-decoration-thickness: 3px;
   text-decoration-color: #c9180d;
-  box-shadow: 0 0 0 1px #ef6b62;
-  padding: 1px 3px;
+  padding: 1px 0;
   font-weight: 900;
 }
 
 .diff-added {
-  border-radius: 3px;
+  border-radius: 0;
   background: #8fd3ff;
   color: #06396d;
-  box-shadow: inset 0 -3px 0 #0875cf, 0 0 0 1px #55aee8;
-  padding: 1px 3px;
+  box-shadow: inset 0 -3px 0 #0875cf;
+  padding: 1px 0;
   font-weight: 900;
 }
 
