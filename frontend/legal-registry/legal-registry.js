@@ -1175,7 +1175,7 @@ async function typeConversationalAiAnswer(message, payload, matches, query = "",
     const character = characters[index];
     target.textContent += character;
     if (index % 4 === 0 || /[.!?。！？\n]/.test(character)) scrollAiChatToBottom(options);
-    const delay = /[.!?。！？]/.test(character) ? 90 : /[,，:;\n]/.test(character) ? 45 : 16;
+    const delay = /[.!?。！？]/.test(character) ? 34 : /[,，:;\n]/.test(character) ? 16 : 6;
     await new Promise((resolve) => window.setTimeout(resolve, delay));
   }
 
