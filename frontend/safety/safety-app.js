@@ -4545,7 +4545,7 @@ async function bulkDeleteVisibleRecords() {
 }
 
 function toCsv(rows) {
-  const headers = ["id", "kind", "company", "date", "reportYear", "reportMonth", "department", "author", "location", "process", "type", "cause", "victim", "claimType", "riskLevel", "riskScore", "status", "dueDate", "owner", "description", "action"];
+  const headers = ["id", "kind", "company", "date", "reportYear", "reportMonth", "department", "author", "location", "process", "type", "cause", "victim", "claimType", "riskLevel", "riskScore", "status", "dueDate", "completedDate", "owner", "description", "action"];
   const lines = [headers.join(",")];
   rows.forEach((row) => {
     const enriched = { ...row, riskLevel: getRiskLevel(row), riskScore: getRiskScore(row) };
