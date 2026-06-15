@@ -77,6 +77,20 @@ const CAUSES = [
   "\uAE30\uD0C0"
 ];
 
+const DEFAULT_DEPARTMENTS = [
+  "\uC0DD\uC0B01\uBD80",
+  "\uC0DD\uC0B02\uBD80",
+  "\uBB3C\uB958\uAD00\uB9AC\uD300",
+  "\uD488\uC9C8\uAD00\uB9AC\uBD80",
+  "\uD658\uACBD\uAD00\uB9AC\uD300",
+  "\uACF5\uBB34\uD300",
+  "\uCD1D\uBB34\uACFC",
+  "\uC5F0\uAD6C\uAC1C\uBC1C\uD300",
+  "T/S\uD300",
+  "ESQ",
+  "SEM"
+];
+
 let records = [];
 let loadedLocalRecordCount = 0;
 let activeView = "dashboard";
@@ -1934,6 +1948,15 @@ function cleanDepartment(value) {
     if (pattern.test(cleaned) || pattern.test(compact)) return label;
   }
   return cleaned;
+}
+
+function getKnownDepartments(extra = []) {
+  return Array.from(new Set([
+    ...DEFAULT_DEPARTMENTS,
+    ...records.map((row) => cleanDepartment(row.department)),
+    ...extra.map(cleanDepartment)
+  ].filter((department) => department && department !== K.unclassified)))
+    .sort((a, b) => a.localeCompare(b, "ko"));
 }
 
 function normalizeAccidentType(value) {
@@ -4304,7 +4327,7 @@ function updateDepartmentFilter() {
   const select = $("#departmentFilter");
   if (!select) return;
   const current = select.value || "all";
-  const departments = Array.from(new Set(records.map((row) => cleanDepartment(row.department)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ko"));
+  const departments = getKnownDepartments();
   select.innerHTML = [`<option value="all">${K.all}</option>`, ...departments.map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`)].join("");
   select.value = departments.includes(current) ? current : "all";
 }
@@ -4385,9 +4408,19 @@ function nextId(kind) {
 function populateSelects() {
   const typeSelect = $('[name="type"]');
   const causeSelect = $('[name="cause"]');
+  const departmentSelect = $('[name="department"]');
   const draftTypeSelect = $('[data-near-miss-draft="type"]');
   if (typeSelect) typeSelect.innerHTML = TYPES.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("");
   if (causeSelect) causeSelect.innerHTML = CAUSES.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("");
+  if (departmentSelect) {
+    const current = cleanDepartment(departmentSelect.value || "");
+    const departments = getKnownDepartments(current ? [current] : []);
+    departmentSelect.innerHTML = [
+      `<option value="">부서 선택</option>`,
+      ...departments.map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`)
+    ].join("");
+    departmentSelect.value = departments.includes(current) ? current : "";
+  }
   if (draftTypeSelect) draftTypeSelect.innerHTML = TYPES.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("");
   const dashboardYearSelect = $("#dashboardYearSelect");
   if (dashboardYearSelect) {
@@ -4434,8 +4467,17 @@ function openDialog(record = null) {
   };
   values.reportYear = getRecordReportYear(values) || getCurrentReportYear();
   values.reportMonth = getRecordReportMonth(values) || getCurrentReportMonth();
+  populateSelects();
+  if (form.elements.department) {
+    const department = cleanDepartment(values.department || "");
+    const departments = getKnownDepartments(department ? [department] : []);
+    form.elements.department.innerHTML = [
+      `<option value="">부서 선택</option>`,
+      ...departments.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)
+    ].join("");
+  }
   Object.entries(values).forEach(([key, value]) => {
-    if (form.elements[key]) form.elements[key].value = value ?? "";
+    if (form.elements[key]) form.elements[key].value = key === "department" ? cleanDepartment(value) : value ?? "";
   });
   updateDialogLabels();
   setRecordDialogReadonly(IS_DEPARTMENT_MODE);
