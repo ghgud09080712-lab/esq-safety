@@ -484,14 +484,15 @@ function openLawPreview(lawName, query = "") {
   const name = String(lawName || "").trim();
   if (!name) return;
   const normalized = normalizeSearchText(name);
+  const previewQuery = String(query || name || "").trim();
   const records = (state.data.records || []).filter((record) => {
     const candidate = normalizeSearchText(record.lawName || "");
     return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
-  });
+  }).sort((a, b) => compareLawCandidateNames(a.lawName, b.lawName, name, previewQuery));
   const cards = (state.data.detailCards || []).filter((card) => {
     const candidate = normalizeSearchText(card.lawName || card.sheetName || "");
     return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
-  });
+  }).sort((a, b) => compareLawCandidateNames(a.lawName || a.sheetName, b.lawName || b.sheetName, name, previewQuery));
   state.selectedPreviewLaw = records[0]?.lawName || cards[0]?.lawName || name;
   state.lawPreviewQuery = String(query || "").trim();
   $("#lawPreviewTitle").textContent = state.selectedPreviewLaw;
@@ -994,6 +995,45 @@ function normalizeSearchText(value) {
   return String(value || "").toLowerCase().replace(/\s+/g, "");
 }
 
+function requestedLawType(query) {
+  const text = normalizeSearchText(query);
+  if (text.includes(normalizeSearchText("시행규칙"))) return "시행규칙";
+  if (text.includes(normalizeSearchText("시행령"))) return "시행령";
+  if (text.includes(normalizeSearchText("규칙"))) return "규칙";
+  return "";
+}
+
+function lawTypePriority(lawName, query) {
+  const requested = requestedLawType(query);
+  if (!requested) return 0;
+  const name = normalizeSearchText(lawName || "");
+  return name.includes(normalizeSearchText(requested)) ? 80 : -40;
+}
+
+function lawSpecificityScore(lawName) {
+  const name = normalizeSearchText(lawName || "");
+  let score = name.length;
+  if (name.includes(normalizeSearchText("시행규칙"))) score += 30;
+  if (name.includes(normalizeSearchText("시행령"))) score += 25;
+  if (name.includes(normalizeSearchText("규칙"))) score += 10;
+  return score;
+}
+
+function compareLawCandidateNames(aName, bName, targetName, query) {
+  const target = normalizeSearchText(targetName || "");
+  const a = normalizeSearchText(aName || "");
+  const b = normalizeSearchText(bName || "");
+  const aExact = a === target ? 1 : 0;
+  const bExact = b === target ? 1 : 0;
+  const typeFirst = requestedLawType(query)
+    ? lawTypePriority(bName, query) - lawTypePriority(aName, query)
+    : 0;
+  if (typeFirst) return typeFirst;
+  return (bExact - aExact)
+    || (lawSpecificityScore(bName) - lawSpecificityScore(aName))
+    || String(aName || "").localeCompare(String(bName || ""), "ko");
+}
+
 function uniqueValues(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
@@ -1003,6 +1043,7 @@ function scoreLawRecord(record, query) {
   const haystack = normalizeSearchText(`${record.no} ${record.group} ${record.lawName} ${record.note || ""}`);
   let score = 0;
   const reasons = [];
+  const typePriority = lawTypePriority(record.lawName, query);
 
   for (const token of uniqueValues(String(query || "").split(/[\s,./·]+/).map((item) => item.trim()).filter((item) => item.length >= 2))) {
     if (haystack.includes(normalizeSearchText(token))) {
@@ -1022,6 +1063,11 @@ function scoreLawRecord(record, query) {
     }
   }
 
+  if (score > 0 && typePriority) {
+    score += typePriority;
+    if (typePriority > 0) reasons.push(requestedLawType(query));
+  }
+
   return { score, reasons: uniqueValues(reasons).slice(0, 8) };
 }
 
@@ -1030,7 +1076,10 @@ function findAiLawMatches(query) {
   return records
     .map((record) => ({ record, ...scoreLawRecord(record, query) }))
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || String(a.record.lawName).localeCompare(String(b.record.lawName), "ko"))
+    .sort((a, b) => b.score - a.score
+      || (lawTypePriority(b.record.lawName, query) - lawTypePriority(a.record.lawName, query))
+      || (lawSpecificityScore(b.record.lawName) - lawSpecificityScore(a.record.lawName))
+      || String(a.record.lawName).localeCompare(String(b.record.lawName), "ko"))
     .slice(0, 8);
 }
 
