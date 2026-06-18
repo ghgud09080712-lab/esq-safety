@@ -13,7 +13,8 @@ const state = {
   lawPreviewArticles: [],
   lawPreviewQuery: "",
   lawPreviewSearchTerms: [],
-  lawPreviewSearchLabel: ""
+  lawPreviewSearchLabel: "",
+  lawPreviewSourceName: ""
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -302,6 +303,18 @@ function closeLawPreview() {
   state.lawPreviewQuery = "";
   state.lawPreviewSearchTerms = [];
   state.lawPreviewSearchLabel = "";
+  state.lawPreviewSourceName = "";
+}
+
+function lawPreviewSourceLabel() {
+  const name = String(state.lawPreviewSourceName || state.selectedPreviewLaw || "").trim();
+  if (!name) return "";
+  const type = name.includes("\uC2DC\uD589\uB839")
+    ? "\uC2DC\uD589\uB839"
+    : name.includes("\uC2DC\uD589\uADDC\uCE59")
+      ? "\uC2DC\uD589\uADDC\uCE59"
+      : "\uBC95\uB960";
+  return `\uD604\uC7AC \uC6D0\uBB38: ${name} (${type})`;
 }
 
 function lawPreviewQueryCandidates(query) {
@@ -397,13 +410,16 @@ function renderLawPreviewArticles(query = "", search = null) {
   const resultLabel = activeTerms.length
     ? `${state.lawPreviewSearchLabel ? `AI \uC9C8\uBB38 \uAE30\uC900 \u00B7 ${state.lawPreviewSearchLabel}` : `\"${keyword}\"`} \u00B7 ${filtered.length}\uAC1C \uC870\uBB38`
     : `\uCD1D ${articles.length}\uAC1C \uC870\uBB38`;
+  const sourceLabel = lawPreviewSourceLabel();
 
   const results = $("#lawArticleSearchResults");
   const count = $("#lawArticleSearchCount");
+  const source = $("#lawArticleSource");
   const clearButton = container.querySelector("[data-law-search-clear]");
   if (results && count) {
     results.innerHTML = html;
     count.textContent = resultLabel;
+    if (source) source.textContent = sourceLabel;
     if (clearButton) clearButton.disabled = !activeTerms.length;
     return;
   }
@@ -411,6 +427,7 @@ function renderLawPreviewArticles(query = "", search = null) {
   container.innerHTML = `
     <div class="law-article-search">
       <div class="law-article-search-row">
+        <span class="law-source-badge" id="lawArticleSource">${escapeHtml(sourceLabel)}</span>
         <input id="lawArticleSearchInput" type="search" value="${escapeHtml(keyword)}" placeholder="\uC870\uBB38 \uC81C\uBAA9\uC774\uB098 \uB0B4\uC6A9 \uAC80\uC0C9" autocomplete="off">
         <button class="btn small" data-law-search-clear type="button" ${activeTerms.length ? "" : "disabled"}>\uCD08\uAE30\uD654</button>
       </div>
@@ -428,6 +445,7 @@ async function loadLawPreviewContent(lawName) {
     const payload = await requestJson(`/api/legal-registry/law-content?lawName=${encodeURIComponent(lawName)}`);
     const content = payload.content || {};
     const articles = Array.isArray(content.articles) ? content.articles : [];
+    state.lawPreviewSourceName = content.lawName || lawName;
     state.lawPreviewArticles = articles;
     if (articles.length) {
       const search = bestLawPreviewSearch(state.lawPreviewQuery, articles);
