@@ -194,7 +194,7 @@ async function requestJson(url, options = {}) {
 const DEFAULT_ENERGY_ACT_RECORDS = [
   {
     id: "LAW-0061",
-    no: "20",
+    no: "19",
     group: "에너지법",
     lawName: "에너지법",
     registeredEffectiveDate: "2026. 2. 1",
@@ -208,7 +208,7 @@ const DEFAULT_ENERGY_ACT_RECORDS = [
   },
   {
     id: "LAW-0062",
-    no: "20",
+    no: "19",
     group: "에너지법",
     lawName: "에너지법 시행령",
     registeredEffectiveDate: "2026. 1. 2",
@@ -222,7 +222,7 @@ const DEFAULT_ENERGY_ACT_RECORDS = [
   },
   {
     id: "LAW-0063",
-    no: "20",
+    no: "19",
     group: "에너지법",
     lawName: "에너지법 시행규칙",
     registeredEffectiveDate: "2025. 10. 1",
@@ -238,18 +238,37 @@ const DEFAULT_ENERGY_ACT_RECORDS = [
 
 function withDefaultLegalRecords(data) {
   const records = (data?.records || []).map((record) => {
-    if (String(record.lawName || "").startsWith("에너지이용 합리화법")) {
-      return { ...record, group: "에너지이용 합리화법" };
+    const lawName = String(record.lawName || "");
+    if (lawName.startsWith("에너지법")) {
+      return { ...record, no: "19", group: "에너지법" };
     }
-    if (String(record.lawName || "").startsWith("전기사업법") && String(record.no || "") === "20") {
+    if (lawName.startsWith("에너지이용 합리화법")) {
+      return { ...record, no: "20", group: "에너지이용 합리화법" };
+    }
+    if (lawName.startsWith("전기사업법") && ["20", "21"].includes(String(record.no || ""))) {
       return { ...record, no: "21" };
     }
     return record;
   });
   const hasEnergyAct = records.some((record) => normalizeSearchText(record.lawName) === normalizeSearchText("에너지법"));
   if (!hasEnergyAct) {
-    const insertIndex = records.findLastIndex((record) => String(record.lawName || "").startsWith("에너지이용 합리화법")) + 1;
+    const rationalizationIndex = records.findIndex((record) => String(record.lawName || "").startsWith("에너지이용 합리화법"));
+    const insertIndex = rationalizationIndex >= 0 ? rationalizationIndex : records.length;
     records.splice(insertIndex || records.length, 0, ...DEFAULT_ENERGY_ACT_RECORDS.map((record) => ({ ...record })));
+  }
+  const firstEnergyIndex = records.findIndex((record) => {
+    const lawName = String(record.lawName || "");
+    return lawName.startsWith("에너지법") || lawName.startsWith("에너지이용 합리화법");
+  });
+  if (firstEnergyIndex >= 0) {
+    const energyActRecords = records.filter((record) => String(record.lawName || "").startsWith("에너지법"));
+    const rationalizationRecords = records.filter((record) => String(record.lawName || "").startsWith("에너지이용 합리화법"));
+    const otherRecords = records.filter((record) => {
+      const lawName = String(record.lawName || "");
+      return !lawName.startsWith("에너지법") && !lawName.startsWith("에너지이용 합리화법");
+    });
+    otherRecords.splice(firstEnergyIndex, 0, ...energyActRecords, ...rationalizationRecords);
+    return { ...data, records: otherRecords };
   }
   return { ...data, records };
 }
