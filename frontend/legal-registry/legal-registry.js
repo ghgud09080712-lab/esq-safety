@@ -191,8 +191,71 @@ async function requestJson(url, options = {}) {
   return payload;
 }
 
+const DEFAULT_ENERGY_ACT_RECORDS = [
+  {
+    id: "LAW-0061",
+    no: "20",
+    group: "에너지법",
+    lawName: "에너지법",
+    registeredEffectiveDate: "2026. 2. 1",
+    officialEffectiveDate: "2026. 2. 1",
+    promulgationDate: "2025. 1. 31",
+    status: "최신",
+    source: "system",
+    note: "",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    lawId: "010164"
+  },
+  {
+    id: "LAW-0062",
+    no: "20",
+    group: "에너지법",
+    lawName: "에너지법 시행령",
+    registeredEffectiveDate: "2026. 1. 2",
+    officialEffectiveDate: "2026. 1. 2",
+    promulgationDate: "2025. 12. 30",
+    status: "최신",
+    source: "system",
+    note: "",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    lawId: "010280"
+  },
+  {
+    id: "LAW-0063",
+    no: "20",
+    group: "에너지법",
+    lawName: "에너지법 시행규칙",
+    registeredEffectiveDate: "2025. 10. 1",
+    officialEffectiveDate: "2025. 10. 1",
+    promulgationDate: "2025. 10. 1",
+    status: "최신",
+    source: "system",
+    note: "",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    lawId: "010281"
+  }
+];
+
+function withDefaultLegalRecords(data) {
+  const records = (data?.records || []).map((record) => {
+    if (String(record.lawName || "").startsWith("에너지이용 합리화법")) {
+      return { ...record, group: "에너지이용 합리화법" };
+    }
+    if (String(record.lawName || "").startsWith("전기사업법") && String(record.no || "") === "20") {
+      return { ...record, no: "21" };
+    }
+    return record;
+  });
+  const hasEnergyAct = records.some((record) => normalizeSearchText(record.lawName) === normalizeSearchText("에너지법"));
+  if (!hasEnergyAct) {
+    const insertIndex = records.findLastIndex((record) => String(record.lawName || "").startsWith("에너지이용 합리화법")) + 1;
+    records.splice(insertIndex || records.length, 0, ...DEFAULT_ENERGY_ACT_RECORDS.map((record) => ({ ...record })));
+  }
+  return { ...data, records };
+}
+
 async function loadData() {
-  state.data = await requestJson("/api/legal-registry");
+  state.data = withDefaultLegalRecords(await requestJson("/api/legal-registry"));
   const sourceInput = $("#sourcePathInput");
   if (sourceInput) sourceInput.value = state.data.sourcePath || "";
   render();
@@ -215,7 +278,7 @@ async function syncLatestData(options = {}) {
       changes: latest.changes || []
     });
     if (previousVersion === latestVersion) return;
-    state.data = latest;
+    state.data = withDefaultLegalRecords(latest);
     render();
     if (!options.silent) showToast("최신 법규등록부 내용을 반영했습니다.", "success");
   } catch (error) {

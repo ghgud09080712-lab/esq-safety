@@ -760,7 +760,7 @@
     {
       "id": "LAW-0055",
       "no": "19",
-      "group": "에너지법",
+      "group": "에너지이용 합리화법",
       "lawName": "에너지이용 합리화법",
       "registeredEffectiveDate": "2026. 5. 28",
       "officialEffectiveDate": "2026. 5. 28",
@@ -774,7 +774,7 @@
     {
       "id": "LAW-0056",
       "no": "19",
-      "group": "에너지법",
+      "group": "에너지이용 합리화법",
       "lawName": "에너지이용 합리화법 시행령",
       "registeredEffectiveDate": "2026. 5. 28",
       "officialEffectiveDate": "2026. 5. 28",
@@ -788,7 +788,7 @@
     {
       "id": "LAW-0057",
       "no": "19",
-      "group": "에너지법",
+      "group": "에너지이용 합리화법",
       "lawName": "에너지이용 합리화법 시행규칙",
       "registeredEffectiveDate": "2026. 5. 28",
       "officialEffectiveDate": "2026. 5. 28",
@@ -800,8 +800,50 @@
       "lawId": "007704"
     },
     {
-      "id": "LAW-0058",
+      "id": "LAW-0061",
       "no": "20",
+      "group": "에너지법",
+      "lawName": "에너지법",
+      "registeredEffectiveDate": "2026. 2. 1",
+      "officialEffectiveDate": "2026. 2. 1",
+      "promulgationDate": "2025. 1. 31",
+      "status": "최신",
+      "source": "workbook",
+      "note": "",
+      "lawId": "010164",
+      "updatedAt": "2026-06-22T07:22:07.881Z"
+    },
+    {
+      "id": "LAW-0062",
+      "no": "20",
+      "group": "에너지법",
+      "lawName": "에너지법 시행령",
+      "registeredEffectiveDate": "2026. 1. 2",
+      "officialEffectiveDate": "2026. 1. 2",
+      "promulgationDate": "2025. 12. 30",
+      "status": "최신",
+      "source": "workbook",
+      "note": "",
+      "lawId": "010280",
+      "updatedAt": "2026-06-22T07:22:07.881Z"
+    },
+    {
+      "id": "LAW-0063",
+      "no": "20",
+      "group": "에너지법",
+      "lawName": "에너지법 시행규칙",
+      "registeredEffectiveDate": "2025. 10. 1",
+      "officialEffectiveDate": "2025. 10. 1",
+      "promulgationDate": "2025. 10. 1",
+      "status": "최신",
+      "source": "workbook",
+      "note": "",
+      "lawId": "010281",
+      "updatedAt": "2026-06-22T07:22:07.881Z"
+    },
+    {
+      "id": "LAW-0058",
+      "no": "21",
       "group": "전기사업법",
       "lawName": "전기사업법",
       "registeredEffectiveDate": "2026. 3. 10",
@@ -815,7 +857,7 @@
     },
     {
       "id": "LAW-0059",
-      "no": "20",
+      "no": "21",
       "group": "전기사업법",
       "lawName": "전기사업법 시행령",
       "registeredEffectiveDate": "2026. 1. 2",
@@ -829,7 +871,7 @@
     },
     {
       "id": "LAW-0060",
-      "no": "20",
+      "no": "21",
       "group": "전기사업법",
       "lawName": "전기사업법 시행규칙",
       "registeredEffectiveDate": "2025. 10. 1",
