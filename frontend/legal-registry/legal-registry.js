@@ -675,7 +675,7 @@ function selectedApplicability(value) {
   if (marked) return marked[1];
   if (/해당무|해당\s*없음|미해당/.test(text)) return "해당무";
   if (/해당/.test(text)) return "해당";
-  return "해당";
+  return "";
 }
 
 function renderCategorySelect(value) {

@@ -364,6 +364,111 @@ function makeLawKey(name) {
   return normalizeLawName(name).toLowerCase();
 }
 
+const legalRegistryEnergyActRecords = [
+  {
+    id: "LAW-0061",
+    no: "19",
+    group: "에너지법",
+    lawName: "에너지법",
+    registeredEffectiveDate: "2026. 2. 1",
+    officialEffectiveDate: "2026. 2. 1",
+    promulgationDate: "2025. 1. 31",
+    status: "최신",
+    source: "system",
+    note: "",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    lawId: "010164"
+  },
+  {
+    id: "LAW-0062",
+    no: "19",
+    group: "에너지법",
+    lawName: "에너지법 시행령",
+    registeredEffectiveDate: "2026. 1. 2",
+    officialEffectiveDate: "2026. 1. 2",
+    promulgationDate: "2025. 12. 30",
+    status: "최신",
+    source: "system",
+    note: "",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    lawId: "010280"
+  },
+  {
+    id: "LAW-0063",
+    no: "19",
+    group: "에너지법",
+    lawName: "에너지법 시행규칙",
+    registeredEffectiveDate: "2025. 10. 1",
+    officialEffectiveDate: "2025. 10. 1",
+    promulgationDate: "2025. 10. 1",
+    status: "최신",
+    source: "system",
+    note: "",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    lawId: "010281"
+  }
+];
+
+function legalReviewCategory(record) {
+  const text = `${record?.group || ""} ${record?.lawName || ""}`;
+  if (/에너지|전기사업/.test(text)) return "□안전 □환경 ■에너지";
+  if (/산업안전|중대재해|연구실|소방|위험물/.test(text)) return "■안전 □환경 □에너지";
+  return "□안전 ■환경 □에너지";
+}
+
+function ensure2027LegalReviewCards(payload) {
+  const records = Array.isArray(payload?.records) ? payload.records.slice() : [];
+  const recordKeys = new Set(records.map((record) => makeLawKey(record.lawName)));
+  legalRegistryEnergyActRecords.forEach((record) => {
+    if (!recordKeys.has(makeLawKey(record.lawName))) records.push({ ...record });
+  });
+  const detailCards = Array.isArray(payload?.detailCards) ? payload.detailCards.slice() : [];
+  const existing2027 = new Set(detailCards
+    .filter((card) => String(card.managementYear || "") === "2027")
+    .map((card) => makeLawKey(card.lawName)));
+  const createdAt = new Date().toISOString();
+  const additions = records
+    .filter((record) => record.lawName && !existing2027.has(makeLawKey(record.lawName)))
+    .map((record, index) => ({
+      id: `DETAIL-2027-${record.id || String(index + 1).padStart(4, "0")}`,
+      sheetName: `2027년-${record.lawName}`,
+      managementYear: "2027",
+      category: legalReviewCategory(record),
+      lawName: record.lawName,
+      issuer: "법제처",
+      channel: "https://www.law.go.kr/",
+      revisionDate: displayLawDate(record.officialEffectiveDate || record.registeredEffectiveDate),
+      registeredDate: "",
+      team: "ESQ",
+      author: "",
+      applicability: "",
+      mainContent: "",
+      companyAction: "",
+      qcStatus: "미착수",
+      qcValidity: "차기확인",
+      qcOwner: "",
+      qcDueDate: "",
+      qcDoneDate: "",
+      qcEvidence: "",
+      qcMemo: "",
+      rows: [],
+      createdAt,
+      updatedAt: createdAt
+    }));
+  if (!additions.length && records.length === (payload?.records || []).length) {
+    return { payload, changed: false };
+  }
+  return {
+    payload: {
+      ...payload,
+      records,
+      detailCards: [...detailCards, ...additions],
+      updatedAt: createdAt
+    },
+    changed: true
+  };
+}
+
 function cellText(row, index) {
   return compactText(row?.[index]);
 }
@@ -459,8 +564,10 @@ async function readLegalRegistry() {
     try {
       const remote = await readLegalRegistryFromFirestore();
       if (remote?.records) {
-        await writeJson(legalRegistryDataPath, remote).catch(() => {});
-        return remote;
+        const ensured = ensure2027LegalReviewCards(remote);
+        await writeJson(legalRegistryDataPath, ensured.payload).catch(() => {});
+        if (ensured.changed) await writeLegalRegistryToFirestore(ensured.payload);
+        return ensured.payload;
       }
     } catch (error) {
       console.warn("legal registry firestore read failed:", error.message);
@@ -468,12 +575,14 @@ async function readLegalRegistry() {
   }
   const current = await readJson(legalRegistryDataPath, null);
   if (current?.records) {
+    const ensured = ensure2027LegalReviewCards(current);
+    if (ensured.changed) await writeJson(legalRegistryDataPath, ensured.payload);
     if (legalRegistryStore !== "file") {
-      await writeLegalRegistryToFirestore(current).catch((error) => {
+      await writeLegalRegistryToFirestore(ensured.payload).catch((error) => {
         console.warn("legal registry firestore migration failed:", error.message);
       });
     }
-    return current;
+    return ensured.payload;
   }
   const seed = await readJson(legalRegistryDataSeedPath, null);
   if (seed?.records) {
@@ -485,8 +594,9 @@ async function readLegalRegistry() {
       createdAt: seed.createdAt || new Date().toISOString(),
       updatedAt: seed.updatedAt || new Date().toISOString()
     };
-    await writeLegalRegistry(payload);
-    return payload;
+    const ensured = ensure2027LegalReviewCards(payload);
+    await writeLegalRegistry(ensured.payload);
+    return ensured.payload;
   }
   try {
     const parsed = parseLegalRegistryWorkbook(defaultLegalRegistrySourcePath);
@@ -499,8 +609,9 @@ async function readLegalRegistry() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await writeLegalRegistry(payload);
-    return payload;
+    const ensured = ensure2027LegalReviewCards(payload);
+    await writeLegalRegistry(ensured.payload);
+    return ensured.payload;
   } catch (error) {
     return {
       sourcePath: defaultLegalRegistrySourcePath,
