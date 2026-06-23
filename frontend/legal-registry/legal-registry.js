@@ -805,6 +805,31 @@ function renderDashboard() {
   $("#recentChanges").innerHTML = changes.slice(0, 5).map(renderChangeItem).join("") || `<div class="empty">아직 검토할 변경 법규가 없습니다.</div>`;
 }
 
+function registryChangesForRecord(record) {
+  const target = normalizeSearchText(record?.lawName || "");
+  if (!target) return [];
+  const sortRecent = (items) => items
+    .sort((a, b) => String(b.checkedAt || b.updatedAt || b.effectiveDate || "").localeCompare(String(a.checkedAt || a.updatedAt || a.effectiveDate || "")));
+  const changes = state.data.changes || [];
+  const exact = changes.filter((change) => normalizeSearchText(change.lawName || "") === target);
+  if (exact.length) return sortRecent(exact);
+  return sortRecent(changes.filter((change) => {
+    const lawName = normalizeSearchText(change.lawName || "");
+    return lawName.includes(target) || target.includes(lawName);
+  }));
+}
+
+function renderRegistryChangeCell(record) {
+  const changes = registryChangesForRecord(record);
+  if (!changes.length) return `<span class="registry-change-empty">없음</span>`;
+  const latest = changes[0];
+  const label = changes.length > 1 ? `보기 ${changes.length}` : "보기";
+  return `
+    <button class="btn small registry-change-btn" data-registry-change="${escapeHtml(latest.id || "")}" type="button">${escapeHtml(label)}</button>
+    <span class="registry-change-date">${escapeHtml(formatLawDate(latest.effectiveDate))}</span>
+  `;
+}
+
 function renderRegistry() {
   const query = state.search.trim().toLowerCase();
   const records = (state.data.records || []).filter((record) => {
@@ -836,7 +861,7 @@ function renderRegistry() {
         </td>
         <td>${escapeHtml(formatLawDate(first.registeredEffectiveDate))}</td>
         <td>${escapeHtml(formatLawDate(first.officialEffectiveDate))}</td>
-        <td>${statusBadge(first.status)}</td>
+        <td class="registry-change-cell">${renderRegistryChangeCell(first)}</td>
       </tr>
       ${group.records.slice(1).map((record) => `
         <tr class="group-child-row">
@@ -845,7 +870,7 @@ function renderRegistry() {
           </td>
           <td>${escapeHtml(formatLawDate(record.registeredEffectiveDate))}</td>
           <td>${escapeHtml(formatLawDate(record.officialEffectiveDate))}</td>
-          <td>${statusBadge(record.status)}</td>
+          <td class="registry-change-cell">${renderRegistryChangeCell(record)}</td>
         </tr>
       `).join("")}
     `;
@@ -2041,6 +2066,11 @@ function bindEvents() {
     }
     const button = event.target.closest("[data-apply]");
     if (button) applyChange(button.dataset.apply);
+    const registryChangeButton = event.target.closest("[data-registry-change]");
+    if (registryChangeButton) {
+      openChangeDetail(registryChangeButton.dataset.registryChange);
+      return;
+    }
     const detailButton = event.target.closest("[data-detail]");
     if (detailButton) openChangeDetail(detailButton.dataset.detail);
     const aiOpenButton = event.target.closest("[data-ai-open]");

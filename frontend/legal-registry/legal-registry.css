@@ -269,6 +269,30 @@ h3 { font-size: 16px; }
   z-index: 7;
 }
 
+.registry-change-cell {
+  min-width: 132px;
+}
+
+.registry-change-btn {
+  min-width: 54px;
+}
+
+.registry-change-date {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.registry-change-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  color: #8a98aa;
+  font-weight: 800;
+}
+
 .section-head {
   display: flex;
   align-items: flex-end;
