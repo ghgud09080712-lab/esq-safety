@@ -406,6 +406,90 @@ th {
 .change-meta { color: var(--text-dim); font-weight: 700; margin-top: 5px; }
 .change-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
 
+.company-review {
+  margin-top: 11px;
+  border: 1px solid #cfe0f3;
+  border-left: 4px solid #3e75b8;
+  border-radius: 8px;
+  background: #f6faff;
+  padding: 11px 12px;
+}
+
+.company-review.high {
+  border-left-color: #d85b5b;
+  background: #fff8f8;
+}
+
+.company-review.medium {
+  border-left-color: #2f80c8;
+  background: #f4f9ff;
+}
+
+.company-review.low {
+  border-left-color: #8998aa;
+  background: #f8fafc;
+}
+
+.company-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.company-review-head span {
+  color: #49637f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.company-review-head strong {
+  border-radius: 999px;
+  background: #fff;
+  color: #174b8d;
+  padding: 4px 9px;
+  font-size: 12px;
+  box-shadow: inset 0 0 0 1px rgba(62, 117, 184, .2);
+}
+
+.company-review.high .company-review-head strong {
+  color: #b93d3d;
+  box-shadow: inset 0 0 0 1px rgba(216, 91, 91, .25);
+}
+
+.company-review p {
+  margin: 0 0 8px;
+  color: #173452;
+  font-weight: 900;
+  line-height: 1.55;
+}
+
+.company-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.company-review-grid b {
+  display: block;
+  margin-bottom: 4px;
+  color: #49637f;
+  font-size: 12px;
+}
+
+.company-review-grid ul {
+  margin: 0;
+  padding-left: 17px;
+  color: #314960;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.company-review-box {
+  margin-top: 12px;
+}
+
 .diff-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
@@ -2079,6 +2163,7 @@ body.is-refreshing #topRefreshBtn {
   .topbar-title .eyebrow { display: none; }
   .topbar-title .title-row h1 { display: none; }
   .change-item { grid-template-columns: 1fr; }
+  .company-review-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {

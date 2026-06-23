@@ -983,6 +983,135 @@ function renderDetailSheets() {
   }).join("")}` || `<div class="empty">표시할 법규 검토 항목이 없습니다.</div>`;
 }
 
+const COMPANY_CHANGE_REVIEW_RULES = [
+  {
+    label: "유해화학물질/물질관리",
+    className: "high",
+    weight: 5,
+    terms: ["화학물질", "유해화학", "유독물질", "제한물질", "사고대비물질", "취급시설", "화학사고", "영업허가", "MSDS", "GHS", "표시", "보관", "저장", "누출"],
+    laws: ["화학물질관리법", "화학물질의 등록 및 평가 등에 관한 법률"],
+    actions: ["취급물질 목록과 CAS No. 기준으로 신규 지정 여부 확인", "보관창고ㆍ취급시설 기준, 표시, 누출대응 설비 적용 여부 검토", "화학사고예방관리계획서와 유해화학물질 영업허가 영향 확인"]
+  },
+  {
+    label: "대기/악취/VOC",
+    className: "high",
+    weight: 4,
+    terms: ["대기", "배출시설", "방지시설", "먼지", "분진", "VOC", "휘발성", "악취", "배출허용기준", "자가측정", "총량", "저감"],
+    laws: ["대기환경보전법", "악취방지법"],
+    actions: ["반응ㆍ건조ㆍ분쇄ㆍ포장 공정의 배출시설 및 방지시설 변경 영향 확인", "자가측정, 운영일지, 방지시설 점검기록 개정 여부 반영", "악취/VOC 민원 가능 공정의 관리기준 재확인"]
+  },
+  {
+    label: "수질/폐수",
+    className: "high",
+    weight: 4,
+    terms: ["물환경", "폐수", "수질", "방류", "배출허용기준", "폐수처리", "색도", "COD", "TOC", "오염물질"],
+    laws: ["물환경보전법", "하수도법"],
+    actions: ["염색ㆍ세정ㆍ폐수처리 공정의 배출기준 변경 여부 확인", "측정기록, 위탁처리, 방류수 관리항목 갱신 여부 검토", "색도 등 염료 제조업 특화 관리항목 영향 확인"]
+  },
+  {
+    label: "폐기물",
+    className: "medium",
+    weight: 3,
+    terms: ["폐기물", "지정폐기물", "보관", "위탁", "처리", "올바로", "재활용", "폐액", "슬러지"],
+    laws: ["폐기물관리법", "자원의절약과재활용촉진에관한법률"],
+    actions: ["폐액ㆍ슬러지ㆍ폐포장재 분류와 보관표지 영향 확인", "위탁처리 계약서, 인계서, 보관기간 기준 변경 여부 검토"]
+  },
+  {
+    label: "위험물/소방",
+    className: "high",
+    weight: 4,
+    terms: ["위험물", "인화성", "소방", "화재", "폭발", "저장소", "취급소", "소화", "경보", "피난"],
+    laws: ["위험물안전관리법", "소방시설 설치 및 관리에 관한 법률"],
+    actions: ["용제ㆍ인화성 물질 저장량과 지정수량 영향 확인", "위험물 저장소, 소방시설 자체점검, 표지 및 비상대응 절차 반영"]
+  },
+  {
+    label: "산업안전보건",
+    className: "high",
+    weight: 4,
+    terms: ["산업안전", "보건", "위험성평가", "작업환경측정", "특수건강진단", "보호구", "국소배기", "소음", "진동", "폭염", "한랭", "관리감독자", "안전검사"],
+    laws: ["산업안전보건법", "산업안전보건기준에 관한 규칙"],
+    actions: ["위험성평가, 작업표준, TBM 교육자료에 변경사항 반영", "작업환경측정ㆍ특수건강진단ㆍ보호구 지급 기준 영향 확인", "국소배기, 압력용기, 컨베이어 등 설비 안전검사 대상 여부 확인"]
+  },
+  {
+    label: "에너지/전기",
+    className: "medium",
+    weight: 3,
+    terms: ["에너지", "전기", "효율", "진단", "검사대상기기", "보일러", "압력용기", "열사용", "전기사업", "전기설비"],
+    laws: ["에너지법", "에너지이용 합리화법", "전기사업법"],
+    actions: ["보일러ㆍ압력용기ㆍ열사용기자재 검사 및 관리자 지정 영향 확인", "전기설비 정기검사, 에너지진단, 효율관리 대상 여부 검토"]
+  }
+];
+
+function changeReviewText(change) {
+  const articleDiffs = Array.isArray(change?.articleDiffs) ? change.articleDiffs : [];
+  return [
+    change?.lawName,
+    change?.summary,
+    change?.previousEffectiveDate,
+    change?.effectiveDate,
+    ...(Array.isArray(change?.amendmentLines) ? change.amendmentLines : []),
+    ...(Array.isArray(change?.reasonLines) ? change.reasonLines : []),
+    ...articleDiffs.flatMap((diff) => [diff.heading, diff.notice, diff.before, diff.after])
+  ].filter(Boolean).join(" ");
+}
+
+function companyChangeRecommendation(change) {
+  const text = normalizeSearchText(changeReviewText(change));
+  const lawName = normalizeSearchText(change?.lawName || "");
+  const matches = COMPANY_CHANGE_REVIEW_RULES.map((rule) => {
+    const lawMatched = rule.laws.some((law) => lawName.includes(normalizeSearchText(law)));
+    const keywordMatches = uniqueValues(rule.terms.filter((term) => text.includes(normalizeSearchText(term))));
+    const score = (lawMatched ? rule.weight + 2 : 0) + keywordMatches.length;
+    return { ...rule, score, lawMatched, keywordMatches };
+  }).filter((rule) => rule.score > 0).sort((a, b) => b.score - a.score);
+  const best = matches[0];
+  if (!best) {
+    return {
+      level: "해당 낮음",
+      className: "low",
+      summary: "오영 염료 제조업의 주요 관리항목과 직접 연결되는 키워드는 적습니다.",
+      reasons: ["원문 확인 후 해당 없음 또는 단순 참고로 기록 권장"],
+      actions: ["변경 조문을 확인하고 법규검토에 해당 없음 근거를 남기기"]
+    };
+  }
+  const level = best.score >= 7 || best.className === "high" ? "우선검토" : "참고검토";
+  return {
+    level,
+    className: best.className,
+    summary: `${best.label} 항목으로 사업장 적용 검토가 필요합니다.`,
+    reasons: uniqueValues([
+      best.lawMatched ? `${change.lawName} 자체가 관련 법규입니다.` : "",
+      ...best.keywordMatches.slice(0, 4).map((term) => `"${term}" 관련 변경`)
+    ]).filter(Boolean),
+    actions: best.actions
+  };
+}
+
+function renderCompanyChangeRecommendation(change, mode = "card") {
+  const recommendation = companyChangeRecommendation(change);
+  const actions = recommendation.actions.slice(0, mode === "detail" ? 4 : 2);
+  const reasons = recommendation.reasons.slice(0, mode === "detail" ? 4 : 2);
+  return `
+    <div class="company-review ${escapeHtml(recommendation.className)}">
+      <div class="company-review-head">
+        <span>오영 적용 추천</span>
+        <strong>${escapeHtml(recommendation.level)}</strong>
+      </div>
+      <p>${escapeHtml(recommendation.summary)}</p>
+      <div class="company-review-grid">
+        <div>
+          <b>추천 근거</b>
+          <ul>${reasons.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+        <div>
+          <b>검토할 일</b>
+          <ul>${actions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderChangeItem(change) {
   const applied = change.status === "applied" || change.status === "auto-applied";
   const appliedText = change.status === "auto-applied" ? "자동등록" : "등록완료";
@@ -1000,6 +1129,7 @@ function renderChangeItem(change) {
           <span class="diff-value">${escapeHtml(formatLawDate(change.effectiveDate))}</span>
         </div>
         <div class="change-meta">${escapeHtml(change.summary || "")}</div>
+        ${renderCompanyChangeRecommendation(change)}
       </div>
       <div class="change-actions">
         <button class="btn small" data-detail="${escapeHtml(change.id)}" type="button">상세</button>
@@ -1616,6 +1746,8 @@ function openChangeDetail(id) {
   $("#detailCheckedAt").textContent = formatDateTime(change.checkedAt);
   $("#detailAppliedAt").textContent = formatDateTime(change.appliedAt);
   $("#detailSummary").textContent = change.summary || "변경 전후 시행일자를 확인했습니다.";
+  const reviewBox = $("#companyReviewBox");
+  if (reviewBox) reviewBox.innerHTML = renderCompanyChangeRecommendation(change, "detail");
   renderChangeContent(change);
   $("#changeModal").hidden = false;
   loadSelectedChangeContent();
@@ -1674,6 +1806,8 @@ async function loadSelectedChangeContent() {
   try {
     const result = await requestJson(`/api/legal-registry/change-content/${encodeURIComponent(change.id)}`);
     Object.assign(change, result.change);
+    const reviewBox = $("#companyReviewBox");
+    if (reviewBox) reviewBox.innerHTML = renderCompanyChangeRecommendation(change, "detail");
     renderChangeContent(change);
     showToast("전 법 대비 변경 내용을 불러왔습니다.", "success");
   } catch (error) {
