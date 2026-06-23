@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260624-registry-change-compact">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260624-registry-change-integrated">
 </head>
 <body class="sidebar-collapsed">
   <div class="app-shell">
@@ -17,7 +17,6 @@
       <nav class="nav-list" aria-label="주 메뉴">
         <button class="nav-item active" data-view="dashboard" type="button">대시보드</button>
         <button class="nav-item" data-view="registry" type="button">법규등록부</button>
-        <button class="nav-item" data-view="changes" type="button">법규 변경사항</button>
         <button class="nav-item" data-view="detailSheets" type="button">법규 검토</button>
         <button class="nav-item mobile-refresh-nav" id="mobileRefreshBtn" type="button">새로고침</button>
       </nav>
@@ -60,7 +59,7 @@
         <section class="panel">
           <div class="panel-head">
             <h3>최근 자동 등록</h3>
-            <button class="btn small" data-jump="changes" type="button">검토함 보기</button>
+            <button class="btn small" data-jump="registry" type="button">법규등록부 보기</button>
           </div>
           <div class="change-list" id="recentChanges"></div>
         </section>
@@ -85,13 +84,6 @@
             <tbody id="registryRows"></tbody>
           </table>
         </section>
-      </section>
-
-      <section id="changesView" class="view">
-        <div class="section-actions feature-actions">
-          <input class="search-input" id="changeSearch" placeholder="법령명, 변경내용 검색">
-        </div>
-        <div class="change-list review" id="changeRows"></div>
       </section>
 
       <section id="detailSheetsView" class="view">
@@ -195,6 +187,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260624-registry-change-compact"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260624-registry-change-integrated"></script>
 </body>
 </html>

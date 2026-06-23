@@ -2,7 +2,6 @@ const state = {
   data: { records: [], detailCards: [], changes: [], refreshLogs: [] },
   activeView: "dashboard",
   search: "",
-  changeSearch: "",
   qcFilter: "전체",
   addingDetail: false,
   editingDetailId: "",
@@ -19,7 +18,7 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
-const VALID_HISTORY_VIEWS = new Set(["dashboard", "registry", "detailSheets", "changes"]);
+const VALID_HISTORY_VIEWS = new Set(["dashboard", "registry", "detailSheets"]);
 let restoringHistory = false;
 const FLOATING_AI_POSITION_KEY = "ohyoungLegalFloatingAiPosition";
 const DATA_SYNC_INTERVAL_MS = 8000;
@@ -1136,7 +1135,7 @@ function renderCompanyChangeRecommendation(change, mode = "card") {
   `;
   if (mode !== "detail") return content;
   return `
-    <details class="company-review-detail" open>
+    <details class="company-review-detail">
       <summary>
         <span>오영 적용 추천</span>
         <strong>${escapeHtml(recommendation.level)}</strong>
@@ -1171,22 +1170,6 @@ function renderChangeItem(change) {
       </div>
     </article>
   `;
-}
-
-function renderChanges() {
-  const query = state.changeSearch.trim().toLowerCase();
-  const changes = (state.data.changes || []).filter((change) => {
-    if (!query) return true;
-    return [
-      change.lawName,
-      change.summary,
-      change.previousEffectiveDate,
-      change.effectiveDate,
-      change.promulgationDate,
-      change.status
-    ].join(" ").toLowerCase().includes(query);
-  });
-  $("#changeRows").innerHTML = changes.map(renderChangeItem).join("") || `<div class="empty">새로고침에서 발견된 변경 항목이 없습니다.</div>`;
 }
 
 const AI_TOPIC_RULES = [
@@ -1608,7 +1591,6 @@ function render() {
   renderDashboard();
   renderRegistry();
   renderDetailSheets();
-  renderChanges();
 }
 
 async function refreshLaws() {
@@ -2001,10 +1983,6 @@ function bindEvents() {
   $("#registrySearch").addEventListener("input", (event) => {
     state.search = event.target.value;
     renderRegistry();
-  });
-  $("#changeSearch").addEventListener("input", (event) => {
-    state.changeSearch = event.target.value;
-    renderChanges();
   });
   $("#detailAddBtn").addEventListener("click", () => {
     state.addingDetail = true;
