@@ -968,7 +968,7 @@ function renderDetailSheets() {
     <article class="detail-sheet-card ${isOpen ? "open" : "collapsed"}">
       <button class="detail-register-head" data-detail-toggle="${escapeHtml(card.id || "")}" type="button" aria-expanded="${isOpen ? "true" : "false"}">
         <div class="detail-register-title">
-          <span>${escapeHtml(detailManagementYearLabel(detailManagementYear(card)))} · 법규등록부 ${yearIndex + 1}</span>
+          <span>법규등록부 ${yearIndex + 1}</span>
           <h3>${escapeHtml(card.lawName || card.sheetName || "")}</h3>
         </div>
         <div class="detail-register-actions">
