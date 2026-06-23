@@ -826,7 +826,6 @@ function renderRegistryChangeCell(record) {
   const label = changes.length > 1 ? `보기 ${changes.length}` : "보기";
   return `
     <button class="btn small registry-change-btn" data-registry-change="${escapeHtml(latest.id || "")}" type="button">${escapeHtml(label)}</button>
-    <span class="registry-change-date">${escapeHtml(formatLawDate(latest.effectiveDate))}</span>
   `;
 }
 
