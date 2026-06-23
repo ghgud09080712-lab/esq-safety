@@ -1091,7 +1091,7 @@ function renderCompanyChangeRecommendation(change, mode = "card") {
   const recommendation = companyChangeRecommendation(change);
   const actions = recommendation.actions.slice(0, mode === "detail" ? 4 : 2);
   const reasons = recommendation.reasons.slice(0, mode === "detail" ? 4 : 2);
-  return `
+  const content = `
     <div class="company-review ${escapeHtml(recommendation.className)}">
       <div class="company-review-head">
         <span>오영 적용 추천</span>
@@ -1109,6 +1109,16 @@ function renderCompanyChangeRecommendation(change, mode = "card") {
         </div>
       </div>
     </div>
+  `;
+  if (mode !== "detail") return content;
+  return `
+    <details class="company-review-detail" open>
+      <summary>
+        <span>오영 적용 추천</span>
+        <strong>${escapeHtml(recommendation.level)}</strong>
+      </summary>
+      ${content}
+    </details>
   `;
 }
 
