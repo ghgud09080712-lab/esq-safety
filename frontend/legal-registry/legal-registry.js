@@ -1162,7 +1162,6 @@ function renderChangeItem(change) {
           <span class="diff-value">${escapeHtml(formatLawDate(change.effectiveDate))}</span>
         </div>
         <div class="change-meta">${escapeHtml(change.summary || "")}</div>
-        ${renderCompanyChangeRecommendation(change)}
       </div>
       <div class="change-actions">
         <button class="btn small" data-detail="${escapeHtml(change.id)}" type="button">상세</button>
