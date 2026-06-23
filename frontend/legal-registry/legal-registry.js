@@ -2,6 +2,7 @@ const state = {
   data: { records: [], detailCards: [], changes: [], refreshLogs: [] },
   activeView: "dashboard",
   search: "",
+  detailYear: "legacy",
   qcFilter: "전체",
   addingDetail: false,
   editingDetailId: "",
@@ -633,6 +634,29 @@ const APPLICABILITY_OPTIONS = ["해당", "해당무"];
 const QC_STATUS_OPTIONS = ["미착수", "진행중", "완료", "보류", "해당없음"];
 const QC_FILTERS = ["전체", "진행중", "완료", "지연", "증빙누락"];
 const QC_VALIDITY_OPTIONS = ["보완필요", "차기확인", "적합"];
+const DETAIL_YEAR_OPTIONS = [
+  { value: "legacy", label: "현재까지(~2026)" },
+  { value: "2027", label: "2027년" }
+];
+
+function detailManagementYear(card) {
+  return String(card?.managementYear || "").trim() === "2027" ? "2027" : "legacy";
+}
+
+function detailManagementYearLabel(value) {
+  return DETAIL_YEAR_OPTIONS.find((option) => option.value === value)?.label || "현재까지(~2026)";
+}
+
+function renderDetailYearSelect(value) {
+  const selected = value === "2027" ? "2027" : "legacy";
+  return `
+    <label>관리연도
+      <select name="managementYear">
+        ${DETAIL_YEAR_OPTIONS.map((option) => `<option value="${option.value}" ${selected === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
 
 function markedOptionValue(options, selected) {
   return options.map((option) => `${option === selected ? "■" : "□"}${option}`).join(" ");
@@ -878,8 +902,12 @@ function renderRegistry() {
 
 function renderDetailSheets() {
   const cards = state.data.detailCards || [];
-  renderQcSummary(cards);
-  const visibleCards = cards.filter(matchesQcFilter);
+  const yearCards = cards.filter((card) => detailManagementYear(card) === state.detailYear);
+  renderQcSummary(yearCards);
+  const visibleCards = yearCards.filter(matchesQcFilter);
+  $$("#detailYearTabs [data-detail-year]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.detailYear === state.detailYear);
+  });
 
   const metaItem = (label, value) => `
     <div class="detail-meta-item">
@@ -888,7 +916,9 @@ function renderDetailSheets() {
     </div>
   `;
   const inputValue = (value) => escapeHtml(value || "");
-  const detailForm = (card = {}, mode = "add") => `
+  const detailForm = (card = {}, mode = "add") => {
+    const managementYear = mode === "add" ? state.detailYear : detailManagementYear(card);
+    return `
     <article class="detail-sheet-card open editing">
       <form class="detail-edit-form" data-detail-form data-mode="${mode}" data-detail-id="${escapeHtml(card.id || "")}">
         <div class="detail-register-head">
@@ -902,6 +932,7 @@ function renderDetailSheets() {
           </div>
         </div>
         <div class="detail-form-grid">
+          ${renderDetailYearSelect(managementYear)}
           ${renderCategorySelect(card.category)}
           <label>법규명<input name="lawName" value="${inputValue(card.lawName)}" required></label>
           <label>발행기관<input name="issuer" value="${inputValue(card.issuer || "법제처")}"></label>
@@ -926,9 +957,9 @@ function renderDetailSheets() {
       </form>
     </article>
   `;
+  };
 
-  $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${visibleCards.map((card) => {
-    const index = cards.findIndex((item) => item.id === card.id);
+  $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${visibleCards.map((card, yearIndex) => {
     if (state.editingDetailId === card.id) return detailForm(card, "edit");
     const isOpen = state.expandedDetailIds.has(card.id);
     const qcStatus = qcComputedStatus(card);
@@ -937,7 +968,7 @@ function renderDetailSheets() {
     <article class="detail-sheet-card ${isOpen ? "open" : "collapsed"}">
       <button class="detail-register-head" data-detail-toggle="${escapeHtml(card.id || "")}" type="button" aria-expanded="${isOpen ? "true" : "false"}">
         <div class="detail-register-title">
-          <span>법규등록부 ${index + 1}</span>
+          <span>${escapeHtml(detailManagementYearLabel(detailManagementYear(card)))} · 법규등록부 ${yearIndex + 1}</span>
           <h3>${escapeHtml(card.lawName || card.sheetName || "")}</h3>
         </div>
         <div class="detail-register-actions">
@@ -952,6 +983,7 @@ function renderDetailSheets() {
           <button class="btn small" data-ai-open="${escapeHtml(card.lawName || "")}" type="button">원문</button>
         </div>
         <div class="detail-meta-bar">
+          ${metaItem("관리연도", detailManagementYearLabel(detailManagementYear(card)))}
           <div class="detail-meta-item">
             <span>구분</span>
             ${renderMarkedPills(CATEGORY_OPTIONS, card.category)}
@@ -1645,6 +1677,7 @@ async function importSource() {
 function getDetailFormPayload(form) {
   const formData = new FormData(form);
   return {
+    managementYear: String(formData.get("managementYear") || "legacy").trim(),
     category: String(formData.get("category") || "").trim(),
     lawName: String(formData.get("lawName") || "").trim(),
     issuer: String(formData.get("issuer") || "").trim(),
@@ -1992,6 +2025,16 @@ function bindEvents() {
   $$("#qcFilterRow [data-qc-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       state.qcFilter = button.dataset.qcFilter || "전체";
+      renderDetailSheets();
+    });
+  });
+  $$("#detailYearTabs [data-detail-year]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.detailYear = button.dataset.detailYear === "2027" ? "2027" : "legacy";
+      state.qcFilter = "전체";
+      state.addingDetail = false;
+      state.editingDetailId = "";
+      state.expandedDetailIds.clear();
       renderDetailSheets();
     });
   });

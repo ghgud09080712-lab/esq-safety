@@ -608,6 +608,46 @@ th {
   gap: 14px;
 }
 
+.detail-year-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 368px;
+  margin-bottom: 12px;
+}
+
+.detail-year-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.detail-year-tab span {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detail-year-tab strong {
+  color: #123863;
+  font-size: 15px;
+}
+
+.detail-year-tab.active {
+  border-color: #205aa8;
+  background: #edf5ff;
+  box-shadow: inset 3px 0 0 #205aa8;
+}
+
 .qc-summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

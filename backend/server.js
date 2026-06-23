@@ -1458,6 +1458,7 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
     ...existing,
     id: existing.id || input.id || `DETAIL-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
     sheetName: compactText(pick("sheetName", `사용자추가${index + 1}`)),
+    managementYear: compactText(pick("managementYear", "legacy")) === "2027" ? "2027" : "legacy",
     category: compactText(pick("category")),
     lawName: compactText(pick("lawName")),
     issuer: compactText(pick("issuer", "법제처")),
@@ -1480,6 +1481,7 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
   };
   card.rows = [
     ["법규등록부"],
+    ["관리연도", card.managementYear === "2027" ? "2027년" : "현재까지(~2026)"],
     ["구 분", card.category],
     ["법규명", card.lawName],
     ["발행처", "발행기관", card.issuer, "입수경로", card.channel],
