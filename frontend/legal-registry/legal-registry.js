@@ -847,9 +847,8 @@ function renderRegistryChangeCell(record) {
   const changes = registryChangesForRecord(record);
   if (!changes.length) return `<span class="registry-change-empty">없음</span>`;
   const latest = changes[0];
-  const label = changes.length > 1 ? `보기 ${changes.length}` : "보기";
   return `
-    <button class="btn small registry-change-btn" data-registry-change="${escapeHtml(latest.id || "")}" type="button">${escapeHtml(label)}</button>
+    <button class="btn small registry-change-btn" data-registry-change="${escapeHtml(latest.id || "")}" type="button">보기</button>
   `;
 }
 
