@@ -7,7 +7,6 @@ const state = {
   addingDetail: false,
   editingDetailId: "",
   expandedDetailIds: new Set(),
-  expandedDetailGroupKeys: new Set(),
   currentRefreshChanged: 0,
   selectedChangeId: "",
   selectedPreviewLaw: "",
@@ -2158,14 +2157,6 @@ function bindEvents() {
     if (mainContent && !mainContent.value.trim()) mainContent.value = NOT_APPLICABLE_MAIN_CONTENT;
     if (companyAction && !companyAction.value.trim()) companyAction.value = NOT_APPLICABLE_COMPANY_ACTION;
   });
-  document.addEventListener("toggle", (event) => {
-    const group = event.target.closest?.(".detail-law-group[data-detail-group-key]");
-    if (!group || event.target !== group) return;
-    const key = group.dataset.detailGroupKey || "";
-    if (!key) return;
-    if (group.open) state.expandedDetailGroupKeys.add(key);
-    else state.expandedDetailGroupKeys.delete(key);
-  }, true);
   $("#lawPreviewClose")?.addEventListener("click", closeLawPreview);
   $("#lawPreviewConfirmBtn")?.addEventListener("click", closeLawPreview);
   $("#lawPreviewOriginalBtn")?.addEventListener("click", () => openLaw(state.selectedPreviewLaw));
