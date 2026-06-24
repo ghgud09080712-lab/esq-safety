@@ -920,9 +920,27 @@ function detailLawLevelLabel(card) {
   return "법률";
 }
 
+function sortDetailCardsByRegistryOrder(cards) {
+  const recordOrder = new Map((state.data.records || []).map((record, index) => [
+    normalizeSearchText(record.lawName || ""),
+    { no: Number.parseInt(record.no, 10), index }
+  ]));
+  return cards.slice().sort((a, b) => {
+    const aOrder = recordOrder.get(normalizeSearchText(a.lawName || ""));
+    const bOrder = recordOrder.get(normalizeSearchText(b.lawName || ""));
+    const aNo = Number.isFinite(aOrder?.no) ? aOrder.no : Number.MAX_SAFE_INTEGER;
+    const bNo = Number.isFinite(bOrder?.no) ? bOrder.no : Number.MAX_SAFE_INTEGER;
+    if (aNo !== bNo) return aNo - bNo;
+    return (aOrder?.index ?? Number.MAX_SAFE_INTEGER) - (bOrder?.index ?? Number.MAX_SAFE_INTEGER);
+  });
+}
+
 function renderDetailSheets() {
   const cards = state.data.detailCards || [];
-  const yearCards = cards.filter((card) => detailManagementYear(card) === state.detailYear);
+  const filteredYearCards = cards.filter((card) => detailManagementYear(card) === state.detailYear);
+  const yearCards = state.detailYear === "2027"
+    ? sortDetailCardsByRegistryOrder(filteredYearCards)
+    : filteredYearCards;
   renderQcSummary(yearCards);
   const visibleCards = yearCards.filter(matchesQcFilter);
   $$("#detailYearTabs [data-detail-year]").forEach((button) => {
