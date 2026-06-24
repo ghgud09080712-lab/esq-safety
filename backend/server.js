@@ -422,7 +422,19 @@ function ensure2027LegalReviewCards(payload) {
   legalRegistryEnergyActRecords.forEach((record) => {
     if (!recordKeys.has(makeLawKey(record.lawName))) records.push({ ...record });
   });
-  const detailCards = Array.isArray(payload?.detailCards) ? payload.detailCards.slice() : [];
+  let statusMigrated = false;
+  const detailCards = (Array.isArray(payload?.detailCards) ? payload.detailCards : []).map((card) => {
+    const isUntouched2027Card = String(card.id || "").startsWith("DETAIL-2027-")
+      && String(card.managementYear || "") === "2027"
+      && String(card.qcStatus || "") === "미착수";
+    if (!isUntouched2027Card) return card;
+    statusMigrated = true;
+    return {
+      ...card,
+      qcStatus: "해당없음",
+      updatedAt: new Date().toISOString()
+    };
+  });
   const existing2027 = new Set(detailCards
     .filter((card) => String(card.managementYear || "") === "2027")
     .map((card) => makeLawKey(card.lawName)));
@@ -444,7 +456,7 @@ function ensure2027LegalReviewCards(payload) {
       applicability: "",
       mainContent: "",
       companyAction: "",
-      qcStatus: "미착수",
+      qcStatus: "해당없음",
       qcValidity: "차기확인",
       qcOwner: "",
       qcDueDate: "",
@@ -455,7 +467,7 @@ function ensure2027LegalReviewCards(payload) {
       createdAt,
       updatedAt: createdAt
     }));
-  if (!additions.length && records.length === (payload?.records || []).length) {
+  if (!statusMigrated && !additions.length && records.length === (payload?.records || []).length) {
     return { payload, changed: false };
   }
   return {
