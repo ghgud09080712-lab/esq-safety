@@ -635,7 +635,7 @@ function pendingChanges() {
 const CATEGORY_OPTIONS = ["안전", "환경", "에너지"];
 const APPLICABILITY_OPTIONS = ["해당", "해당무"];
 const QC_STATUS_OPTIONS = ["미착수", "진행중", "완료", "보류", "해당없음"];
-const QC_FILTERS = ["전체", "진행중", "완료", "지연", "증빙누락"];
+const QC_FILTERS = ["전체", "진행중", "완료", "지연", "해당없음"];
 const QC_VALIDITY_OPTIONS = ["보완필요", "차기확인", "적합"];
 const DETAIL_YEAR_OPTIONS = [
   { value: "legacy", label: "현재까지(~2026)" },
@@ -737,10 +737,6 @@ function qcComputedStatus(card) {
   return status;
 }
 
-function qcHasMissingEvidence(card) {
-  return qcComputedStatus(card) !== "해당없음" && !String(card.qcEvidence || "").trim();
-}
-
 function qcProgress(card) {
   const status = qcComputedStatus(card);
   if (status === "완료" || status === "해당없음") return 100;
@@ -765,7 +761,7 @@ function renderQcSummary(cards) {
     진행중: cards.filter((card) => qcComputedStatus(card) === "진행중").length,
     완료: cards.filter((card) => qcComputedStatus(card) === "완료").length,
     지연: cards.filter((card) => qcComputedStatus(card) === "지연").length,
-    증빙누락: cards.filter(qcHasMissingEvidence).length
+    해당없음: cards.filter((card) => qcComputedStatus(card) === "해당없음").length
   };
   const target = $("#qcSummary");
   if (target) {
@@ -783,7 +779,6 @@ function renderQcSummary(cards) {
 
 function matchesQcFilter(card) {
   if (state.qcFilter === "전체") return true;
-  if (state.qcFilter === "증빙누락") return qcHasMissingEvidence(card);
   return qcComputedStatus(card) === state.qcFilter;
 }
 
@@ -1084,7 +1079,7 @@ function renderDetailSheets() {
           ${metaItem("담당자", card.qcOwner)}
           ${metaItem("예정일", formatLawDate(card.qcDueDate))}
           ${metaItem("완료일", formatLawDate(card.qcDoneDate))}
-          ${metaItem("증빙", card.qcEvidence || (qcHasMissingEvidence(card) ? "증빙누락" : ""))}
+          ${metaItem("증빙", card.qcEvidence)}
           <div class="qc-meta-item qc-progress-item">
             <span>진행률</span>
             <strong>${progress}%</strong>
