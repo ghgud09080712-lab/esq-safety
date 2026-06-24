@@ -632,9 +632,9 @@ function openLawPreview(lawName, query = "") {
 
 function recentChanges() {
   const sorted = (state.data.changes || []).filter((change) => {
-    const previousDate = normalizeLawDate(change.previousEffectiveDate);
-    const effectiveDate = normalizeLawDate(change.effectiveDate);
-    return !(previousDate && effectiveDate && effectiveDate < previousDate);
+    const previousDate = parseLawDateValue(change.previousEffectiveDate);
+    const effectiveDate = parseLawDateValue(change.effectiveDate);
+    return !(previousDate && effectiveDate && effectiveDate.getTime() < previousDate.getTime());
   }).sort((a, b) => {
     const aTime = Date.parse(a.checkedAt || a.appliedAt || a.updatedAt || "") || 0;
     const bTime = Date.parse(b.checkedAt || b.appliedAt || b.updatedAt || "") || 0;
