@@ -7,6 +7,7 @@ const state = {
   addingDetail: false,
   editingDetailId: "",
   expandedDetailIds: new Set(),
+  expandedDetailGroupKeys: new Set(),
   currentRefreshChanged: 0,
   selectedChangeId: "",
   selectedPreviewLaw: "",
@@ -993,9 +994,12 @@ function renderDetailSheets() {
       done: groupCards.filter((item) => qcComputedStatus(item) === "완료").length,
       doing: groupCards.filter((item) => qcComputedStatus(item) === "진행중").length
     } : { done: 0, doing: 0 };
-    const groupOpen = grouped && groupCards.some((item) => item.id === state.editingDetailId);
+    const groupOpen = grouped && (
+      state.expandedDetailGroupKeys.has(currentGroupKey)
+      || groupCards.some((item) => item.id === state.editingDetailId)
+    );
     const groupStartHtml = groupStart ? `
-      <details class="detail-law-group" ${groupOpen ? "open" : ""}>
+      <details class="detail-law-group" data-detail-group-key="${escapeHtml(currentGroupKey)}" ${groupOpen ? "open" : ""}>
         <summary>
           <div>
             <span>${group.no ? `No ${escapeHtml(group.no)}` : "법규 묶음"}</span>
@@ -2185,6 +2189,14 @@ function bindEvents() {
     if (event.target.id !== "lawArticleSearchInput") return;
     renderLawPreviewArticles(event.target.value);
   });
+  document.addEventListener("toggle", (event) => {
+    const group = event.target.closest?.(".detail-law-group[data-detail-group-key]");
+    if (!group || event.target !== group) return;
+    const key = group.dataset.detailGroupKey || "";
+    if (!key) return;
+    if (group.open) state.expandedDetailGroupKeys.add(key);
+    else state.expandedDetailGroupKeys.delete(key);
+  }, true);
   $("#lawPreviewClose")?.addEventListener("click", closeLawPreview);
   $("#lawPreviewConfirmBtn")?.addEventListener("click", closeLawPreview);
   $("#lawPreviewOriginalBtn")?.addEventListener("click", () => openLaw(state.selectedPreviewLaw));
