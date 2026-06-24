@@ -140,6 +140,16 @@ body.sidebar-collapsed .sidebar {
   border-color: #153f7d;
 }
 
+.dashboard-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.dashboard-refresh-btn {
+  margin-left: 0;
+}
+
 .side-tools {
   margin-top: auto;
   display: grid;

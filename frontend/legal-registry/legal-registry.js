@@ -311,8 +311,6 @@ function switchView(view, options = {}) {
   state.activeView = view;
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $$(".view").forEach((section) => section.classList.toggle("active", section.id === `${view}View`));
-  const refreshButton = $("#topRefreshBtn");
-  if (refreshButton) refreshButton.hidden = view !== "registry";
   requestAnimationFrame(fitRegistryTable);
   if (!options.skipHistory && !restoringHistory) {
     const url = new URL(window.location.href);
