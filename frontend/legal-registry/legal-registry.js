@@ -276,6 +276,7 @@ function withDefaultLegalRecords(data) {
 
 async function loadData() {
   state.data = withDefaultLegalRecords(await requestJson("/api/legal-registry"));
+  state.currentRefreshChanged = Number(state.data.refreshLogs?.[0]?.changed || 0);
   const sourceInput = $("#sourcePathInput");
   if (sourceInput) sourceInput.value = state.data.sourcePath || "";
   render();
@@ -299,6 +300,7 @@ async function syncLatestData(options = {}) {
     });
     if (previousVersion === latestVersion) return;
     state.data = withDefaultLegalRecords(latest);
+    state.currentRefreshChanged = Number(state.data.refreshLogs?.[0]?.changed || 0);
     render();
     if (!options.silent) showToast("최신 법규등록부 내용을 반영했습니다.", "success");
   } catch (error) {
@@ -628,8 +630,19 @@ function openLawPreview(lawName, query = "") {
   loadLawPreviewContent(state.selectedPreviewLaw);
 }
 
-function pendingChanges() {
-  return (state.data.changes || []).filter((item) => item.status !== "applied");
+function recentChanges() {
+  const sorted = (state.data.changes || []).slice().sort((a, b) => {
+    const aTime = Date.parse(a.checkedAt || a.appliedAt || a.updatedAt || "") || 0;
+    const bTime = Date.parse(b.checkedAt || b.appliedAt || b.updatedAt || "") || 0;
+    return bTime - aTime;
+  });
+  const seen = new Set();
+  return sorted.filter((change) => {
+    const key = normalizeSearchText(change.lawName || "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 const CATEGORY_OPTIONS = ["안전", "환경", "에너지"];
@@ -819,7 +832,7 @@ function renderQcValidityOptions(value) {
 
 function renderDashboard() {
   const records = state.data.records || [];
-  const changes = pendingChanges();
+  const changes = recentChanges();
   const lastLog = (state.data.refreshLogs || [])[0];
   $("#totalCount").textContent = records.length;
   $("#changeCount").textContent = Number(state.currentRefreshChanged || 0);
