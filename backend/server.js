@@ -685,12 +685,33 @@ async function readLegalRegistry() {
   }
 }
 
-async function searchOfficialLaw(lawName, oc) {
+async function fetchOfficialLawById(lawName, lawId, oc) {
+  const id = compactText(lawId);
+  if (!id) return null;
+  const response = await fetch(`https://www.law.go.kr/DRF/lawService.do?OC=${encodeURIComponent(oc)}&target=law&type=JSON&ID=${encodeURIComponent(id)}`, {
+    signal: AbortSignal.timeout(15000)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.result) return null;
+  const basic = payload?.["법령"]?.["기본정보"] || {};
+  const officialName = compactText(basic["법령명_한글"] || basic["법령명한글"]);
+  if (!officialName || makeLawKey(officialName) !== makeLawKey(lawName)) return null;
+  return {
+    ...basic,
+    "법령명한글": officialName,
+    "법령ID": compactText(basic["법령ID"] || id)
+  };
+}
+
+async function searchOfficialLaw(lawName, oc, lawId = "") {
+  const byId = await fetchOfficialLawById(lawName, lawId, oc).catch(() => null);
+  if (byId) return byId;
+
   const params = new URLSearchParams({
     OC: oc,
     target: "law",
     type: "JSON",
-    display: "10",
+    display: "100",
     search: "1",
     query: lawName
   });
@@ -1728,7 +1749,7 @@ app.post("/api/legal-registry/refresh", async (req, res) => {
     const errors = [];
     for (const record of uniqueRecords) {
       try {
-        const official = await searchOfficialLaw(record.lawName, oc);
+        const official = await searchOfficialLaw(record.lawName, oc, record.lawId);
         if (!official) {
           errors.push({ lawName: record.lawName, message: "검색 결과 없음" });
           continue;
