@@ -734,6 +734,11 @@ th {
   box-shadow: inset 3px 0 0 #205aa8;
 }
 
+.detail-year-tab[data-detail-year="2027"] {
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .qc-summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
