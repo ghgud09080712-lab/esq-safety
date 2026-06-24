@@ -1745,21 +1745,24 @@ app.post("/api/legal-registry/refresh", async (req, res) => {
       uniqueRecords.push(record);
     }
 
-    const checked = [];
-    const errors = [];
-    for (const record of uniqueRecords) {
-      try {
-        const official = await searchOfficialLaw(record.lawName, oc, record.lawId);
-        if (!official) {
-          errors.push({ lawName: record.lawName, message: "검색 결과 없음" });
-          continue;
+    const lookupResults = [];
+    const refreshConcurrency = 8;
+    for (let index = 0; index < uniqueRecords.length; index += refreshConcurrency) {
+      const batch = uniqueRecords.slice(index, index + refreshConcurrency);
+      const batchResults = await Promise.all(batch.map(async (record) => {
+        try {
+          const official = await searchOfficialLaw(record.lawName, oc, record.lawId);
+          return official
+            ? { change: buildChange(record, official) }
+            : { error: { lawName: record.lawName, message: "검색 결과 없음" } };
+        } catch (error) {
+          return { error: { lawName: record.lawName, message: error.message || "조회 실패" } };
         }
-        checked.push(buildChange(record, official));
-      } catch (error) {
-        errors.push({ lawName: record.lawName, message: error.message || "조회 실패" });
-      }
-      await wait(120);
+      }));
+      lookupResults.push(...batchResults);
     }
+    const checked = lookupResults.flatMap((result) => result.change ? [result.change] : []);
+    const errors = lookupResults.flatMap((result) => result.error ? [result.error] : []);
 
     const autoAppliedAt = new Date().toISOString();
     const byLaw = new Map(checked.map((item) => [makeLawKey(item.lawName), item]));
