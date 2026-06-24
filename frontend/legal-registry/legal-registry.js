@@ -587,8 +587,8 @@ function openLawPreview(lawName, query = "") {
       <span>No ${escapeHtml(record.no || "-")}</span>
       <strong>${escapeHtml(record.group || record.lawName || "-")}</strong>
       <dl>
-        <dt>등록 시행일</dt><dd>${escapeHtml(formatLawDate(record.registeredEffectiveDate))}</dd>
-        <dt>최신 시행일</dt><dd>${escapeHtml(formatLawDate(record.officialEffectiveDate))}</dd>
+        <dt>시행일</dt><dd>${escapeHtml(formatLawDate(record.officialEffectiveDate || record.registeredEffectiveDate))}</dd>
+        <dt>공포일</dt><dd>${escapeHtml(formatLawDate(record.promulgationDate))}</dd>
         <dt>상태</dt><dd>${escapeHtml(record.status || "-")}</dd>
       </dl>
     </div>
@@ -880,8 +880,8 @@ function renderRegistry() {
         <td class="law-row law-name-cell" data-law-name="${escapeHtml(first.lawName || "")}" title="${escapeHtml(first.lawName || "")}">
           <strong>${escapeHtml(first.lawName || "")}</strong>
         </td>
-        <td>${escapeHtml(formatLawDate(first.registeredEffectiveDate))}</td>
-        <td>${escapeHtml(formatLawDate(first.officialEffectiveDate))}</td>
+        <td>${escapeHtml(formatLawDate(first.officialEffectiveDate || first.registeredEffectiveDate))}</td>
+        <td>${escapeHtml(formatLawDate(first.promulgationDate))}</td>
         <td class="registry-change-cell">${renderRegistryChangeCell(first)}</td>
       </tr>
       ${group.records.slice(1).map((record) => `
@@ -889,8 +889,8 @@ function renderRegistry() {
           <td class="law-row law-name-cell" data-law-name="${escapeHtml(record.lawName || "")}" title="${escapeHtml(record.lawName || "")}">
             <strong>${escapeHtml(record.lawName || "")}</strong>
           </td>
-          <td>${escapeHtml(formatLawDate(record.registeredEffectiveDate))}</td>
-          <td>${escapeHtml(formatLawDate(record.officialEffectiveDate))}</td>
+          <td>${escapeHtml(formatLawDate(record.officialEffectiveDate || record.registeredEffectiveDate))}</td>
+          <td>${escapeHtml(formatLawDate(record.promulgationDate))}</td>
           <td class="registry-change-cell">${renderRegistryChangeCell(record)}</td>
         </tr>
       `).join("")}
