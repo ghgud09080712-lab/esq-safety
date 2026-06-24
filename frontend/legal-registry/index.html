@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260624-dashboard-refresh">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260624-toolbar-align">
 </head>
 <body>
   <div class="app-shell">
@@ -25,12 +25,10 @@
         <button class="nav-item active" data-view="dashboard" type="button">대시보드</button>
         <button class="nav-item" data-view="registry" type="button">법규등록부</button>
         <button class="nav-item" data-view="detailSheets" type="button">법규 검토</button>
+        <button class="nav-refresh-btn" id="topRefreshBtn" type="button">새로고침</button>
       </nav>
 
       <section id="dashboardView" class="view active">
-        <div class="dashboard-toolbar">
-          <button class="nav-refresh-btn dashboard-refresh-btn" id="topRefreshBtn" type="button">새로고침</button>
-        </div>
         <div class="metric-grid">
           <article class="metric"><span>등록 법령</span><strong id="totalCount">0</strong></article>
           <article class="metric"><span>변경 이력</span><strong id="changeCount">0</strong></article>
@@ -68,17 +66,19 @@
       </section>
 
       <section id="detailSheetsView" class="view">
-        <div class="detail-review-search">
-          <input class="search-input" id="detailSearch" type="search" placeholder="법규명, 적용내용, 당사 적용사항 검색" aria-label="법규검토 검색">
-        </div>
-        <div class="detail-year-tabs" id="detailYearTabs" aria-label="법규검토 관리연도">
-          <button class="detail-year-tab active" data-detail-year="legacy" type="button">
-            <span>현재까지</span>
-            <strong>~2026</strong>
-          </button>
-          <button class="detail-year-tab" data-detail-year="2027" type="button">
-            <strong>2027년</strong>
-          </button>
+        <div class="detail-review-toolbar">
+          <div class="detail-year-tabs" id="detailYearTabs" aria-label="법규검토 관리연도">
+            <button class="detail-year-tab active" data-detail-year="legacy" type="button">
+              <span>현재까지</span>
+              <strong>~2026</strong>
+            </button>
+            <button class="detail-year-tab" data-detail-year="2027" type="button">
+              <strong>2027년</strong>
+            </button>
+          </div>
+          <div class="detail-review-search">
+            <input class="search-input" id="detailSearch" type="search" placeholder="법규명, 적용내용, 당사 적용사항 검색" aria-label="법규검토 검색">
+          </div>
         </div>
         <div class="qc-summary-grid" id="qcSummary"></div>
         <div class="qc-filter-row" id="qcFilterRow">
@@ -184,6 +184,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260624-dashboard-refresh"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260624-toolbar-align"></script>
 </body>
 </html>
