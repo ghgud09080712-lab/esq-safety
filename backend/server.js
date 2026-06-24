@@ -1820,22 +1820,38 @@ app.get("/api/legal-registry/change-content/:id", async (req, res) => {
     const data = await readLegalRegistry();
     const change = (Array.isArray(data.changes) ? data.changes : []).find((item) => item.id === req.params.id);
     if (!change) return res.status(404).json({ ok: false, message: "변경 항목을 찾지 못했습니다." });
+    const force = String(req.query?.force || "") === "1";
+    if (!force && Array.isArray(change.articleDiffs) && change.articleDiffs.length) {
+      return res.json({ ok: true, change, cached: true });
+    }
     const oc = compactText(req.query?.oc || defaultLawOpenApiOc);
-    const content = await fetchOfficialLawContent({
+    const contentRequest = fetchOfficialLawContent({
       lawName: change.lawName,
       mst: change.mst,
       lawId: change.lawId,
       oc,
       effectiveDate: change.effectiveDate
     });
+    const previousRequest = change.lawId
+      ? fetchOfficialLawContent({
+          lawName: change.lawName,
+          lawId: change.lawId,
+          oc,
+          effectiveDate: change.previousEffectiveDate
+        })
+      : null;
+    const [content, prefetchedPreviousContent] = await Promise.all([
+      contentRequest,
+      previousRequest || Promise.resolve(null)
+    ]);
     let articleDiffs = [];
     try {
-      const previousContent = await fetchOfficialLawContent({
-        lawName: change.lawName,
-        lawId: content.lawId || change.lawId,
-        oc,
-        effectiveDate: change.previousEffectiveDate
-      });
+      const previousContent = prefetchedPreviousContent || await fetchOfficialLawContent({
+          lawName: change.lawName,
+          lawId: content.lawId || change.lawId,
+          oc,
+          effectiveDate: change.previousEffectiveDate
+        });
       articleDiffs = diffArticles(previousContent.articles || [], content.articles || []);
       if (!articleDiffs.length) {
         articleDiffs = (content.articles || [])

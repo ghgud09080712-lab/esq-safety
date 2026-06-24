@@ -1838,7 +1838,9 @@ function openChangeDetail(id) {
   if (reviewBox) reviewBox.innerHTML = renderCompanyChangeRecommendation(change, "detail");
   renderChangeContent(change);
   $("#changeModal").hidden = false;
-  loadSelectedChangeContent();
+  if (!Array.isArray(change.articleDiffs) || !change.articleDiffs.length) {
+    loadSelectedChangeContent();
+  }
 }
 
 function renderChangeContent(change) {
@@ -1881,9 +1883,14 @@ function renderChangeContent(change) {
     : "비교를 불러오면 이전 시행본과 최신 시행본의 차이가 표시됩니다.";
 }
 
-async function loadSelectedChangeContent() {
+async function loadSelectedChangeContent(options = {}) {
   const change = findChange(state.selectedChangeId);
   if (!change) return;
+  const force = Boolean(options.force);
+  if (!force && Array.isArray(change.articleDiffs) && change.articleDiffs.length) {
+    renderChangeContent(change);
+    return;
+  }
   const target = $("#detailContentRows");
   const button = $("#detailLoadContentBtn");
   target.textContent = "이전 시행본과 최신 시행본을 비교하는 중입니다.";
@@ -1892,7 +1899,8 @@ async function loadSelectedChangeContent() {
     button.textContent = "불러오는 중";
   }
   try {
-    const result = await requestJson(`/api/legal-registry/change-content/${encodeURIComponent(change.id)}`);
+    const query = force ? "?force=1" : "";
+    const result = await requestJson(`/api/legal-registry/change-content/${encodeURIComponent(change.id)}${query}`);
     Object.assign(change, result.change);
     const reviewBox = $("#companyReviewBox");
     if (reviewBox) reviewBox.innerHTML = renderCompanyChangeRecommendation(change, "detail");
@@ -2209,7 +2217,7 @@ function bindEvents() {
   $("#changeModalClose").addEventListener("click", closeChangeDetail);
   $("#detailCloseBtn").addEventListener("click", closeChangeDetail);
   $("#detailOpenLawBtn").addEventListener("click", openSelectedChangeLaw);
-  $("#detailLoadContentBtn").addEventListener("click", loadSelectedChangeContent);
+  $("#detailLoadContentBtn").addEventListener("click", () => loadSelectedChangeContent({ force: true }));
   $("#changeModal").addEventListener("click", (event) => {
     if (event.target.id === "changeModal") closeChangeDetail();
   });
