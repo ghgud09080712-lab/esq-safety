@@ -694,11 +694,22 @@ th {
 }
 
 .qc-summary-card {
+  width: 100%;
+  appearance: none;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #fff;
+  color: var(--text);
   padding: 12px 14px;
   box-shadow: 0 8px 18px rgba(19, 63, 115, .05);
+  text-align: left;
+  cursor: pointer;
+}
+
+.qc-summary-card:hover,
+.qc-summary-card:focus {
+  border-color: #9fc2e8;
+  background: #f7faff;
 }
 
 .qc-summary-card.active {
@@ -717,19 +728,6 @@ th {
 .qc-summary-card strong {
   color: #123863;
   font-size: 20px;
-}
-
-.qc-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.qc-filter-row .btn.active {
-  border-color: #205aa8;
-  background: #205aa8;
-  color: #fff;
 }
 
 .detail-sheet-card {

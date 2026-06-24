@@ -791,15 +791,12 @@ function renderQcSummary(cards) {
   const target = $("#qcSummary");
   if (target) {
     target.innerHTML = QC_FILTERS.map((label) => `
-      <article class="qc-summary-card ${state.qcFilter === label ? "active" : ""}">
+      <button class="qc-summary-card ${state.qcFilter === label ? "active" : ""}" data-qc-summary="${escapeHtml(label)}" type="button" aria-pressed="${state.qcFilter === label ? "true" : "false"}">
         <span>${escapeHtml(label)}</span>
         <strong>${counts[label] || 0}건</strong>
-      </article>
+      </button>
     `).join("");
   }
-  $$("#qcFilterRow [data-qc-filter]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.qcFilter === state.qcFilter);
-  });
 }
 
 function matchesQcFilter(card) {
@@ -2108,11 +2105,12 @@ function bindEvents() {
     renderDetailSheets();
     $("#detailSheetRows")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  $$("#qcFilterRow [data-qc-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.qcFilter = button.dataset.qcFilter || "전체";
-      renderDetailSheets();
-    });
+  $("#qcSummary")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-qc-summary]");
+    if (!button) return;
+    state.qcFilter = button.dataset.qcSummary || "전체";
+    state.expandedDetailIds.clear();
+    renderDetailSheets();
   });
   $$("#detailYearTabs [data-detail-year]").forEach((button) => {
     button.addEventListener("click", () => {
