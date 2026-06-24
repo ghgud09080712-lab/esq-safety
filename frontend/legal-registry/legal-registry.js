@@ -2093,7 +2093,7 @@ function bindEvents() {
     state.search = event.target.value;
     renderRegistry();
   });
-  $("#detailAddBtn").addEventListener("click", () => {
+  $("#detailAddBtn")?.addEventListener("click", () => {
     state.addingDetail = true;
     state.editingDetailId = "";
     renderDetailSheets();
