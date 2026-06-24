@@ -467,7 +467,15 @@ function ensure2027LegalReviewCards(payload) {
       createdAt,
       updatedAt: createdAt
     }));
-  if (!statusMigrated && !additions.length && records.length === (payload?.records || []).length) {
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const existingChanges = Array.isArray(payload?.changes) ? payload.changes : [];
+  const changes = existingChanges.filter((change) => {
+    const record = recordById.get(change.recordId);
+    if (!record) return true;
+    return makeLawKey(change.lawName) === makeLawKey(record.lawName);
+  });
+  const invalidChangesRemoved = changes.length !== existingChanges.length;
+  if (!statusMigrated && !additions.length && !invalidChangesRemoved && records.length === (payload?.records || []).length) {
     return { payload, changed: false };
   }
   return {
@@ -475,6 +483,7 @@ function ensure2027LegalReviewCards(payload) {
       ...payload,
       records,
       detailCards: [...detailCards, ...additions],
+      changes,
       updatedAt: createdAt
     },
     changed: true
@@ -676,13 +685,11 @@ async function searchOfficialLaw(lawName, oc) {
   const items = extractLawItems(payload);
   const requested = makeLawKey(lawName);
   return items.find((item) => makeLawKey(item["법령명한글"] || item.lsNm || item["법령명"]) === requested)
-    || items.find((item) => makeLawKey(item["법령명한글"] || item.lsNm || item["법령명"]).includes(requested))
-    || items[0]
     || null;
 }
 
 function buildChange(record, official) {
-  const lawName = official?.["법령명한글"] || official?.lsNm || official?.["법령명"] || record.lawName;
+  const lawName = record.lawName;
   const officialEffectiveDate = pickLawDate(official, ["시행일자", "efYd", "시행일", "시행일자문자열"]);
   const promulgationDate = pickLawDate(official, ["공포일자", "ancYd", "공포일"]);
   const lawId = compactText(official?.["법령ID"] || official?.lawId || official?.ID || official?.id);
