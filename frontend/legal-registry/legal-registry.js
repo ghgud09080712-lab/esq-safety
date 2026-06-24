@@ -897,31 +897,15 @@ function renderRegistry() {
   requestAnimationFrame(fitRegistryTable);
 }
 
-function detailCardGroup(card) {
-  const lawName = normalizeSearchText(card?.lawName || "");
-  const record = (state.data.records || []).find((item) => normalizeSearchText(item.lawName || "") === lawName);
-  const fallbackName = String(card?.lawName || "")
-    .replace(/\s+시행령$/, "")
-    .replace(/\s+시행규칙$/, "")
-    .trim();
-  return {
-    name: record?.group || fallbackName || card?.lawName || "기타 법규",
-    no: String(record?.no || "")
-  };
-}
-
-function detailLawLevelLabel(card) {
-  const lawName = String(card?.lawName || "");
-  if (/시행규칙$/.test(lawName)) return "시행규칙";
-  if (/시행령$/.test(lawName)) return "시행령";
-  return "법률";
-}
-
 function sortDetailCardsByRegistryOrder(cards) {
-  const recordOrder = new Map((state.data.records || []).map((record, index) => [
-    normalizeSearchText(record.lawName || ""),
-    { no: Number.parseInt(record.no, 10), index }
-  ]));
+  const recordOrder = new Map();
+  (state.data.records || []).forEach((record, index) => {
+    const order = { no: Number.parseInt(record.no, 10), index };
+    [record.lawName, record.group].filter(Boolean).forEach((name) => {
+      const key = normalizeSearchText(name);
+      if (!recordOrder.has(key)) recordOrder.set(key, order);
+    });
+  });
   return cards.slice().sort((a, b) => {
     const aOrder = recordOrder.get(normalizeSearchText(a.lawName || ""));
     const bOrder = recordOrder.get(normalizeSearchText(b.lawName || ""));
@@ -994,54 +978,16 @@ function renderDetailSheets() {
   `;
   };
 
-  const groupKey = (card) => normalizeSearchText(detailCardGroup(card).name);
   $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${visibleCards.map((card, yearIndex) => {
-    const grouped = state.detailYear === "2027";
-    const group = detailCardGroup(card);
-    const currentGroupKey = groupKey(card);
-    const previousGroupKey = yearIndex > 0 ? groupKey(visibleCards[yearIndex - 1]) : "";
-    const nextGroupKey = yearIndex < visibleCards.length - 1 ? groupKey(visibleCards[yearIndex + 1]) : "";
-    const groupCards = grouped ? visibleCards.filter((item) => groupKey(item) === currentGroupKey) : [];
-    const groupStart = grouped && currentGroupKey !== previousGroupKey;
-    const groupEnd = grouped && currentGroupKey !== nextGroupKey;
-    const groupStatus = grouped ? {
-      done: groupCards.filter((item) => qcComputedStatus(item) === "완료").length,
-      doing: groupCards.filter((item) => qcComputedStatus(item) === "진행중").length
-    } : { done: 0, doing: 0 };
-    const groupOpen = grouped && (
-      state.expandedDetailGroupKeys.has(currentGroupKey)
-      || groupCards.some((item) => item.id === state.editingDetailId)
-    );
-    const groupStartHtml = groupStart ? `
-      <details class="detail-law-group" data-detail-group-key="${escapeHtml(currentGroupKey)}" ${groupOpen ? "open" : ""}>
-        <summary>
-          <div>
-            <span>${group.no ? `No ${escapeHtml(group.no)}` : "법규 묶음"}</span>
-            <strong>${escapeHtml(group.name)}</strong>
-          </div>
-          <div class="detail-law-group-summary">
-            <span>${groupCards.length}개 법령</span>
-            ${groupStatus.doing ? `<em>진행중 ${groupStatus.doing}</em>` : ""}
-            ${groupStatus.done ? `<em class="done">완료 ${groupStatus.done}</em>` : ""}
-            <i aria-hidden="true"></i>
-          </div>
-        </summary>
-        <div class="detail-law-group-body">
-    ` : "";
-    const groupEndHtml = groupEnd ? `
-        </div>
-      </details>
-    ` : "";
-    if (state.editingDetailId === card.id) return `${groupStartHtml}${detailForm(card, "edit")}${groupEndHtml}`;
+    if (state.editingDetailId === card.id) return detailForm(card, "edit");
     const isOpen = state.expandedDetailIds.has(card.id);
     const qcStatus = qcComputedStatus(card);
     const progress = qcProgress(card);
     return `
-    ${groupStartHtml}
     <article class="detail-sheet-card ${isOpen ? "open" : "collapsed"}">
       <button class="detail-register-head" data-detail-toggle="${escapeHtml(card.id || "")}" type="button" aria-expanded="${isOpen ? "true" : "false"}">
         <div class="detail-register-title">
-          <span>${grouped ? escapeHtml(detailLawLevelLabel(card)) : `법규등록부 ${yearIndex + 1}`}</span>
+          <span>법규등록부 ${yearIndex + 1}</span>
           <h3>${escapeHtml(card.lawName || card.sheetName || "")}</h3>
         </div>
         <div class="detail-register-actions">
@@ -1107,7 +1053,6 @@ function renderDetailSheets() {
         </div>
       </div>
     </article>
-    ${groupEndHtml}
   `;
   }).join("")}` || `<div class="empty">표시할 법규 검토 항목이 없습니다.</div>`;
 }

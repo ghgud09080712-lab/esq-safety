@@ -417,13 +417,19 @@ function legalReviewCategory(record) {
 }
 
 function ensure2027LegalReviewCards(payload) {
-  const records = Array.isArray(payload?.records) ? payload.records.slice() : [];
+  const records = (Array.isArray(payload?.records) ? payload.records : []).map((record) => {
+    const lawName = compactText(record.lawName);
+    if (lawName.startsWith("에너지법")) return { ...record, no: "19", group: "에너지법" };
+    if (lawName.startsWith("에너지이용 합리화법")) return { ...record, no: "20", group: "에너지이용 합리화법" };
+    if (lawName.startsWith("전기사업법")) return { ...record, no: "21", group: "전기사업법" };
+    return record;
+  });
   const recordKeys = new Set(records.map((record) => makeLawKey(record.lawName)));
   legalRegistryEnergyActRecords.forEach((record) => {
     if (!recordKeys.has(makeLawKey(record.lawName))) records.push({ ...record });
   });
   let statusMigrated = false;
-  const detailCards = (Array.isArray(payload?.detailCards) ? payload.detailCards : []).map((card) => {
+  const originalDetailCards = (Array.isArray(payload?.detailCards) ? payload.detailCards : []).map((card) => {
     const isUntouched2027Card = String(card.id || "").startsWith("DETAIL-2027-")
       && String(card.managementYear || "") === "2027"
       && String(card.qcStatus || "") === "미착수";
@@ -435,38 +441,63 @@ function ensure2027LegalReviewCards(payload) {
       updatedAt: new Date().toISOString()
     };
   });
-  const existing2027 = new Set(detailCards
-    .filter((card) => String(card.managementYear || "") === "2027")
-    .map((card) => makeLawKey(card.lawName)));
   const createdAt = new Date().toISOString();
-  const additions = records
-    .filter((record) => record.lawName && !existing2027.has(makeLawKey(record.lawName)))
-    .map((record, index) => ({
-      id: `DETAIL-2027-${record.id || String(index + 1).padStart(4, "0")}`,
-      sheetName: `2027년-${record.lawName}`,
+  const registryGroups = [];
+  const seenGroups = new Set();
+  records.forEach((record) => {
+    const groupName = compactText(record.group || record.lawName);
+    const groupKey = makeLawKey(groupName);
+    if (!groupKey || seenGroups.has(groupKey)) return;
+    seenGroups.add(groupKey);
+    const groupRecords = records.filter((item) => makeLawKey(item.group || item.lawName) === groupKey);
+    const primaryRecord = groupRecords.find((item) => makeLawKey(item.lawName) === groupKey) || groupRecords[0] || record;
+    registryGroups.push({ groupName, groupKey, primaryRecord, records: groupRecords });
+  });
+  const legacyCards = originalDetailCards.filter((card) => String(card.managementYear || "") !== "2027");
+  const existing2027Cards = originalDetailCards.filter((card) => String(card.managementYear || "") === "2027");
+  const cardScore = (card) => {
+    const filledFields = ["mainContent", "companyAction", "qcMemo", "qcEvidence", "qcOwner", "author"]
+      .filter((key) => compactText(card?.[key])).length;
+    const activeStatus = ["진행중", "완료", "보류"].includes(compactText(card?.qcStatus)) ? 10 : 0;
+    return activeStatus + filledFields;
+  };
+  const consolidated2027Cards = registryGroups.map(({ groupName, groupKey, primaryRecord, records: groupRecords }, index) => {
+    const groupLawKeys = new Set(groupRecords.map((record) => makeLawKey(record.lawName)));
+    const candidates = existing2027Cards
+      .filter((card) => groupLawKeys.has(makeLawKey(card.lawName)) || makeLawKey(card.lawName) === groupKey)
+      .sort((a, b) => cardScore(b) - cardScore(a));
+    const existing = candidates[0] || {};
+    return {
+      ...existing,
+      id: existing.id || `DETAIL-2027-GROUP-${String(primaryRecord.no || index + 1).padStart(2, "0")}`,
+      sheetName: `2027년-${groupName}`,
       managementYear: "2027",
-      category: legalReviewCategory(record),
-      lawName: record.lawName,
-      issuer: "법제처",
-      channel: "https://www.law.go.kr/",
-      revisionDate: displayLawDate(record.officialEffectiveDate || record.registeredEffectiveDate),
-      registeredDate: "",
-      team: "ESQ",
-      author: "",
-      applicability: "",
-      mainContent: "",
-      companyAction: "",
-      qcStatus: "해당없음",
-      qcValidity: "차기확인",
-      qcOwner: "",
-      qcDueDate: "",
-      qcDoneDate: "",
-      qcEvidence: "",
-      qcMemo: "",
-      rows: [],
-      createdAt,
+      category: existing.category || legalReviewCategory(primaryRecord),
+      lawName: groupName,
+      issuer: existing.issuer || "법제처",
+      channel: existing.channel || "https://www.law.go.kr/",
+      revisionDate: existing.revisionDate || displayLawDate(primaryRecord.officialEffectiveDate || primaryRecord.registeredEffectiveDate),
+      registeredDate: existing.registeredDate || "",
+      team: existing.team || "ESQ",
+      author: existing.author || "",
+      applicability: existing.applicability || "",
+      mainContent: existing.mainContent || "",
+      companyAction: existing.companyAction || "",
+      qcStatus: existing.qcStatus || "해당없음",
+      qcValidity: existing.qcValidity || "차기확인",
+      qcOwner: existing.qcOwner || "",
+      qcDueDate: existing.qcDueDate || "",
+      qcDoneDate: existing.qcDoneDate || "",
+      qcEvidence: existing.qcEvidence || "",
+      qcMemo: existing.qcMemo || "",
+      rows: existing.rows || [],
+      createdAt: existing.createdAt || createdAt,
       updatedAt: createdAt
-    }));
+    };
+  });
+  const detailCards = [...legacyCards, ...consolidated2027Cards];
+  const consolidated = existing2027Cards.length !== consolidated2027Cards.length
+    || consolidated2027Cards.some((card) => !existing2027Cards.some((existing) => existing.id === card.id && makeLawKey(existing.lawName) === makeLawKey(card.lawName)));
   const recordById = new Map(records.map((record) => [record.id, record]));
   const existingChanges = Array.isArray(payload?.changes) ? payload.changes : [];
   const changes = existingChanges.filter((change) => {
@@ -475,14 +506,14 @@ function ensure2027LegalReviewCards(payload) {
     return makeLawKey(change.lawName) === makeLawKey(record.lawName);
   });
   const invalidChangesRemoved = changes.length !== existingChanges.length;
-  if (!statusMigrated && !additions.length && !invalidChangesRemoved && records.length === (payload?.records || []).length) {
+  if (!statusMigrated && !consolidated && !invalidChangesRemoved && records.length === (payload?.records || []).length) {
     return { payload, changed: false };
   }
   return {
     payload: {
       ...payload,
       records,
-      detailCards: [...detailCards, ...additions],
+      detailCards,
       changes,
       updatedAt: createdAt
     },
