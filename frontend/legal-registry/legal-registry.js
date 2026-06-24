@@ -636,9 +636,15 @@ function recentChanges() {
     const effectiveDate = parseLawDateValue(change.effectiveDate);
     return !(previousDate && effectiveDate && effectiveDate.getTime() < previousDate.getTime());
   }).sort((a, b) => {
-    const aTime = Date.parse(a.checkedAt || a.appliedAt || a.updatedAt || "") || 0;
-    const bTime = Date.parse(b.checkedAt || b.appliedAt || b.updatedAt || "") || 0;
-    return bTime - aTime;
+    const aPromulgation = parseLawDateValue(a.promulgationDate)?.getTime() || 0;
+    const bPromulgation = parseLawDateValue(b.promulgationDate)?.getTime() || 0;
+    if (aPromulgation !== bPromulgation) return bPromulgation - aPromulgation;
+    const aEffective = parseLawDateValue(a.effectiveDate)?.getTime() || 0;
+    const bEffective = parseLawDateValue(b.effectiveDate)?.getTime() || 0;
+    if (aEffective !== bEffective) return bEffective - aEffective;
+    const aChecked = Date.parse(a.checkedAt || a.appliedAt || a.updatedAt || "") || 0;
+    const bChecked = Date.parse(b.checkedAt || b.appliedAt || b.updatedAt || "") || 0;
+    return bChecked - aChecked;
   });
   const seen = new Set();
   return sorted.filter((change) => {
