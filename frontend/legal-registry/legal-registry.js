@@ -3,6 +3,7 @@ const state = {
   activeView: "dashboard",
   search: "",
   detailYear: "legacy",
+  detailSearch: "",
   qcFilter: "전체",
   addingDetail: false,
   editingDetailId: "",
@@ -924,7 +925,22 @@ function renderDetailSheets() {
     ? sortDetailCardsByRegistryOrder(filteredYearCards)
     : filteredYearCards;
   renderQcSummary(yearCards);
-  const visibleCards = yearCards.filter(matchesQcFilter);
+  const detailQuery = normalizeSearchText(state.detailSearch);
+  const visibleCards = yearCards.filter((card) => {
+    if (!matchesQcFilter(card)) return false;
+    if (!detailQuery) return true;
+    const searchText = normalizeSearchText([
+      card.lawName,
+      card.sheetName,
+      card.mainContent,
+      card.companyAction,
+      card.qcMemo,
+      card.qcOwner,
+      card.qcEvidence,
+      card.issuer
+    ].filter(Boolean).join(" "));
+    return searchText.includes(detailQuery);
+  });
   $$("#detailYearTabs [data-detail-year]").forEach((button) => {
     button.classList.toggle("active", button.dataset.detailYear === state.detailYear);
   });
@@ -979,7 +995,7 @@ function renderDetailSheets() {
   `;
   };
 
-  $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${visibleCards.map((card, yearIndex) => {
+  const renderedCards = visibleCards.map((card, yearIndex) => {
     if (state.editingDetailId === card.id) return detailForm(card, "edit");
     const isOpen = state.expandedDetailIds.has(card.id);
     const qcStatus = qcComputedStatus(card);
@@ -1055,7 +1071,11 @@ function renderDetailSheets() {
       </div>
     </article>
   `;
-  }).join("")}` || `<div class="empty">표시할 법규 검토 항목이 없습니다.</div>`;
+  }).join("");
+  const emptyMessage = detailQuery
+    ? `"${escapeHtml(state.detailSearch.trim())}" 검색 결과가 없습니다.`
+    : "표시할 법규 검토 항목이 없습니다.";
+  $("#detailSheetRows").innerHTML = `${state.addingDetail ? detailForm({}, "add") : ""}${renderedCards || `<div class="empty">${emptyMessage}</div>`}`;
 }
 
 const COMPANY_CHANGE_REVIEW_RULES = [
@@ -2035,6 +2055,11 @@ function bindEvents() {
   $("#registrySearch").addEventListener("input", (event) => {
     state.search = event.target.value;
     renderRegistry();
+  });
+  $("#detailSearch")?.addEventListener("input", (event) => {
+    state.detailSearch = event.target.value;
+    state.expandedDetailIds.clear();
+    renderDetailSheets();
   });
   $("#detailAddBtn")?.addEventListener("click", () => {
     state.addingDetail = true;

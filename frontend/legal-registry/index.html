@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESQ 법규등록부</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260624-single-review-card">
+  <link rel="stylesheet" href="/frontend/legal-registry/legal-registry.css?v=20260624-review-search">
 </head>
 <body>
   <div class="app-shell">
@@ -66,6 +66,9 @@
       </section>
 
       <section id="detailSheetsView" class="view">
+        <div class="detail-review-search">
+          <input class="search-input" id="detailSearch" type="search" placeholder="법규명, 적용내용, 당사 적용사항 검색" aria-label="법규검토 검색">
+        </div>
         <div class="detail-year-tabs" id="detailYearTabs" aria-label="법규검토 관리연도">
           <button class="detail-year-tab active" data-detail-year="legacy" type="button">
             <span>현재까지</span>
@@ -179,6 +182,6 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/legal-registry/legal-registry.js?v=20260624-single-review-card"></script>
+  <script src="/frontend/legal-registry/legal-registry.js?v=20260624-review-search"></script>
 </body>
 </html>
