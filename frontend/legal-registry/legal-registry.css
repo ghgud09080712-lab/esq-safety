@@ -608,6 +608,92 @@ th {
   gap: 14px;
 }
 
+.detail-law-group {
+  overflow: hidden;
+  border: 1px solid #b9cce2;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(19, 63, 115, .06);
+}
+
+.detail-law-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 70px;
+  padding: 14px 18px;
+  background: #edf4fc;
+  color: #123863;
+  cursor: pointer;
+  list-style: none;
+}
+
+.detail-law-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-law-group > summary > div:first-child span {
+  display: block;
+  margin-bottom: 4px;
+  color: #55718f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.detail-law-group > summary > div:first-child strong {
+  font-size: 18px;
+}
+
+.detail-law-group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #55718f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.detail-law-group-summary em {
+  border-radius: 4px;
+  padding: 4px 7px;
+  background: #fff1cc;
+  color: #8a5b00;
+  font-style: normal;
+}
+
+.detail-law-group-summary em.done {
+  background: #dff3ea;
+  color: #176c52;
+}
+
+.detail-law-group-summary i {
+  width: 10px;
+  height: 10px;
+  margin-left: 5px;
+  border-right: 2px solid #205aa8;
+  border-bottom: 2px solid #205aa8;
+  transform: rotate(45deg);
+  transition: transform .18s ease;
+}
+
+.detail-law-group[open] .detail-law-group-summary i {
+  transform: rotate(225deg);
+}
+
+.detail-law-group-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid #cbd9e8;
+  background: #f7faff;
+}
+
+.detail-law-group-body .detail-sheet-card {
+  box-shadow: none;
+}
+
 .detail-year-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
