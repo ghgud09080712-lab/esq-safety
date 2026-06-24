@@ -663,8 +663,8 @@ const QC_VALIDITY_OPTIONS = ["보완필요", "차기확인", "적합"];
 const NOT_APPLICABLE_MAIN_CONTENT = "법규 개정사항 없음";
 const NOT_APPLICABLE_COMPANY_ACTION = "법규 검토 결과 해당사항없음.";
 const DETAIL_YEAR_OPTIONS = [
-  { value: "legacy", label: "현재까지(~2026)" },
-  { value: "2027", label: "2027년" }
+  { value: "legacy", label: "~2026" },
+  { value: "2027", label: "2027" }
 ];
 
 function detailManagementYear(card) {
@@ -672,7 +672,7 @@ function detailManagementYear(card) {
 }
 
 function detailManagementYearLabel(value) {
-  return DETAIL_YEAR_OPTIONS.find((option) => option.value === value)?.label || "현재까지(~2026)";
+  return DETAIL_YEAR_OPTIONS.find((option) => option.value === value)?.label || "~2026";
 }
 
 function renderDetailYearSelect(value) {
