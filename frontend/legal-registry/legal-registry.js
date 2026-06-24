@@ -2061,7 +2061,7 @@ function submitAiQuestion(inputSelector, surface = "") {
 }
 
 function bindEvents() {
-  $("#sidebarToggleBtn").addEventListener("click", () => document.body.classList.toggle("sidebar-collapsed"));
+  $("#sidebarToggleBtn")?.addEventListener("click", () => document.body.classList.toggle("sidebar-collapsed"));
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$("[data-jump]").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.jump)));
   $("#refreshBtn").addEventListener("click", refreshLaws);
