@@ -704,9 +704,6 @@ async function fetchOfficialLawById(lawName, lawId, oc) {
 }
 
 async function searchOfficialLaw(lawName, oc, lawId = "") {
-  const byId = await fetchOfficialLawById(lawName, lawId, oc).catch(() => null);
-  if (byId) return byId;
-
   const params = new URLSearchParams({
     OC: oc,
     target: "law",
@@ -744,8 +741,9 @@ async function searchOfficialLaw(lawName, oc, lawId = "") {
   }
   const items = extractLawItems(payload);
   const requested = makeLawKey(lawName);
-  return items.find((item) => makeLawKey(item["법령명한글"] || item.lsNm || item["법령명"]) === requested)
-    || null;
+  const exact = items.find((item) => makeLawKey(item["법령명한글"] || item.lsNm || item["법령명"]) === requested);
+  if (exact) return exact;
+  return fetchOfficialLawById(lawName, lawId, oc).catch(() => null);
 }
 
 function buildChange(record, official) {
@@ -756,7 +754,7 @@ function buildChange(record, official) {
   const mst = compactText(official?.["법령일련번호"] || official?.MST || official?.mst);
   const currentDate = normalizeLawDate(record.officialEffectiveDate || record.registeredEffectiveDate);
   const nextDate = normalizeLawDate(officialEffectiveDate);
-  const changed = Boolean(nextDate && nextDate !== currentDate);
+  const changed = Boolean(nextDate && (!currentDate || nextDate > currentDate));
   return {
     id: `CHG-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
     recordId: record.id,
@@ -770,6 +768,12 @@ function buildChange(record, official) {
     summary: changed ? "시행일자가 변경되어 등록 검토가 필요합니다." : "등록부와 최신 시행일자가 같습니다.",
     checkedAt: new Date().toISOString()
   };
+}
+
+function isReverseLawChange(change) {
+  const previousDate = normalizeLawDate(change?.previousEffectiveDate);
+  const effectiveDate = normalizeLawDate(change?.effectiveDate);
+  return Boolean(previousDate && effectiveDate && effectiveDate < previousDate);
 }
 
 function flattenLawText(value, output = []) {
@@ -1782,17 +1786,22 @@ app.post("/api/legal-registry/refresh", async (req, res) => {
     });
     const pendingChanges = checked
       .filter((item) => item.status === "new")
+      .filter((item) => !isReverseLawChange(item))
       .map((item) => ({
         ...item,
         status: "auto-applied",
         summary: "새로고침으로 변경 법규를 자동 등록했습니다.",
         appliedAt: autoAppliedAt
       }));
-    const existingChangeKeys = new Set((data.changes || []).map((item) => `${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`));
-    const newChanges = pendingChanges.filter((item) => !existingChangeKeys.has(`${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`));
+    const pendingChangeKeys = new Set(pendingChanges.map((item) => `${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`));
+    const retainedChanges = (data.changes || []).filter((item) => {
+      if (isReverseLawChange(item)) return false;
+      return !pendingChangeKeys.has(`${makeLawKey(item.lawName)}|${normalizeLawDate(item.effectiveDate)}`);
+    });
+    const newChanges = pendingChanges;
     const changes = [
       ...newChanges,
-      ...(data.changes || [])
+      ...retainedChanges
     ];
     const log = {
       at: new Date().toISOString(),

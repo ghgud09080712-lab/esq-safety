@@ -631,7 +631,11 @@ function openLawPreview(lawName, query = "") {
 }
 
 function recentChanges() {
-  const sorted = (state.data.changes || []).slice().sort((a, b) => {
+  const sorted = (state.data.changes || []).filter((change) => {
+    const previousDate = normalizeLawDate(change.previousEffectiveDate);
+    const effectiveDate = normalizeLawDate(change.effectiveDate);
+    return !(previousDate && effectiveDate && effectiveDate < previousDate);
+  }).sort((a, b) => {
     const aTime = Date.parse(a.checkedAt || a.appliedAt || a.updatedAt || "") || 0;
     const bTime = Date.parse(b.checkedAt || b.appliedAt || b.updatedAt || "") || 0;
     return bTime - aTime;
