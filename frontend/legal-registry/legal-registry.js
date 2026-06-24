@@ -977,29 +977,6 @@ function renderDetailSheets() {
   $$("#detailYearTabs [data-detail-year]").forEach((button) => {
     button.classList.toggle("active", button.dataset.detailYear === state.detailYear);
   });
-  const detailToc = $("#detailToc");
-  if (detailToc) {
-    detailToc.innerHTML = visibleCards.length ? `
-      <details class="detail-toc" open>
-        <summary>
-          <span>목차</span>
-          <strong>${visibleCards.length}건</strong>
-        </summary>
-        <div class="detail-toc-list">
-          ${visibleCards.map((card, index) => {
-            const status = qcComputedStatus(card);
-            return `
-              <button class="detail-toc-item" data-detail-toc="${escapeHtml(card.id || "")}" type="button">
-                <span>${index + 1}</span>
-                <strong>${escapeHtml(card.lawName || card.sheetName || "")}</strong>
-                <em class="qc-status-badge ${qcStatusClass(status)}">${escapeHtml(status)}</em>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </details>
-    ` : "";
-  }
 
   const metaItem = (label, value) => `
     <div class="detail-meta-item">
@@ -1057,7 +1034,7 @@ function renderDetailSheets() {
     const qcStatus = qcComputedStatus(card);
     const progress = qcProgress(card);
     return `
-    <article class="detail-sheet-card ${isOpen ? "open" : "collapsed"}" data-detail-card-id="${escapeHtml(card.id || "")}">
+    <article class="detail-sheet-card ${isOpen ? "open" : "collapsed"}">
       <button class="detail-register-head" data-detail-toggle="${escapeHtml(card.id || "")}" type="button" aria-expanded="${isOpen ? "true" : "false"}">
         <div class="detail-register-title">
           <span>법규등록부 ${yearIndex + 1}</span>
@@ -2190,18 +2167,6 @@ function bindEvents() {
         if (isOpen) state.expandedDetailIds.add(detailId);
         else state.expandedDetailIds.delete(detailId);
       }
-      return;
-    }
-    const tocButton = event.target.closest("[data-detail-toc]");
-    if (tocButton) {
-      const detailId = tocButton.dataset.detailToc || "";
-      if (!detailId) return;
-      state.expandedDetailIds.add(detailId);
-      renderDetailSheets();
-      requestAnimationFrame(() => {
-        const card = document.querySelector(`[data-detail-card-id="${CSS.escape(detailId)}"]`);
-        card?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
       return;
     }
     const button = event.target.closest("[data-apply]");
