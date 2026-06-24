@@ -853,10 +853,20 @@ function renderRegistryChangeCell(record) {
 
 function renderRegistry() {
   const query = state.search.trim().toLowerCase();
-  const records = (state.data.records || []).filter((record) => {
-    if (!query) return true;
-    return `${record.group} ${record.lawName}`.toLowerCase().includes(query);
-  });
+  const records = (state.data.records || [])
+    .map((record, index) => ({ record, index }))
+    .filter(({ record }) => {
+      if (!query) return true;
+      return `${record.group} ${record.lawName}`.toLowerCase().includes(query);
+    })
+    .sort((a, b) => {
+      const aNo = Number.parseInt(a.record.no, 10);
+      const bNo = Number.parseInt(b.record.no, 10);
+      const normalizedANo = Number.isFinite(aNo) ? aNo : Number.MAX_SAFE_INTEGER;
+      const normalizedBNo = Number.isFinite(bNo) ? bNo : Number.MAX_SAFE_INTEGER;
+      return normalizedANo - normalizedBNo || a.index - b.index;
+    })
+    .map(({ record }) => record);
   const groups = [];
   for (const record of records) {
     const key = `${record.no || ""}|${record.group || record.lawName || ""}`;
