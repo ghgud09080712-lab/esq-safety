@@ -637,6 +637,8 @@ const APPLICABILITY_OPTIONS = ["해당", "해당무"];
 const QC_STATUS_OPTIONS = ["미착수", "진행중", "완료", "보류", "해당없음"];
 const QC_FILTERS = ["전체", "진행중", "완료", "지연", "해당없음"];
 const QC_VALIDITY_OPTIONS = ["보완필요", "차기확인", "적합"];
+const NOT_APPLICABLE_MAIN_CONTENT = "법규 개정사항 없음";
+const NOT_APPLICABLE_COMPANY_ACTION = "법규 검토 결과 해당사항없음.";
 const DETAIL_YEAR_OPTIONS = [
   { value: "legacy", label: "현재까지(~2026)" },
   { value: "2027", label: "2027년" }
@@ -2147,6 +2149,14 @@ function bindEvents() {
   document.addEventListener("input", (event) => {
     if (event.target.id !== "lawArticleSearchInput") return;
     renderLawPreviewArticles(event.target.value);
+  });
+  document.addEventListener("change", (event) => {
+    if (!event.target.matches('[data-detail-form] select[name="qcStatus"]') || event.target.value !== "해당없음") return;
+    const form = event.target.closest("[data-detail-form]");
+    const mainContent = form?.querySelector('textarea[name="mainContent"]');
+    const companyAction = form?.querySelector('textarea[name="companyAction"]');
+    if (mainContent && !mainContent.value.trim()) mainContent.value = NOT_APPLICABLE_MAIN_CONTENT;
+    if (companyAction && !companyAction.value.trim()) companyAction.value = NOT_APPLICABLE_COMPANY_ACTION;
   });
   document.addEventListener("toggle", (event) => {
     const group = event.target.closest?.(".detail-law-group[data-detail-group-key]");

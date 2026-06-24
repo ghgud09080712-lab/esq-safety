@@ -416,6 +416,9 @@ function legalReviewCategory(record) {
   return "□안전 ■환경 □에너지";
 }
 
+const NOT_APPLICABLE_MAIN_CONTENT = "법규 개정사항 없음";
+const NOT_APPLICABLE_COMPANY_ACTION = "법규 검토 결과 해당사항없음.";
+
 function ensure2027LegalReviewCards(payload) {
   const records = (Array.isArray(payload?.records) ? payload.records : []).map((record) => {
     const lawName = compactText(record.lawName);
@@ -461,12 +464,17 @@ function ensure2027LegalReviewCards(payload) {
     const activeStatus = ["진행중", "완료", "보류"].includes(compactText(card?.qcStatus)) ? 10 : 0;
     return activeStatus + filledFields;
   };
+  let defaultContentMigrated = false;
   const consolidated2027Cards = registryGroups.map(({ groupName, groupKey, primaryRecord, records: groupRecords }, index) => {
     const groupLawKeys = new Set(groupRecords.map((record) => makeLawKey(record.lawName)));
     const candidates = existing2027Cards
       .filter((card) => groupLawKeys.has(makeLawKey(card.lawName)) || makeLawKey(card.lawName) === groupKey)
       .sort((a, b) => cardScore(b) - cardScore(a));
     const existing = candidates[0] || {};
+    const qcStatus = existing.qcStatus || "해당없음";
+    const mainContent = existing.mainContent || (qcStatus === "해당없음" ? NOT_APPLICABLE_MAIN_CONTENT : "");
+    const companyAction = existing.companyAction || (qcStatus === "해당없음" ? NOT_APPLICABLE_COMPANY_ACTION : "");
+    if (qcStatus === "해당없음" && (!existing.mainContent || !existing.companyAction)) defaultContentMigrated = true;
     return {
       ...existing,
       id: existing.id || `DETAIL-2027-GROUP-${String(primaryRecord.no || index + 1).padStart(2, "0")}`,
@@ -481,9 +489,9 @@ function ensure2027LegalReviewCards(payload) {
       team: existing.team || "ESQ",
       author: existing.author || "",
       applicability: existing.applicability || "",
-      mainContent: existing.mainContent || "",
-      companyAction: existing.companyAction || "",
-      qcStatus: existing.qcStatus || "해당없음",
+      mainContent,
+      companyAction,
+      qcStatus,
       qcValidity: existing.qcValidity || "차기확인",
       qcOwner: existing.qcOwner || "",
       qcDueDate: existing.qcDueDate || "",
@@ -506,7 +514,7 @@ function ensure2027LegalReviewCards(payload) {
     return makeLawKey(change.lawName) === makeLawKey(record.lawName);
   });
   const invalidChangesRemoved = changes.length !== existingChanges.length;
-  if (!statusMigrated && !consolidated && !invalidChangesRemoved && records.length === (payload?.records || []).length) {
+  if (!statusMigrated && !defaultContentMigrated && !consolidated && !invalidChangesRemoved && records.length === (payload?.records || []).length) {
     return { payload, changed: false };
   }
   return {
@@ -1640,6 +1648,10 @@ function normalizeDetailCardInput(input, existing = {}, index = 0) {
     qcMemo: preserveText(pickInputValue(input, existing, "qcMemo")),
     updatedAt: new Date().toISOString()
   };
+  if (card.qcStatus === "해당없음") {
+    if (!card.mainContent) card.mainContent = NOT_APPLICABLE_MAIN_CONTENT;
+    if (!card.companyAction) card.companyAction = NOT_APPLICABLE_COMPANY_ACTION;
+  }
   card.rows = [
     ["법규등록부"],
     ["관리연도", card.managementYear === "2027" ? "2027년" : "현재까지(~2026)"],
