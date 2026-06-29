@@ -36,6 +36,9 @@ const safetyConfigPath = path.join(__dirname, "safety-local-config.json");
 const accessLogPath = path.join(dataDir, "access.log");
 const safetyHtmlPath = path.join(rootDir, "frontend", "safety", "index.html");
 const legalRegistryHtmlPath = path.join(rootDir, "frontend", "legal-registry", "index.html");
+const psmHtmlPath = path.join(rootDir, "frontend", "psm", "index.html");
+const psmRootPath = path.resolve(process.env.PSM_ROOT_PATH || "\\\\Desktop-0vbufvh\\esq공유폴더");
+const psmMetadataPath = path.join(dataDir, "psm-metadata.json");
 const firebaseConfigPath = path.join(rootDir, "firebase-config.js");
 const legalRegistryDataPath = path.join(dataDir, "legal-registry.json");
 const legalRegistryDataSeedPath = path.join(seedDir, "legal-registry.seed.json");
@@ -108,6 +111,160 @@ async function writeJson(filePath, value) {
   const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
   await fs.writeFile(tempPath, JSON.stringify(value, null, 2), "utf8");
   await fs.rename(tempPath, filePath);
+}
+
+let psmScanCache = { scannedAt: 0, documents: [], error: null };
+const psmRequiredChecklist = [
+  { id: "PSM-01", title: "공정안전자료", keywords: ["공정안전자료", "유해위험물질", "안전밸브", "설비배치도", "P&ID", "PFD"] },
+  { id: "PSM-02", title: "공정위험성평가", keywords: ["공정위험성평가", "위험성평가", "HAZOP", "K-PSR", "JSA", "4M"] },
+  { id: "PSM-03", title: "안전운전계획", keywords: ["안전운전", "작업허가", "도급업체", "변경요소", "설비점검"] },
+  { id: "PSM-04", title: "비상조치계획", keywords: ["비상조치", "비상대응", "비상조치계획"] },
+  { id: "PSM-05", title: "자체감사 및 시정조치", keywords: ["자체감사", "시정조치", "정기평가"] },
+  { id: "PSM-06", title: "P&ID / PFD / 배치도", keywords: ["P&ID", "PFD", "배치도", "도면"] },
+  { id: "PSM-07", title: "교육훈련", keywords: ["교육", "훈련", "교육훈련"] },
+  { id: "PSM-08", title: "공정사고 조사", keywords: ["공정사고", "사고조사"] }
+];
+
+function normalizePsmRelativePath(value) {
+  return String(value || "").replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function resolvePsmPath(relativePath) {
+  const normalized = normalizePsmRelativePath(relativePath);
+  const resolved = path.resolve(psmRootPath, ...normalized.split("/").filter(Boolean));
+  const relative = path.relative(psmRootPath, resolved);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("허용되지 않은 PSM 문서 경로입니다.");
+  return resolved;
+}
+
+function classifyPsmDocument(relativePath) {
+  const parts = normalizePsmRelativePath(relativePath).split("/");
+  const joined = parts.join(" ");
+  let company = "공통";
+  const hasOyoung = parts.some((item) => /오영/.test(item));
+  const hasSem = parts.some((item) => /에스이엠|SEM/i.test(item));
+  if (hasOyoung && !hasSem) company = "오영";
+  else if (hasSem && !hasOyoung) company = "에스이엠";
+
+  let category = "기타 자료";
+  if (/자체감사|시정조치/.test(joined)) category = "자체감사 및 시정조치";
+  else if (/P&ID|PFD|배치도|도면/i.test(joined)) category = "도면 및 배치도";
+  else if (/공정위험성|HAZOP|K-PSR|위험성평가|JSA|4M/i.test(joined)) category = "공정위험성평가";
+  else if (/비상조치|비상대응/.test(joined)) category = "비상조치계획";
+  else if (/안전운전|작업허가|도급업체|변경요소|설비점검/.test(joined)) category = "안전운전계획";
+  else if (/공정안전자료|유해.?위험물질|안전밸브|가스감지기/.test(joined)) category = "공정안전자료";
+  else if (/평가|점검자료/.test(joined)) category = "평가 및 점검자료";
+  return { company, category };
+}
+
+async function scanPsmDocuments(force = false) {
+  const now = Date.now();
+  if (!force && psmScanCache.documents.length && now - psmScanCache.scannedAt < 30000) return psmScanCache;
+  const documents = [];
+  const walk = async (directory) => {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    await Promise.all(entries.map(async (entry) => {
+      const ignoredNames = new Set([".ds_store", "thumbs.db"]);
+      const ignoredExtensions = new Set([".dwl", ".dwl2", ".tmp", ".log"]);
+      if (entry.name.startsWith("~$") || ignoredNames.has(entry.name.toLowerCase()) || ignoredExtensions.has(path.extname(entry.name).toLowerCase())) return;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) return walk(absolutePath);
+      if (!entry.isFile()) return;
+      const stat = await fs.stat(absolutePath);
+      const relativePath = normalizePsmRelativePath(path.relative(psmRootPath, absolutePath));
+      const extension = path.extname(entry.name).slice(1).toUpperCase() || "FILE";
+      const classification = classifyPsmDocument(relativePath);
+      documents.push({
+        id: crypto.createHash("sha1").update(relativePath.toLowerCase()).digest("hex").slice(0, 16),
+        name: entry.name,
+        relativePath,
+        directory: normalizePsmRelativePath(path.dirname(relativePath)) === "." ? "" : normalizePsmRelativePath(path.dirname(relativePath)),
+        extension,
+        size: stat.size,
+        modifiedAt: stat.mtime.toISOString(),
+        ...classification
+      });
+    }));
+  };
+  try {
+    await walk(psmRootPath);
+    documents.sort((a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt));
+    psmScanCache = { scannedAt: now, documents, error: null };
+  } catch (error) {
+    psmScanCache = { scannedAt: now, documents: [], error: error.message || "PSM 공유폴더를 읽지 못했습니다." };
+  }
+  return psmScanCache;
+}
+
+async function readPsmMetadata() {
+  return readJson(psmMetadataPath, { documents: {}, auditLogs: [], snapshot: {}, updatedAt: null });
+}
+
+function mergePsmMetadata(document, metadata) {
+  const saved = metadata.documents?.[document.id] || {};
+  return {
+    ...document,
+    owner: String(saved.owner || ""),
+    status: String(saved.status || "최신"),
+    revisionDate: saved.revisionDate || document.modifiedAt.slice(0, 10),
+    reviewDueDate: saved.reviewDueDate || "",
+    reviewCycleMonths: Number(saved.reviewCycleMonths || 12),
+    favorite: Boolean(saved.favorite),
+    version: String(saved.version || ""),
+    tags: Array.isArray(saved.tags) ? saved.tags : [],
+    note: String(saved.note || "")
+  };
+}
+
+function buildPsmMissingChecklist(documents) {
+  return psmRequiredChecklist.map((item) => {
+    const matches = documents.filter((doc) => {
+      const haystack = `${doc.name} ${doc.relativePath} ${doc.category}`.toLowerCase();
+      return item.keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+    });
+    return {
+      ...item,
+      count: matches.length,
+      status: matches.length ? "확인됨" : "누락",
+      examples: matches.slice(0, 5).map((doc) => ({ id: doc.id, name: doc.name, relativePath: doc.relativePath }))
+    };
+  });
+}
+
+function buildPsmChanges(documents, metadata) {
+  const snapshot = metadata.snapshot && typeof metadata.snapshot === "object" ? metadata.snapshot : {};
+  const previous = snapshot.files && typeof snapshot.files === "object" ? snapshot.files : {};
+  const current = Object.fromEntries(documents.map((doc) => [doc.id, `${doc.relativePath}|${doc.size}|${doc.modifiedAt}`]));
+  const newFiles = documents.filter((doc) => !previous[doc.id]);
+  const modifiedFiles = documents.filter((doc) => previous[doc.id] && previous[doc.id] !== current[doc.id]);
+  const removedFiles = Object.keys(previous).filter((id) => !current[id]).map((id) => ({ id, signature: previous[id] }));
+  return { baselineAt: snapshot.createdAt || null, newFiles, modifiedFiles, removedFiles };
+}
+
+function markLatestCandidates(documents) {
+  const groups = new Map();
+  documents.forEach((doc) => {
+    const baseName = doc.name
+      .replace(/\.[^.]+$/, "")
+      .replace(/\b(20\d{2}[.\-_년월일\s]*)+/g, "")
+      .replace(/\b(v|rev)[.\s_-]*\d+(\.\d+)?/ig, "")
+      .replace(/최신본|최종|수정본|완료|개정/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    const key = `${doc.company}|${doc.category}|${baseName || doc.name.toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(doc);
+  });
+  groups.forEach((items) => {
+    if (items.length < 2) return;
+    const newest = [...items].sort((a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt))[0];
+    items.forEach((item) => {
+      item.latestCandidate = item.id === newest.id;
+      item.relatedVersions = items.length;
+    });
+  });
+  return documents;
 }
 
 let legalRegistryFirebaseApp = null;
@@ -1296,6 +1453,7 @@ function defaultAppPath(req) {
   const configuredTarget = String(process.env.APP_TARGET || "").trim().toLowerCase();
   if (["legal", "legal-registry"].includes(configuredTarget)) return "/legal-registry";
   if (configuredTarget === "safety") return "/safety";
+  if (configuredTarget === "psm") return "/psm";
 
   const forwardedHost = String(req.headers["x-forwarded-host"] || "").split(",")[0].trim();
   const hostname = String(forwardedHost || req.hostname || req.headers.host || "").toLowerCase();
@@ -1317,7 +1475,8 @@ app.get("/app", (req, res) => {
 
 const canonicalAppPaths = new Map([
   ["/safety", "/safety"],
-  ["/legal-registry", "/legal-registry"]
+  ["/legal-registry", "/legal-registry"],
+  ["/psm", "/psm"]
 ]);
 
 app.use((req, res, next) => {
@@ -1340,6 +1499,11 @@ app.get("/safety", (_req, res) => {
 app.get("/legal-registry", (_req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.sendFile(legalRegistryHtmlPath);
+});
+
+app.get("/psm", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.sendFile(psmHtmlPath);
 });
 
 app.get("/safety-dept", (_req, res) => {
@@ -2453,6 +2617,163 @@ app.get("/api/shared-data", async (_req, res) => {
   res.json(data);
 });
 
+app.get("/api/psm/documents", async (req, res) => {
+  const force = String(req.query.force || "") === "1";
+  const [scan, metadata] = await Promise.all([scanPsmDocuments(force), readPsmMetadata()]);
+  if (scan.error) return res.status(503).json({ ok: false, message: scan.error, rootPath: psmRootPath, documents: [] });
+  const documents = markLatestCandidates(scan.documents.map((item) => mergePsmMetadata(item, metadata)));
+  res.json({
+    ok: true,
+    rootPath: psmRootPath,
+    scannedAt: new Date(scan.scannedAt).toISOString(),
+    documents,
+    missingChecklist: buildPsmMissingChecklist(documents),
+    changes: buildPsmChanges(documents, metadata)
+  });
+});
+
+app.get("/api/psm/audit-logs", async (_req, res) => {
+  const metadata = await readPsmMetadata();
+  res.json({ ok: true, auditLogs: Array.isArray(metadata.auditLogs) ? metadata.auditLogs : [] });
+});
+
+app.get("/api/psm/download", async (req, res) => {
+  try {
+    const target = resolvePsmPath(req.query.relativePath);
+    const stat = await fs.stat(target);
+    if (!stat.isFile()) return res.status(400).type("text/plain").send("파일 경로가 아닙니다.");
+    res.download(target, path.basename(target));
+  } catch (error) {
+    res.status(404).type("text/plain").send(error.message || "문서를 찾지 못했습니다.");
+  }
+});
+
+app.get("/api/psm/preview", async (req, res) => {
+  try {
+    const target = resolvePsmPath(req.query.relativePath);
+    const stat = await fs.stat(target);
+    if (!stat.isFile()) return res.status(400).type("text/plain").send("파일 경로가 아닙니다.");
+    const ext = path.extname(target).toLowerCase();
+    const mimeByExt = {
+      ".pdf": "application/pdf",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".txt": "text/plain; charset=utf-8"
+    };
+    if (!mimeByExt[ext]) return res.status(415).type("text/plain").send("미리보기를 지원하지 않는 파일 형식입니다.");
+    res.setHeader("Content-Type", mimeByExt[ext]);
+    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(path.basename(target))}`);
+    res.sendFile(target);
+  } catch (error) {
+    res.status(404).type("text/plain").send(error.message || "문서를 찾지 못했습니다.");
+  }
+});
+
+app.get("/api/psm/export.xlsx", async (_req, res) => {
+  const [scan, metadata] = await Promise.all([scanPsmDocuments(false), readPsmMetadata()]);
+  if (scan.error) return res.status(503).type("text/plain").send(scan.error);
+  const documents = markLatestCandidates(scan.documents.map((item) => mergePsmMetadata(item, metadata)));
+  const rows = documents.map((doc) => ({
+    상태: doc.status,
+    문서명: doc.name,
+    회사: doc.company,
+    PSM분류: doc.category,
+    담당자: doc.owner,
+    버전: doc.version,
+    개정일: doc.revisionDate,
+    검토주기개월: doc.reviewCycleMonths,
+    다음검토일: doc.reviewDueDate,
+    즐겨찾기: doc.favorite ? "Y" : "",
+    최신후보: doc.latestCandidate ? "Y" : "",
+    관련버전수: doc.relatedVersions || "",
+    형식: doc.extension,
+    크기: doc.size,
+    수정일: doc.modifiedAt,
+    태그: doc.tags.join(", "),
+    메모: doc.note,
+    경로: doc.relativePath
+  }));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), "PSM 문서목록");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(buildPsmMissingChecklist(documents)), "누락 체크");
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent("PSM_문서목록.xlsx")}`);
+  res.send(buffer);
+});
+
+app.post("/api/psm/snapshot", async (_req, res) => {
+  const [scan, metadata] = await Promise.all([scanPsmDocuments(true), readPsmMetadata()]);
+  if (scan.error) return res.status(503).json({ ok: false, message: scan.error });
+  metadata.snapshot = {
+    createdAt: new Date().toISOString(),
+    files: Object.fromEntries(scan.documents.map((doc) => [doc.id, `${doc.relativePath}|${doc.size}|${doc.modifiedAt}`]))
+  };
+  metadata.updatedAt = metadata.snapshot.createdAt;
+  await writeJson(psmMetadataPath, metadata);
+  res.json({ ok: true, files: scan.documents.length, baselineAt: metadata.snapshot.createdAt });
+});
+
+app.post("/api/psm/documents/:id/view", async (req, res) => {
+  const scan = await scanPsmDocuments(false);
+  const document = scan.documents.find((item) => item.id === req.params.id);
+  if (!document) return res.status(404).json({ ok: false, message: "문서를 찾지 못했습니다." });
+  const metadata = await readPsmMetadata();
+  metadata.auditLogs = Array.isArray(metadata.auditLogs) ? metadata.auditLogs : [];
+  const createdAt = new Date().toISOString();
+  metadata.auditLogs.unshift({
+    id: crypto.randomUUID(),
+    documentId: document.id,
+    documentName: document.name,
+    relativePath: document.relativePath,
+    action: String(req.body?.action || "문서 열람"),
+    actor: String(req.body?.actor || "PSM 사용자"),
+    createdAt
+  });
+  metadata.auditLogs = metadata.auditLogs.slice(0, 1000);
+  metadata.updatedAt = createdAt;
+  await writeJson(psmMetadataPath, metadata);
+  res.json({ ok: true });
+});
+
+app.put("/api/psm/documents/:id", async (req, res) => {
+  const scan = await scanPsmDocuments(false);
+  const document = scan.documents.find((item) => item.id === req.params.id);
+  if (!document) return res.status(404).json({ ok: false, message: "문서를 찾지 못했습니다." });
+  const metadata = await readPsmMetadata();
+  const previous = metadata.documents?.[document.id] || {};
+  const next = {
+    owner: String(req.body?.owner || "").trim(),
+    status: ["최신", "구버전", "검토필요", "보관"].includes(req.body?.status) ? req.body.status : "최신",
+    revisionDate: String(req.body?.revisionDate || ""),
+    reviewDueDate: String(req.body?.reviewDueDate || ""),
+    reviewCycleMonths: Number(req.body?.reviewCycleMonths || 12),
+    favorite: Boolean(req.body?.favorite),
+    version: String(req.body?.version || "").trim(),
+    tags: Array.isArray(req.body?.tags) ? req.body.tags.map((item) => String(item).trim()).filter(Boolean).slice(0, 20) : [],
+    note: String(req.body?.note || "").trim(),
+    updatedAt: new Date().toISOString()
+  };
+  metadata.documents = metadata.documents && typeof metadata.documents === "object" ? metadata.documents : {};
+  metadata.documents[document.id] = next;
+  metadata.auditLogs = Array.isArray(metadata.auditLogs) ? metadata.auditLogs : [];
+  metadata.auditLogs.unshift({
+    id: crypto.randomUUID(),
+    documentId: document.id,
+    documentName: document.name,
+    relativePath: document.relativePath,
+    action: Object.keys(previous).length ? "관리정보 수정" : "관리정보 등록",
+    actor: String(req.body?.actor || "PSM 사용자"),
+    createdAt: next.updatedAt
+  });
+  metadata.auditLogs = metadata.auditLogs.slice(0, 1000);
+  metadata.updatedAt = next.updatedAt;
+  await writeJson(psmMetadataPath, metadata);
+  res.json({ ok: true, document: mergePsmMetadata(document, metadata) });
+});
+
 app.put("/api/shared-data", async (req, res) => {
   const current = await readJson(sharedGridDataPath, {
     rows: [],
@@ -2633,7 +2954,7 @@ app.use("/vendor", express.static(path.join(rootDir, "node_modules")));
 function startServer(targetPort = port) {
   return app.listen(targetPort, host, () => {
     const address = targetPort === 0 ? "assigned port" : targetPort;
-    console.log(`OHYOUNG apps running on ${address}: /safety and /legal-registry`);
+    console.log(`OHYOUNG apps running on ${address}: /safety, /legal-registry and /psm`);
   });
 }
 

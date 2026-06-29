@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PSM 서류 통합관리</title>
+  <style>
+    :root{--navy:#12304a;--blue:#1570d8;--bg:#f5f7fa;--line:#dce4ec;--text:#263b4d;--muted:#6b7f90;--red:#c92a2a;--amber:#d97706;--green:#087f5b}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:"Malgun Gothic","Noto Sans KR",sans-serif}
+    header{background:var(--navy);color:#fff;padding:18px 28px;display:flex;justify-content:space-between;align-items:center}h1{font-size:20px;margin:0}header small{opacity:.75}
+    main{max-width:1320px;margin:auto;padding:24px}.guide{background:#eaf3ff;border:1px solid #bed9f7;border-radius:10px;padding:12px 15px;margin-bottom:16px;font-size:13px}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:17px;box-shadow:0 2px 8px #102a430a}
+    .card span{font-size:13px;color:var(--muted)}.card strong{display:block;font-size:29px;margin-top:7px}.red{color:var(--red)}.amber{color:var(--amber)}.green{color:var(--green)}
+    .toolbar{display:flex;gap:10px;justify-content:space-between;align-items:center;margin:21px 0 12px;flex-wrap:wrap}.left,.right{display:flex;gap:8px;flex-wrap:wrap}
+    button,input,select,textarea{font:inherit}button{border:1px solid var(--line);background:#fff;padding:9px 13px;border-radius:8px;cursor:pointer;color:var(--text)}
+    button.active,.primary{background:var(--blue);border-color:var(--blue);color:#fff}input,select,textarea{border:1px solid var(--line);padding:9px 10px;border-radius:8px;background:#fff}
+    #search{width:235px}.table-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto}table{border-collapse:collapse;width:100%;min-width:1120px}
+    th,td{padding:12px 11px;border-bottom:1px solid #edf1f5;text-align:left;font-size:13px;vertical-align:middle}th{background:#f8fafc;color:var(--muted);position:sticky;top:0}tr:hover td{background:#fbfdff}
+    .badge{display:inline-block;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}.gray{background:#eef2f6;color:#52616d}.bad{background:#fff0f0;color:var(--red)}.warn{background:#fff4e6;color:var(--amber)}.ok{background:#e6fcf5;color:var(--green)}
+    .file{color:var(--blue);font-weight:700}.muted{color:var(--muted)}dialog{width:min(690px,calc(100% - 28px));border:0;border-radius:14px;padding:0;box-shadow:0 18px 60px #0004}
+    dialog::backdrop{background:#102a4388}.modal-head{padding:18px 21px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modal-head h2{margin:0;font-size:18px}
+    form{padding:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:grid;gap:6px;font-size:13px;font-weight:700}.full{grid-column:1/-1}textarea{min-height:70px;resize:vertical}
+    .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.hint{font-size:12px;color:var(--muted)}.empty{text-align:center!important;padding:45px!important;color:var(--muted)}
+    @media(max-width:800px){header{padding:15px}main{padding:14px}.cards{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+  </style>
+</head>
+<body>
+<header><h1>PSM 서류 통합관리</h1><small>최신본 · 검토기한 · 누락자료 · 변경 연계</small></header>
+<main>
+  <div class="guide">서류를 단순 보관하는 것이 아니라, <b>어떤 문서가 최신인지, 누가 언제 검토해야 하는지, 관련 증빙이 빠졌는지</b>를 관리하는 시제품입니다.</div>
+  <section class="cards">
+    <div class="card"><span>관리 문서</span><strong id="total">0</strong></div>
+    <div class="card"><span>검토기한 초과</span><strong id="overdue" class="red">0</strong></div>
+    <div class="card"><span>30일 이내 검토</span><strong id="soon" class="amber">0</strong></div>
+    <div class="card"><span>증빙·최신본 이상</span><strong id="issue" class="red">0</strong></div>
+  </section>
+  <div class="toolbar">
+    <div class="left">
+      <button class="tab active" data-element="전체">전체</button>
+      <button class="tab" data-element="공정안전자료">공정안전자료</button>
+      <button class="tab" data-element="위험성평가">위험성평가</button>
+      <button class="tab" data-element="안전운전계획">안전운전계획</button>
+      <button class="tab" data-element="비상조치계획">비상조치계획</button>
+    </div>
+    <div class="right">
+      <input id="search" placeholder="문서명·담당부서 검색">
+      <select id="status"><option value="전체">상태 전체</option><option>검토기한 초과</option><option>검토 임박</option><option>증빙 누락</option><option>최신본 확인필요</option><option>정상</option></select>
+      <button id="open" class="primary">+ 문서 등록</button>
+    </div>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>PSM 구성요소</th><th>문서명</th><th>문서번호/개정</th><th>담당부서</th><th>최종 검토일</th><th>다음 검토일</th><th>증빙</th><th>상태</th><th>관리</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+</main>
+<dialog id="modal">
+  <div class="modal-head"><h2>PSM 관리문서 등록</h2><button id="close" type="button">닫기</button></div>
+  <form id="form"><div class="grid">
+    <label>PSM 구성요소<select name="element"><option>공정안전자료</option><option>위험성평가</option><option>안전운전계획</option><option>비상조치계획</option></select></label>
+    <label>담당부서<input name="owner" placeholder="예: 환경안전팀" required></label>
+    <label class="full">문서명<input name="title" placeholder="예: 반응공정 안전운전지침서" required></label>
+    <label>문서번호<input name="docNo" placeholder="예: SOP-R-201" required></label>
+    <label>개정번호<input name="revision" placeholder="예: Rev.3" required></label>
+    <label>최종 검토일<input name="lastReview" type="date" required></label>
+    <label>다음 검토일<input name="nextReview" type="date" required></label>
+    <label>최신 파일<select name="latest"><option value="Y">확인 완료</option><option value="N">확인 필요</option></select></label>
+    <label>필수 증빙<select name="evidence"><option value="Y">첨부 완료</option><option value="N">누락</option></select></label>
+    <label class="full">변경 시 함께 확인할 문서<input name="linked" placeholder="예: P&ID, 위험성평가, 교육결과보고서"></label>
+  </div><p class="hint">실제 적용 시 파일을 공유폴더에서 직접 열고, 검토기한 알림과 변경 연계 체크리스트를 연결할 수 있습니다.</p>
+  <div class="actions"><button id="cancel" type="button">취소</button><button class="primary" type="submit">등록하기</button></div></form>
+</dialog>
+<script>
+const DAY=86400000, date=n=>new Date(Date.now()+n*DAY).toISOString().slice(0,10);
+const seed=[
+ {id:1,element:"공정안전자료",title:"반응공정 P&ID",docNo:"PSI-PID-01",revision:"Rev.7",owner:"공무팀",lastReview:date(-410),nextReview:date(-45),evidence:"Y",latest:"N",linked:"설비목록, 인터록 리스트"},
+ {id:2,element:"위험성평가",title:"반응공정 HAZOP 보고서",docNo:"PHA-R-01",revision:"Rev.2",owner:"환경안전팀",lastReview:date(-330),nextReview:date(20),evidence:"Y",latest:"Y",linked:"P&ID, 안전운전지침서"},
+ {id:3,element:"안전운전계획",title:"반응기 정상운전 절차서",docNo:"SOP-R-201",revision:"Rev.4",owner:"생산1부",lastReview:date(-180),nextReview:date(95),evidence:"N",latest:"Y",linked:"교육훈련 결과보고서"},
+ {id:4,element:"비상조치계획",title:"유해화학물질 누출 비상조치계획",docNo:"ERP-03",revision:"Rev.5",owner:"환경안전팀",lastReview:date(-90),nextReview:date(275),evidence:"Y",latest:"Y",linked:"비상훈련 결과, 비상연락망"},
+ {id:5,element:"안전운전계획",title:"변경관리 절차서",docNo:"MOC-01",revision:"Rev.3",owner:"환경안전팀",lastReview:date(-230),nextReview:date(130),evidence:"Y",latest:"Y",linked:"PSSR, 교육, 공정안전자료"}
+];
+let docs=JSON.parse(localStorage.getItem("psmDocsV1")||"null")||seed, active="전체";
+const totalEl=document.querySelector("#total"),overdueEl=document.querySelector("#overdue"),soonEl=document.querySelector("#soon"),issueEl=document.querySelector("#issue");
+const searchEl=document.querySelector("#search"),statusEl=document.querySelector("#status"),rowsEl=document.querySelector("#rows");
+const modalEl=document.querySelector("#modal"),formEl=document.querySelector("#form");
+function state(d){const diff=Math.ceil((new Date(d.nextReview+"T23:59:59")-new Date())/DAY);if(diff<0)return"검토기한 초과";if(d.evidence==="N")return"증빙 누락";if(d.latest==="N")return"최신본 확인필요";if(diff<=30)return"검토 임박";return"정상"}
+function badge(s){const c=s==="정상"?"ok":s==="검토 임박"?"warn":"bad";return`<span class="badge ${c}">${s}</span>`}
+function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function save(){localStorage.setItem("psmDocsV1",JSON.stringify(docs))}
+function render(){const all=docs.map(state);totalEl.textContent=docs.length;overdueEl.textContent=all.filter(x=>x==="검토기한 초과").length;soonEl.textContent=all.filter(x=>x==="검토 임박").length;issueEl.textContent=docs.filter(x=>x.evidence==="N"||x.latest==="N").length;
+ const q=searchEl.value.trim().toLowerCase(),st=statusEl.value;const filtered=docs.filter(d=>(active==="전체"||d.element===active)&&(st==="전체"||state(d)===st)&&(!q||(d.title+d.owner+d.docNo).toLowerCase().includes(q)));
+ rowsEl.innerHTML=filtered.length?filtered.map(d=>`<tr><td><span class="badge gray">${d.element}</span></td><td><span class="file">${esc(d.title)}</span><br><span class="muted">연계: ${esc(d.linked)||"-"}</span></td><td>${esc(d.docNo)}<br>${esc(d.revision)}</td><td>${esc(d.owner)}</td><td>${d.lastReview}</td><td>${d.nextReview}</td><td>${d.evidence==="Y"?"완료":"<b class='red'>누락</b>"}</td><td>${badge(state(d))}</td><td><button onclick="review(${d.id})">검토완료</button></td></tr>`).join(""):`<tr><td colspan="9" class="empty">조건에 맞는 문서가 없습니다.</td></tr>`}
+window.review=id=>{const d=docs.find(x=>x.id===id);if(d){d.lastReview=date(0);d.nextReview=date(365);d.evidence="Y";d.latest="Y";save();render()}};
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");active=b.dataset.element;render()});
+searchEl.oninput=render;statusEl.onchange=render;
+document.querySelector("#open").onclick=()=>{formEl.elements.lastReview.value=date(0);formEl.elements.nextReview.value=date(365);modalEl.showModal()};
+document.querySelector("#close").onclick=document.querySelector("#cancel").onclick=()=>modalEl.close();
+formEl.onsubmit=e=>{e.preventDefault();docs.unshift({id:Date.now(),...Object.fromEntries(new FormData(formEl))});save();formEl.reset();modalEl.close();render()};render();
+</script>
+</body></html>

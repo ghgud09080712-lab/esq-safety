@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="18mm" height="8mm" viewBox="0 0 18 8">
+  <title>Small key tag</title>
+  <rect x="0.35" y="0.35" width="17.3" height="7.3" rx="1.2" ry="1.2" fill="#ffffff" stroke="#111111" stroke-width="0.3"/>
+  <circle cx="2.5" cy="4" r="1.25" fill="none" stroke="#111111" stroke-width="0.3"/>
+  <line x1="4.6" y1="1.4" x2="4.6" y2="6.6" stroke="#bbbbbb" stroke-width="0.18"/>
+  <text x="11.4" y="5.2" text-anchor="middle" font-family="Arial, 'Malgun Gothic', sans-serif" font-size="2.1" font-weight="700" fill="#111111">1층화장실</text>
+</svg>

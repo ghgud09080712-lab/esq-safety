@@ -14,10 +14,12 @@ async function verify() {
     const cases = [
       { path: "/legal-registry", status: 200, contains: "<title>ESQ \uBC95\uADDC\uB4F1\uB85D\uBD80</title>" },
       { path: "/safety", status: 200, contains: "<title>ESQ \uC548\uC804\uC0AC\uACE0 \uAD00\uB9AC</title>" },
+      { path: "/psm", status: 200, contains: "<title>ESQ \uACF5\uC720\uBB38\uC11C\uAD00\uB9AC</title>" },
       { path: "/LEGAL-REGISTRY", status: 302, location: "/legal-registry" },
       { path: "/Legal-Registry/?source=test", status: 302, location: "/legal-registry?source=test" },
       { path: "/SAFETY", status: 302, location: "/safety" },
       { path: "/Safety/?source=test", status: 302, location: "/safety?source=test" },
+      { path: "/PSM", status: 302, location: "/psm" },
       { path: "/", status: 302, location: "/legal-registry", headers: { "X-Forwarded-Host": "port-0-ohyoung-legal-registry.example.com" } },
       { path: "/", status: 302, location: "/safety", headers: { "X-Forwarded-Host": "port-0-esq-safety.example.com" } }
     ];
@@ -35,7 +37,7 @@ async function verify() {
       }
     }
 
-    console.log("Route verification passed: safety and legal registry are isolated.");
+    console.log("Route verification passed: safety, legal registry and PSM are isolated.");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

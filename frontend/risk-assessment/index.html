@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESQ 위험성평가</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/frontend/risk-assessment/risk-assessment.css?v=20260602-sidebar-push">
+</head>
+<body class="sidebar-collapsed">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div>
+          <strong>ESQ</strong>
+          <span>Risk Assessment</span>
+        </div>
+        <button class="sidebar-close" id="sidebarCloseBtn" type="button" aria-label="메뉴 닫기">X</button>
+      </div>
+      <nav class="nav-list" aria-label="주 메뉴">
+        <button class="nav-item active" data-view="dashboard" type="button">대시보드</button>
+        <button class="nav-item" data-view="assessment" type="button">평가 작성</button>
+        <button class="nav-item" data-view="actions" type="button">개선조치</button>
+        <button class="nav-item" data-view="library" type="button">위험요인 라이브러리</button>
+      </nav>
+      <div class="side-tools">
+        <div class="tool-item">
+          <span class="tool-label">작업 템플릿</span>
+          <select class="side-input" id="templateSelect"></select>
+          <button class="btn primary full" id="applyTemplateBtn" type="button">불러오기</button>
+        </div>
+        <div class="tool-status" id="storageStatus">로컬 저장 대기</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <p class="eyebrow">OHYOUNG Safety Workbench</p>
+          <div class="title-row">
+            <button class="btn menu-toggle" id="sidebarToggleBtn" type="button" aria-expanded="false" title="메뉴">=</button>
+            <h1>위험성평가 전문 툴</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn" id="printBtn" type="button">출력</button>
+          <button class="btn" id="exportCsvBtn" type="button">CSV</button>
+          <button class="btn ghost" id="resetBtn" type="button">초기화</button>
+          <button class="btn primary" id="newAssessmentBtn" type="button">신규 평가</button>
+        </div>
+      </header>
+
+      <section id="dashboardView" class="view active">
+        <div class="metric-grid">
+          <article class="metric"><span>전체 평가</span><strong id="metricTotal">0</strong></article>
+          <article class="metric"><span>고위험 이상</span><strong id="metricHigh">0</strong></article>
+          <article class="metric"><span>조치 진행</span><strong id="metricOpen">0</strong></article>
+          <article class="metric"><span>완료율</span><strong id="metricDone">0%</strong></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>위험도 분포</h2>
+                <span>현재 등록된 평가 기준</span>
+              </div>
+            </div>
+            <div class="risk-bars" id="riskBars"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>긴급 조치</h2>
+                <span>위험도 높음 이상 또는 기한 초과</span>
+              </div>
+              <button class="btn small" data-jump="actions" type="button">보기</button>
+            </div>
+            <div class="action-list" id="urgentActions"></div>
+          </section>
+        </div>
+
+        <section class="panel table-panel">
+          <div class="panel-head">
+            <div>
+              <h2>최근 평가</h2>
+              <span>작업 단위 위험성평가표</span>
+            </div>
+            <button class="btn small" data-jump="assessment" type="button">작성 화면</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>평가일</th>
+                  <th>부서</th>
+                  <th>작업/공정</th>
+                  <th>위험요인</th>
+                  <th>현재 위험도</th>
+                  <th>개선 후</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="recentRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="assessmentView" class="view">
+        <div class="workbench">
+          <section class="panel form-panel">
+            <div class="panel-head">
+              <div>
+                <h2>평가 작성</h2>
+                <span>작업을 입력하면 위험요인과 대책을 추천합니다</span>
+              </div>
+            </div>
+            <form id="riskForm" class="risk-form">
+              <div class="form-grid">
+                <label>
+                  <span>평가일</span>
+                  <input name="date" type="date" required>
+                </label>
+                <label>
+                  <span>사업장</span>
+                  <select name="site">
+                    <option>오영</option>
+                    <option>SEM</option>
+                    <option>공통</option>
+                  </select>
+                </label>
+                <label>
+                  <span>부서</span>
+                  <input name="department" placeholder="예: 생산1부" required>
+                </label>
+                <label>
+                  <span>평가자</span>
+                  <input name="assessor" placeholder="이름">
+                </label>
+                <label class="wide">
+                  <span>작업/공정</span>
+                  <input name="task" id="taskInput" placeholder="예: 지게차 자재 운반, 용제 이송, 반응기 청소" required>
+                </label>
+                <label>
+                  <span>작업장소</span>
+                  <input name="location" placeholder="예: 원료창고">
+                </label>
+                <label>
+                  <span>빈도</span>
+                  <select name="frequency">
+                    <option>수시</option>
+                    <option>매일</option>
+                    <option>주 1회</option>
+                    <option>월 1회</option>
+                    <option>비정기</option>
+                  </select>
+                </label>
+                <label class="wide">
+                  <span>세부 작업내용</span>
+                  <textarea name="description" rows="3" placeholder="작업 순서, 사용 설비, 취급 물질을 적어주세요"></textarea>
+                </label>
+              </div>
+
+              <div class="hazard-editor">
+                <div class="editor-head">
+                  <strong>위험요인</strong>
+                  <div>
+                    <button class="btn small" id="suggestBtn" type="button">추천</button>
+                    <button class="btn small ghost" id="addHazardBtn" type="button">추가</button>
+                  </div>
+                </div>
+                <div id="hazardRows" class="hazard-rows"></div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn ghost" id="clearFormBtn" type="button">입력 초기화</button>
+                <button class="btn primary" type="submit">평가 저장</button>
+              </div>
+            </form>
+          </section>
+
+          <aside class="panel helper-panel">
+            <div class="panel-head compact">
+              <h2>위험도 기준</h2>
+            </div>
+            <div class="matrix" id="riskMatrix"></div>
+            <div class="guide-list">
+              <div><strong>가능성</strong><span>1 거의 없음 · 3 가끔 발생 · 5 반복 발생</span></div>
+              <div><strong>중대성</strong><span>1 경미 · 3 치료 필요 · 5 사망/중대재해</span></div>
+              <div><strong>판정</strong><span>12점 이상은 개선조치와 담당자 지정 권장</span></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="actionsView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>개선조치 관리</h2>
+            <div class="mini-summary" id="actionSummary"></div>
+          </div>
+        </div>
+        <section class="filters">
+          <label>
+            <span>상태</span>
+            <select id="statusFilter">
+              <option value="all">전체</option>
+              <option value="계획">계획</option>
+              <option value="진행">진행</option>
+              <option value="완료">완료</option>
+            </select>
+          </label>
+          <label>
+            <span>검색</span>
+            <input id="actionSearch" type="search" placeholder="작업, 부서, 담당자">
+          </label>
+        </section>
+        <div class="action-board" id="actionBoard"></div>
+      </section>
+
+      <section id="libraryView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>위험요인 라이브러리</h2>
+            <div class="mini-summary">작업 키워드 기반 추천 규칙</div>
+          </div>
+        </div>
+        <div class="library-grid" id="libraryGrid"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="hazardRowTemplate">
+    <article class="hazard-row">
+      <div class="hazard-title-row">
+        <input data-field="hazard" placeholder="유해위험요인">
+        <select data-field="type"></select>
+        <button class="icon-btn" data-action="remove-hazard" type="button" title="삭제">X</button>
+      </div>
+      <div class="hazard-detail-grid">
+        <label>
+          <span>현재 조치</span>
+          <textarea data-field="currentControl" rows="2"></textarea>
+        </label>
+        <label>
+          <span>추가 개선대책</span>
+          <textarea data-field="improvement" rows="2"></textarea>
+        </label>
+      </div>
+      <div class="score-grid">
+        <label>
+          <span>가능성</span>
+          <input data-field="likelihood" type="number" min="1" max="5" value="3">
+        </label>
+        <label>
+          <span>중대성</span>
+          <input data-field="severity" type="number" min="1" max="5" value="3">
+        </label>
+        <label>
+          <span>개선 후 가능성</span>
+          <input data-field="afterLikelihood" type="number" min="1" max="5" value="2">
+        </label>
+        <label>
+          <span>개선 후 중대성</span>
+          <input data-field="afterSeverity" type="number" min="1" max="5" value="2">
+        </label>
+        <label>
+          <span>담당자</span>
+          <input data-field="owner" placeholder="담당자">
+        </label>
+        <label>
+          <span>기한</span>
+          <input data-field="dueDate" type="date">
+        </label>
+        <label>
+          <span>상태</span>
+          <select data-field="status">
+            <option>계획</option>
+            <option>진행</option>
+            <option>완료</option>
+          </select>
+        </label>
+        <div class="score-result">
+          <span>현재</span>
+          <strong data-score="before">9</strong>
+          <span>개선 후</span>
+          <strong data-score="after">4</strong>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="/frontend/risk-assessment/risk-assessment.js?v=20260602-sidebar-push"></script>
+</body>
+</html>
