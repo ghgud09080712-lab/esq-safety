@@ -2745,7 +2745,7 @@ function getReportRows(companyFilter, yearFilter, monthFilter) {
   return records.filter((row) => {
     const matchesCompany = companyFilter === "all" || companyKey(row) === companyFilter;
     const matchesYear = yearFilter === "all" || getRecordYear(row) === yearFilter;
-    const matchesMonth = monthFilter === "all" || getRecordReportMonth(row) === monthFilter;
+    const matchesMonth = monthFilter === "all" || getRecordMonth(row) === monthFilter;
     return matchesCompany && matchesYear && matchesMonth;
   });
 }
@@ -4822,14 +4822,6 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
       const month = Number(match && match[1]);
       return month >= 1 && month <= 12 ? month + "월" : "";
     };
-    const reportMonthOf = (row) => {
-      const savedMonth = String(row.reportMonth || "").match(/\\d{1,2}/);
-      if (savedMonth) {
-        const month = Number(savedMonth[0]);
-        if (month >= 1 && month <= 12) return month + "월";
-      }
-      return monthOf(row);
-    };
     const dateParts = (row) => {
       const match = String(row.date || "").match(/((?:19|20)\\d{2})\\D*(\\d{1,2})?\\D*(\\d{1,2})?/);
       return {
@@ -4891,13 +4883,13 @@ function buildStandaloneSafetyShareHtml(fileTitle, rows) {
     };
     const fillStatsFilters = () => {
       const years = [...new Set(rows.map(yearOf).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-      const months = [...new Set(rows.map(reportMonthOf).filter(Boolean))].sort((a, b) => Number(a.replace(/\\D/g, "")) - Number(b.replace(/\\D/g, "")));
+      const months = [...new Set(rows.map(monthOf).filter(Boolean))].sort((a, b) => Number(a.replace(/\\D/g, "")) - Number(b.replace(/\\D/g, "")));
       document.getElementById("statsYearFilter").insertAdjacentHTML("beforeend", years.map((year) => '<option>' + esc(year) + '</option>').join(""));
       document.getElementById("statsMonthFilter").insertAdjacentHTML("beforeend", months.map((month) => '<option>' + esc(month) + '</option>').join(""));
     };
     const getStatsRows = (items) => items.filter((row) => {
       if (statsYear !== "all" && yearOf(row) !== statsYear) return false;
-      if (statsMonth !== "all" && reportMonthOf(row) !== statsMonth) return false;
+      if (statsMonth !== "all" && monthOf(row) !== statsMonth) return false;
       return true;
     });
     const render = () => {
