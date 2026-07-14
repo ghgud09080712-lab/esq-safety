@@ -300,7 +300,7 @@
   function getShareServerOrigin() {
     const origin = window.location.origin || '';
     if (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(origin)) {
-      return 'http://192.168.0.95:4173';
+      return 'https://port-0-esq-safety-mouynctw40245c77.sel3.cloudtype.app';
     }
     return origin;
   }

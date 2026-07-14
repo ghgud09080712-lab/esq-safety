@@ -21,3 +21,6 @@
 현재 데이터는 서버 로컬 JSON 파일(`backend/data`)에 저장됩니다.
 Cloudtype에서는 재배포 또는 컨테이너 재시작 시 로컬 파일 데이터가 유지되지 않을 수 있으므로,
 실운영 전에는 Firebase, PostgreSQL, MongoDB 같은 외부 DB로 이전하는 것을 권장합니다.
+# Current Cloudtype URL
+
+https://port-0-esq-safety-mouynctw40245c77.sel3.cloudtype.app/safety

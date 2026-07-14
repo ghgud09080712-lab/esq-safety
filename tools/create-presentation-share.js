@@ -17,7 +17,7 @@ const outputPath = path.join(downloadsDir, `${fileTitle}.html`);
 
 const context = {
   console,
-  window: { location: { origin: 'http://192.168.0.95:4173' } },
+  window: { location: { origin: 'https://port-0-esq-safety-mouynctw40245c77.sel3.cloudtype.app' } },
   document: {},
   localStorage: {}
 };
