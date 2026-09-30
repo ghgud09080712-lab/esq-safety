@@ -2400,10 +2400,31 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 6px;
   display: grid;
-  grid-template-columns: minmax(180px, 260px) 140px 130px 120px 130px;
+  grid-template-columns: minmax(180px, 260px) 140px 130px 120px minmax(330px, 360px) 130px;
   gap: 12px;
   align-items: end;
   margin-bottom: 12px;
+}
+
+.period-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.period-inputs em {
+  font-style: normal;
+  color: #425466;
+}
+
+.period-inputs input {
+  min-width: 0;
+}
+
+.period-inputs .btn {
+  flex: none;
+  min-height: 36px;
+  padding: 0 10px;
 }
 
 label {

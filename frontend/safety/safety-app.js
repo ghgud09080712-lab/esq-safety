@@ -2461,6 +2461,10 @@ function filteredRecords() {
   const year = safeText($("#yearFilter")?.value || "all");
   const month = safeText($("#monthFilter")?.value || "all");
   const risk = safeText($("#riskFilter")?.value || "all");
+  // 기간(발생일) 필터: yyyy-mm-dd → yyyymmdd 숫자로 비교
+  const toNum = (value) => Number(safeText(value).replace(/\D/g, "")) || 0;
+  const from = toNum($("#dateFrom")?.value);
+  const to = toNum($("#dateTo")?.value);
 
   return records.filter((record) => {
     const haystack = [
@@ -2480,8 +2484,21 @@ function filteredRecords() {
     if (year !== "all" && getRecordYear(record) !== year) return false;
     if (month !== "all" && getRecordMonth(record) !== month) return false;
     if (risk !== "all" && getRiskLevel(record) !== risk) return false;
+    if (from || to) {
+      const day = getRecordDateValue(record);
+      if (!day) return false;
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+    }
     return true;
   });
+}
+
+// NO.는 화면 정렬과 상관없이, 지금 걸러진 목록 안에서 발생일이 빠른 순으로 1, 2, 3…
+function chronologicalNumbers(items) {
+  const ordered = items.slice().sort((a, b) =>
+    (getRecordDateValue(a) - getRecordDateValue(b)) || (getRecordSourceOrder(a) - getRecordSourceOrder(b)));
+  return new Map(ordered.map((row, index) => [row, index + 1]));
 }
 
 function compareRecordsByOccurrenceDate(a, b) {
@@ -2767,9 +2784,10 @@ function renderNearMiss() {
     ["\uAC80\uC0C9/\uD544\uD130 \uACB0\uACFC", filteredNearMissRows.length]
   ].map(([label, value]) => `<span class="mini-summary-item">${label} <strong>${value}</strong></span>`).join("");
   updateDateSortMarks();
-  $("#nearMissRows").innerHTML = rows.map((row, index) => `
+  const numbers = chronologicalNumbers(rows);
+  $("#nearMissRows").innerHTML = rows.map((row) => `
     <tr class="openable-row" data-edit="${row.id}" title="\uB354\uBE14\uD074\uB9AD\uD574\uC11C \uBCF4\uAE30">
-      <td>${index + 1}</td>
+      <td>${numbers.get(row)}</td>
       <td>${escapeHtml(getRecordMonth(row))}</td>
       <td>${escapeHtml(row.date || "-")}</td>
       <td>${escapeHtml(cleanDepartment(row.department))}</td>
@@ -5654,11 +5672,15 @@ function bindUiHandlers() {
     button.addEventListener("click", () => switchView(button.dataset.view));
   });
 
-  ["searchInput", "departmentFilter", "yearFilter", "monthFilter", "riskFilter"].forEach((id) => {
+  ["searchInput", "departmentFilter", "yearFilter", "monthFilter", "riskFilter", "dateFrom", "dateTo"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener("input", renderAll);
     el.addEventListener("change", renderAll);
+  });
+  $("#periodClear")?.addEventListener("click", () => {
+    ["#dateFrom", "#dateTo"].forEach((selector) => { const el = $(selector); if (el) el.value = ""; });
+    renderAll();
   });
 
   $$("[data-occurrence-sort]").forEach((button) => {

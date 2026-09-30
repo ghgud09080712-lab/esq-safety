@@ -242,6 +242,15 @@
               <option value="all">전체</option>
             </select>
           </label>
+          <label class="period-filter">
+            <span>기간 (발생일)</span>
+            <span class="period-inputs">
+              <input id="dateFrom" type="date" aria-label="시작일">
+              <em>~</em>
+              <input id="dateTo" type="date" aria-label="종료일">
+              <button id="periodClear" class="btn small" type="button" title="기간 지우기">×</button>
+            </span>
+          </label>
           <label>
             <span>위험등급</span>
             <select id="riskFilter">
