@@ -2760,6 +2760,8 @@ function renderDashboard() {
 
 function getReportRows(companyFilter, yearFilter, monthFilter) {
   return records.filter((row) => {
+    // 통계 화면은 아차사고 발굴대장 기준으로만 집계한다.
+    if (row.kind !== "nearMiss") return false;
     const matchesCompany = companyFilter === "all" || companyKey(row) === companyFilter;
     const matchesYear = yearFilter === "all" || getRecordYear(row) === yearFilter;
     const matchesMonth = monthFilter === "all" || getRecordMonth(row) === monthFilter;
